@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
 
 import faiss  # Ensure faiss library is installed
 import numpy as np
@@ -54,7 +52,7 @@ app = Flask(__name__)
 
 
 # Configura la clave de la API de OpenAI
-openai.api_key = "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"
+api_key = os.getenv('TU_VARIABLE_DE_ENTORNO')
 
 
 # In[ ]:
@@ -508,6 +506,6 @@ def add_document_to_faiss(text, url):
     # No se añade información a la base de datos en esta versión
 
 
-if __name__ == '__main__':
-      app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    app.run(debug=False, port=5000)
 
