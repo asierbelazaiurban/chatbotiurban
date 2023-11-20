@@ -8,7 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y     build-essential     libssl-dev     libffi-dev     python3-dev     && pip install --upgrade pip     && apt-get clean     && rm -rf /var/lib/apt/lists/*
 
 # Copia los archivos necesarios al contenedor
-COPY chatbotopenai.ipynb /app
+COPY chatbotiurban.ipynb /app
 COPY requirements.txt /app
 
 # Instala las dependencias de Python
