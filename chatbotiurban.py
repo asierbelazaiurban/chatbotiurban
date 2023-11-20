@@ -32,7 +32,6 @@ initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
 
 
 from flask import Flask, request, jsonify
-from flask import request, jsonify
 import numpy as np
 import openai
 import requests
@@ -40,22 +39,16 @@ from bs4 import BeautifulSoup
 import faiss
 import os
 import shutil
-
-
-# In[ ]:
+import os
 
 
 app = Flask(__name__)
 
 
-# In[ ]:
-
 
 # Configura la clave de la API de OpenAI
 api_key = os.getenv('TU_VARIABLE_DE_ENTORNO')
 
-
-# In[ ]:
 
 
 def generate_embedding(text, openai_api_key, chatbot_id):
@@ -64,9 +57,6 @@ def generate_embedding(text, openai_api_key, chatbot_id):
     response = openai.Embedding.create(engine="text-similarity-babbage-001", input=text)
     embedding = response['data'][0]['embedding']  # Usando el embedding de OpenAI  # Representación ficticia, reemplazar con la lógica adecuada
     return embedding
-
-
-# In[ ]:
 
 
 def process_results(indices, data):
@@ -207,13 +197,15 @@ def fine_tuning():
 
 
 @app.route('/save_urls', methods=['POST'])
-def save_urls(chatbot_id):
+def save_urls():
+    
     data = request.json
-    urls = data.get('urls', [])
+    urls = data.get('urls', [])  # Asumimos que 'urls' es una lista de URLs
     chatbot_id = data.get('chatbot_id')
-    if not chatbot_id or len(urls) == 0:
-        return jsonify({"status": "error", "message": "No chatbot_id or URLs provided"}), 400
-    file_path = os.path.join('uploads/scraping/chatbotid', f'{chatbot_id}.txt')
+
+    if not urls or not chatbot_id:
+        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'a') as file:
         for url in urls:
@@ -261,64 +253,16 @@ def process_urls():
 
 #Recibimos las urls no validas de front, de cicerone
 
-from flask import Flask, request, jsonify
-import os
-
-app = Flask(__name__)
-
-@app.route('/invalid_urls', methods=['POST'])
-def handle_invalid_urls():
-    data = request.json
-
-    # Parámetros existentes
-    urls = data.get('urls', [])
-    chatbot_id = data.get('chatbot_id')
-
-    # Nuevos parámetros
-    long_text = data.get('long_text')
-    chat_id = data.get('chat_id')
-
-    # Verificar si se proporcionaron todos los datos necesarios
-    if not chatbot_id or len(urls) == 0 or long_text is None or chat_id is None:
-        return jsonify({"status": "error", "message": "Missing required parameters"}), 400
-
-    # Aquí puedes hacer algo con long_text y chat_id
-
-    file_path = os.path.join('uploads/scraping', f'{chatbot_id}.txt')
-
-    # Verificar si el archivo existe
-    if not os.path.exists(file_path):
-        return jsonify({"status": "error", "message": "File not found"}), 404
-
-    try:
-        # Leer las URLs actuales del archivo
-        with open(file_path, 'r') as file:
-            existing_urls = file.readlines()
-
-        # Filtrar las URLs para eliminar las proporcionadas
-        updated_urls = [url for url in existing_urls if url.strip() not in urls]
-
-        # Guardar las URLs actualizadas en el archivo
-        with open(file_path, 'w') as file:
-            file.writelines(updated_urls)
-
-        return jsonify({
-            "status": "success",
-            "message": "URLs have been updated",
-            "removed_urls": urls
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # Función para eliminar URLs
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
-    urls_to_delete = set(data.get('urls', []))
-    chatbot = data.get('chatbot')  # Cambiando de chatbot_id a chatbot
-    if not chatbot or not urls_to_delete:
-        return jsonify({"status": "error", "message": "No chatbot or URLs provided"}), 400
+    urls = data.get('urls', [])  # Lista de URLs a eliminar
+    chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
+
+    if not urls or not chatbot_id:
+        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     file_path = os.path.join('data/uploads/chatbot', 'urls.txt')
     if not os.path.exists(file_path):
