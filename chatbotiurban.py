@@ -25,7 +25,8 @@ app = Flask(__name__)
 # Configura la clave de la API de OpenAI
 openai_api_key = os.environ.get('OPENAI_API_KEY')
 
-
+if openai_api_key is None:
+    raise ValueError("La clave API de OpenAI no está definida en las variables de entorno.")
 
 
 # Global variable to store the FAISS index
@@ -490,5 +491,6 @@ def add_document_to_faiss(text, url):
 
 
 if __name__ == "__main__":
-    app.run(debug=False, port=5000)
+    app.run(host='0.0.0.0', port=5000)
+
 
