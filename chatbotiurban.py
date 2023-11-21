@@ -2,7 +2,8 @@
 # coding: utf-8
 
 
-import faiss  # Ensure faiss library is installed
+import faiss
+import chardet  # Added for encoding detection  # Ensure faiss library is installed
 import numpy as np
 
 # Global variable to store the FAISS index
@@ -37,6 +38,7 @@ import openai
 import requests
 from bs4 import BeautifulSoup
 import faiss
+import chardet  # Added for encoding detection
 import os
 import shutil
 import os
@@ -88,7 +90,7 @@ print("Distancias de los vecinos más cercanos:", distances)
 
 
 # Configuraciones
-UPLOAD_FOLDER = '/data/uploads/docs/'  # Ajusta esta ruta según sea necesario
+UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Esta ruta maneja la subida de archivos y almacena los embeddings en Milvus
@@ -116,8 +118,8 @@ def allowed_file(filename, chatbot_id):
 #metodo param la subida de documentos
 
 @app.route('/uploads', methods=['POST'])
-def procesar_documento():
-    mensaje_palabras = ""
+def upload_file():
+    contenido = ""  # Initialize 'contenido' to an empty string
     try:
         # Recibiendo el archivo y el chatbot_id desde el formulario
         if 'documento' not in request.files:
@@ -137,18 +139,26 @@ def procesar_documento():
 
         # Intentar contar las palabras en el documento
         try:
-            with open(destino, 'r', encoding='utf-8') as f:
+            with open(destino, 'rb') as f:
+                raw_data = f.read()
+                encoding = chardet.detect(raw_data)['encoding']
+
+            with open(destino, 'r', encoding=encoding) as f:
                 contenido = f.read()
                 numero_de_palabras = len(contenido.split())
                 mensaje_palabras = f"Número de palabras en el documento: {numero_de_palabras}. "
         except Exception as e:
             mensaje_palabras = "No fue posible contar las palabras en el documento. Error: " + str(e)
 
-        # Añadir documento a FAISS y a la base de datos
+        # Añadir documento a FAISS
         try:
-            # Aquí, 'documento' podría ser el nombre del archivo o una identificación única derivada de él
-            doc_id = file.filename  # O generar un ID único basado en 'file.filename'
-            add_document_to_faiss(contenido, doc_id)
+            # Suponiendo que tienes una función 'obtener_embeddings' que toma el texto y devuelve un vector
+            vector_embedding = obtener_embeddings(contenido)  # Necesitas implementar esta función
+
+            # Añadir el embedding al índice de FAISS
+            faiss_index.add(np.array([vector_embedding]))
+
+            mensaje_palabras += f"Documento indexado en FAISS. "
         except Exception as e:
             mensaje_palabras += f"No fue posible indexar el documento en FAISS: {e}. "
 
@@ -198,7 +208,6 @@ def fine_tuning():
 
 @app.route('/save_urls', methods=['POST'])
 def save_urls():
-    
     data = request.json
     urls = data.get('urls', [])  # Asumimos que 'urls' es una lista de URLs
     chatbot_id = data.get('chatbot_id')
@@ -206,39 +215,55 @@ def save_urls():
     if not urls or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    # Crear o verificar la carpeta específica del chatbot_id
+    chatbot_folder = os.path.join('uploads/scraping', f'{chatbot_id}')
+    os.makedirs(chatbot_folder, exist_ok=True)
+
+    # Crear o agregar a un archivo específico dentro de la carpeta del chatbot
+    file_path = os.path.join(chatbot_folder, 'urls.txt')
     with open(file_path, 'a') as file:
         for url in urls:
             file.write(url + '\n')
+
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
 
 
-@app.route('/process_urls', methods=['POST'])
+from urllib.parse import urlparse
+import os
+
 def process_urls():
     data = request.json
     chatbot_id = data.get('chatbot_id')
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
-    file_path = os.path.join('uploads/scraping/chatbotid', f'{chatbot_id}.txt')
-    if not os.path.exists(file_path):
-        return jsonify({"status": "error", "message": "File not found"}), 404
+    # Crear el directorio para el chatbot_id si no existe
+    chatbot_folder = os.path.join('uploads/scraping', f'{chatbot_id}')
+    if not os.path.exists(chatbot_folder):
+        os.makedirs(chatbot_folder)
 
     results = []
-    with open(file_path, 'r') as file:
+    with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
         urls = file.readlines()
 
     for url in urls:
         url = url.strip()
         try:
+            # Extraer el nombre de dominio principal de la URL
+            domain = urlparse(url).netloc.split(':')[0]
+            domain_file_path = os.path.join(chatbot_folder, f'{domain}.txt')
+
+            # Crear o abrir el archivo del dominio para escritura
+            with open(domain_file_path, 'a') as domain_file:
+                domain_file.write(url + '\n')
+
+            # Resto del procesamiento
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text().split()
             word_count = len(text)
 
-            # Añadir el contenido de la URL a FAISS y a la base de datos
-            # Aquí, el 'url' se usa como identificador único
             try:
                 add_document_to_faiss(' '.join(text), url)
                 results.append({"url": url, "word_count": word_count, "indexed": True})
@@ -251,22 +276,27 @@ def process_urls():
     return jsonify({"status": "success", "urls": results})
 
 
+
 #Recibimos las urls no validas de front, de cicerone
 
 
-# Función para eliminar URLs
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
-    urls = data.get('urls', [])  # Lista de URLs a eliminar
+    urls_to_delete = set(data.get('urls', []))  # Conjunto de URLs a eliminar
     chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
 
-    if not urls or not chatbot_id:
+    if not urls_to_delete or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
-    file_path = os.path.join('data/uploads/chatbot', 'urls.txt')
+    # Cambiar la ruta para incluir el chatbot_id
+    chatbot_folder = os.path.join('uploads/scraping', f'{chatbot_id}')
+    if not os.path.exists(chatbot_folder):
+        return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
+
+    file_path = os.path.join(chatbot_folder, 'urls.txt')
     if not os.path.exists(file_path):
-        return jsonify({"status": "error", "message": "File not found"}), 404
+        return jsonify({"status": "error", "message": "URLs file not found in chatbot folder"}), 404
 
     try:
         # Leer el contenido actual del archivo
@@ -284,6 +314,7 @@ def delete_urls():
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 
@@ -336,6 +367,14 @@ def generate_embeddings(data, chatbot_id):
     return [np.random.random(512) for _ in data]
 
 
+def obtener_embeddings(texto):
+    # Llamada a la API de OpenAI para obtener embeddings
+    response = openai.Embedding.create(input=texto, engine="text-similarity-babbage-001")
+    # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
+    embedding = np.array(response['data'][0]['embedding'])
+    return embedding
+
+
 
 def update_faiss_index(embeddings, chatbot_id):
     # Esta función debe actualizar el índice de FAISS con nuevos embeddings
@@ -364,6 +403,7 @@ def fine_tune_model(chatbot_id):
 # Código para diagnosticar problemas con FAISS
 
 import faiss
+import chardet  # Added for encoding detection
 
 # Verificar la versión de FAISS
 print('Versión de FAISS:', faiss.__version__)
