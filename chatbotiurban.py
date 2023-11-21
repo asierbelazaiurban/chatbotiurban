@@ -6,6 +6,28 @@ import faiss
 import chardet  # Added for encoding detection  # Ensure faiss library is installed
 import numpy as np
 
+
+from flask import Flask, request, jsonify
+import numpy as np
+import openai
+import requests
+from bs4 import BeautifulSoup
+import faiss
+import chardet  # Added for encoding detection
+import os
+import shutil
+import os
+
+
+app = Flask(__name__)
+
+
+# Configura la clave de la API de OpenAI
+api_key = os.getenv('TU_VARIABLE_DE_ENTORNO')
+
+
+
+
 # Global variable to store the FAISS index
 faiss_index = None
 
@@ -29,27 +51,6 @@ def get_faiss_index():
 initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
 
 
-# In[ ]:
-
-
-from flask import Flask, request, jsonify
-import numpy as np
-import openai
-import requests
-from bs4 import BeautifulSoup
-import faiss
-import chardet  # Added for encoding detection
-import os
-import shutil
-import os
-
-
-app = Flask(__name__)
-
-
-
-# Configura la clave de la API de OpenAI
-api_key = os.getenv('TU_VARIABLE_DE_ENTORNO')
 
 
 
