@@ -23,7 +23,7 @@ app = Flask(__name__)
 
 
 # Configura la clave de la API de OpenAI
-api_key = os.getenv('TU_VARIABLE_DE_ENTORNO')
+openai_api_key = os.environ.get('OPENAI_API_KEY')
 
 
 
@@ -49,8 +49,6 @@ def get_faiss_index():
 
 # Example of how to initialize the index (adjust dimension as needed)
 initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
-
-
 
 
 
