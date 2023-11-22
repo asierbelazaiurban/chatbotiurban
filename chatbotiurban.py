@@ -25,7 +25,10 @@ app = Flask(__name__)
 openai_api_key = os.environ.get('OPENAI_API_KEY')
 
 if openai_api_key is None:
-    raise ValueError("La clave API de OpenAI no está definida en las variables de entorno.")
+    print("No se encontró la clave de OpenAI en las variables de entorno.")
+else:
+    print("Clave de OpenAI encontrada:", openai_api_key)
+
 
 
 # Global variable to store the FAISS index
