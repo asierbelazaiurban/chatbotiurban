@@ -396,9 +396,6 @@ def url_for_scraping_only_a_few():
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
 
 
 @app.route('/url_for_scraping', methods=['POST'])
