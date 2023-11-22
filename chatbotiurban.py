@@ -345,7 +345,7 @@ def delete_urls():
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     # Cambiar la ruta para incluir el chatbot_id
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+    chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))  # Corregir la ruta
     if not os.path.exists(chatbot_folder):
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
