@@ -131,8 +131,6 @@ def allowed_file(filename, chatbot_id):
 
 #metodo param la subida de documentos
 
-app = Flask(__name__)
-
 UPLOAD_FOLDER = 'uploads'  # Asegúrate de definir esta variable correctamente
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -335,15 +333,6 @@ def url_for_scraping():
 
 
 
-from flask import Flask, request, jsonify
-import os
-from urllib.parse import urlparse, urljoin
-from bs4 import BeautifulSoup
-# Asumiendo que safe_request es una función definida en otro lugar de tu código
-# from your_module import safe_request
-
-app = Flask(__name__)
-
 @app.route('/url_for_scraping_only_a_few', methods=['POST'])
 def url_for_scraping_only_a_few():
     try:
@@ -406,10 +395,6 @@ def url_for_scraping_only_a_few():
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
-
-
-
 
 
 
