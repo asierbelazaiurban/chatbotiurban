@@ -548,7 +548,7 @@ def generate_embeddings(data, chatbot_id):
 
 def obtener_embeddings(texto):
     # Llamada a la API de OpenAI para obtener embeddings
-    response = # openai.Embedding (Reemplazado con una función alternativa).create(input=texto, engine="text-similarity-babbage-001")
+    response = create(input=texto, engine="text-similarity-babbage-001")
     # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
     embedding = np.array(response['data'][0]['embedding'])
     return embedding
