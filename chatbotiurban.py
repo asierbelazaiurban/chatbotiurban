@@ -348,6 +348,7 @@ def process_urls():
 
 #Recibimos las urls no validas de front, de cicerone
 
+
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
@@ -360,12 +361,21 @@ def delete_urls():
 
     # Construir la ruta del archivo basado en chatbot_id
     chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
+
+    # Para depuración: imprime la ruta del directorio del chatbot
+    print("Ruta del directorio del chatbot:", chatbot_folder)
+
     if not os.path.exists(chatbot_folder):
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
-    file_path = os.path.join(chatbot_folder, 'urls.txt')
+    file_name = f"{chatbot_id}.txt"
+    file_path = os.path.join(chatbot_folder, file_name)
+
+    # Para depuración: imprime la ruta del archivo de URLs
+    print("Ruta del archivo de URLs:", file_path)
+
     if not os.path.exists(file_path):
-        return jsonify({"status": "error", "message": "URLs file not found in chatbot folder"}), 404
+        return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
 
     try:
         # Leer y actualizar el archivo
@@ -384,6 +394,8 @@ def delete_urls():
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 
 
