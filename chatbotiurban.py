@@ -227,6 +227,50 @@ def save_urls():
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
+@app.route('/url', methods=['POST'])
+def url_for_scraping():
+    # Obtener URL del request
+    data = request.get_json()
+    base_url = data.get('url')
+    chatbot_id = data.get('chatbot_id')
+
+    if not base_url:
+        return jsonify({'error': 'No URL provided'}), 400
+
+    # Modificar la ruta del directorio para guardar los resultados
+    save_dir = os.path.join('uploads/scraping', f'{chatbot_id}')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Función para determinar si la URL pertenece al mismo dominio
+    def same_domain(url):
+        return urlparse(url).netloc == urlparse(base_url).netloc
+
+    # Hacer scraping y recoger URLs
+    response = requests.get(base_url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
+
+    # Contar palabras en cada URL y preparar los datos
+    urls_data = []
+    for url in urls:
+        page_response = requests.get(url)
+        page_content = page_response.text
+        words = page_content.split()
+        word_count = len(words)
+        urls_data.append({'url': url, 'word_count': word_count})
+
+    # Guardar los datos en un archivo JSON
+    with open(os.path.join(save_dir, 'urls_data.json'), 'w') as json_file:
+        json.dump(urls_data, json_file)
+
+    # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
+    with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
+        for url in urls:
+            text_file.write(url + '\n')
+
+    # Devolver al front las URLs y el conteo de palabras asociado a cada una
+    return jsonify(urls_data)
 
 
 from urllib.parse import urlparse
