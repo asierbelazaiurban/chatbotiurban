@@ -367,7 +367,7 @@ def url_for_scraping_only_a_few():
         if base_response:
             soup = BeautifulSoup(base_response.content, 'html.parser')
             for tag in soup.find_all('a', href=True):
-                if len(urls) >= 5:  # Limitar a 5 URLs
+                if len(urls) >= 250:  # Limitar a 5 URLs
                     break
                 url = urljoin(base_url, tag.get('href'))
                 if same_domain(url) and url not in urls:
@@ -389,11 +389,11 @@ def url_for_scraping_only_a_few():
 
         # Guardar solo las primeras 5 URLs en un archivo de texto con el nombre chatbot_id
         with open(file_path, 'w') as text_file:
-            for url_data in urls_data[:5]:
+            for url_data in urls_data[:250]:
                 text_file.write(url_data['url'] + '\n')
 
         # Devolver al front las primeras 5 URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data[:5])
+        return jsonify(urls_data[:250])
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
