@@ -18,6 +18,9 @@ import os
 import shutil
 import os
 import json
+from urllib.parse import urlparse, urljoin
+from bs4 import BeautifulSoup
+import time
 
 
 app = Flask(__name__)
@@ -228,54 +231,71 @@ def save_urls():
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
+
+app = Flask(__name__)
+
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
-    # Obtener URL del request
-    data = request.get_json()
-    base_url = data.get('url')
-    chatbot_id = data.get('chatbot_id')
+    try:
+        # Obtener URL del request
+        data = request.get_json()
+        base_url = data.get('url')
+        chatbot_id = data.get('chatbot_id')
 
-    if not base_url:
-        return jsonify({'error': 'No URL provided'}), 400
+        if not base_url:
+            return jsonify({'error': 'No URL provided'}), 400
 
-    # Modificar la ruta del directorio para guardar los resultados
-    save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+        # Modificar la ruta del directorio para guardar los resultados
+        save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
-    # Función para determinar si la URL pertenece al mismo dominio
-    def same_domain(url):
-        return urlparse(url).netloc == urlparse(base_url).netloc
+        # Función para determinar si la URL pertenece al mismo dominio
+        def same_domain(url):
+            return urlparse(url).netloc == urlparse(base_url).netloc
 
-    # Hacer scraping y recoger URLs
-    response = requests.get(base_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
+        # Hacer scraping y recoger URLs
+        try:
+            response = requests.get(base_url)
+            if response.status_code != 200:
+                return jsonify({'error': f'Failed to fetch base URL with status code {response.status_code}'}), 500
+            soup = BeautifulSoup(response.content, 'html.parser')
+            urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
+        except Exception as e:
+            return jsonify({'error': f'Error during scraping base URL: {str(e)}'}), 500
 
-    # Contar palabras en cada URL y preparar los datos
-    urls_data = []
-    for url in urls:
-        page_response = requests.get(url)
-        page_content = page_response.text
-        words = page_content.split()
-        word_count = len(words)
-        urls_data.append({'url': url, 'word_count': word_count})
-
-    # Guardar los datos en un archivo JSON
-    with open(os.path.join(save_dir, 'urls_data.json'), 'w') as json_file:
-        json.dump(urls_data, json_file)
-
-    # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
-    with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
+        # Contar palabras en cada URL y preparar los datos
+        urls_data = []
         for url in urls:
-            text_file.write(url + '\n')
+            try:
+                time.sleep(1)  # Pause to avoid rate limits
+                page_response = requests.get(url)
+                if page_response.status_code != 200:
+                    continue  # Skip URLs that fail to fetch
+                page_content = page_response.text
+                words = page_content.split()
+                word_count = len(words)
+                urls_data.append({'url': url, 'word_count': word_count})
+            except Exception as e:
+                print(f'Error processing URL {url}: {str(e)}')  # Logging the error
 
-    # Devolver al front las URLs y el conteo de palabras asociado a cada una
-    return jsonify(urls_data)
+        # Guardar los datos en un archivo JSON
+        with open(os.path.join(save_dir, 'urls_data.json'), 'w') as json_file:
+            json.dump(urls_data, json_file)
+
+        # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
+        with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
+            for url_data in urls_data:
+                text_file.write(url_data['url'] + '\n')
+
+        # Devolver al front las URLs y el conteo de palabras asociado a cada una
+        return jsonify(urls_data)
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
-from urllib.parse import urlparse
-import os
+
+
 
 def process_urls():
     data = request.json
