@@ -63,7 +63,7 @@ def generate_embedding(text, openai_api_key, chatbot_id):
     openai.api_key = openai_api_key  # Establece la clave API de OpenAI aquí
 
     # Modificación para adaptarse a la nueva API de OpenAI
-    response = # openai.Embedding (Reemplazado con una función alternativa).create(
+    response = create(
         model="text-similarity-babbage-001", 
         input=[text]
     )
@@ -671,3 +671,5 @@ def add_document_to_faiss(text, url):
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
+
+
