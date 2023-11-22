@@ -348,7 +348,6 @@ def process_urls():
 
 #Recibimos las urls no validas de front, de cicerone
 
-
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
@@ -387,9 +386,10 @@ def delete_urls():
             file.seek(0)
             file.truncate()
 
-            # Guardar las URLs actualizadas
+            # Guardar las URLs actualizadas, evitando líneas vacías
             for url in updated_urls:
-                file.write(url + '\n')
+                if url.strip():  # Asegura que la URL no sea una línea vacía
+                    file.write(url + '\n')
 
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
