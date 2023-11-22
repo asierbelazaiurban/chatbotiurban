@@ -377,7 +377,7 @@ def url_for_scraping_only_a_few():
 
         # Contar palabras en las primeras 5 URLs y preparar los datos para el JSON de salida
         urls_data = []
-        for url in list(urls)[:5]:  # Procesar solo las primeras 5 URLs
+        for url in list(urls)[:250]:  # Procesar solo las primeras 5 URLs
             response = safe_request(url)
             if response:
                 soup = BeautifulSoup(response.content, 'html.parser')
