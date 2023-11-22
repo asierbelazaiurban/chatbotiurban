@@ -223,9 +223,15 @@ def save_urls():
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     os.makedirs(chatbot_folder, exist_ok=True)
 
-    # Crear o agregar a un archivo específico dentro de la carpeta del chatbot
-    file_path = os.path.join(chatbot_folder, 'urls.txt')
-    with open(file_path, 'a') as file:
+    # El nombre del archivo será el 'chatbot_id' con la extensión .txt
+    file_path = os.path.join(chatbot_folder, f'{chatbot_id}.txt')
+
+    # Si el archivo ya existe, se borra
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+    # Crear el archivo con el nombre del chatbot_id y escribir las URLs
+    with open(file_path, 'w') as file:
         for url in urls:
             file.write(url + '\n')
 
@@ -248,7 +254,7 @@ def safe_request(url, max_retries=3):
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
-        # Obtener URL del request
+        # Obtener URL y chatbot_id del request
         data = request.get_json()
         base_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
@@ -256,10 +262,16 @@ def url_for_scraping():
         if not base_url:
             return jsonify({'error': 'No URL provided'}), 400
 
-        # Modificar la ruta del directorio para guardar los resultados
+        # Crear o verificar la carpeta específica del chatbot_id
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        os.makedirs(save_dir, exist_ok=True)
+
+        # Ruta del archivo a crear o sobrescribir
+        file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
+
+        # Borrar el archivo existente si existe
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
         # Función para determinar si la URL pertenece al mismo dominio
         def same_domain(url):
@@ -290,7 +302,7 @@ def url_for_scraping():
                 urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
 
         # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
-        with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
+        with open(file_path, 'w') as text_file:
             for url_data in urls_data:
                 text_file.write(url_data['url'] + '\n')
 
