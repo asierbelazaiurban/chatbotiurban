@@ -128,7 +128,27 @@ def allowed_file(filename, chatbot_id):
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 def dividir_en_segmentos(texto, max_tokens):
+    palabras = texto.split()
+    segmentos = []
+    segmento_actual = []
+
+    tokens_contados = 0
+    for palabra in palabras:
+        if tokens_contados + len(palabra.split()) * 4 > max_tokens:
+            segmentos.append(' '.join(segmento_actual))
+            segmento_actual = [palabra]
+            tokens_contados = len(palabra.split()) * 4
+        else:
+            segmento_actual.append(palabra)
+            tokens_contados += len(palabra.split()) * 4
+
+    if segmento_actual:
+        segmentos.append(' '.join(segmento_actual))
+
+    return segmentos
+
     """
     Divide un texto en segmentos que no excedan el límite de tokens.
     Esta es una aproximación simple y debe ajustarse para usar un tokenizador específico.
