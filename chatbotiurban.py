@@ -63,7 +63,7 @@ def generate_embedding(text, openai_api_key, chatbot_id):
 
     # Modificación para adaptarse a la nueva API de OpenAI
     response = create(
-        model="text-similarity-babbage-001", 
+        model="gpt-4-1106-preview", 
         input=[text]
     )
     
@@ -518,7 +518,7 @@ def ask():
 
         # Utilizar OpenAI para generar una respuesta comprensible en español
         response = openai.Completion.create(
-            model="text-davinci-003",  # Especifica el modelo de OpenAI a utilizar
+            model="gpt-4-1106-preview",  # Especifica el modelo de OpenAI a utilizar
             prompt=info,
             max_tokens=150,  # Define el número máximo de tokens en la respuesta
             temperature=0.7,  # Ajusta la creatividad de la respuesta
