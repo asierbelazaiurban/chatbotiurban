@@ -8,17 +8,13 @@ import numpy as np
 
 
 from flask import Flask, request, jsonify
-import numpy as np
 import openai
 import requests
 from bs4 import BeautifulSoup
-import faiss
 import chardet  # Added for encoding detection
 import os
 import shutil
-import os
 import json
-from bs4 import BeautifulSoup
 import time
 from urllib.parse import urlparse, urljoin
 
@@ -548,7 +544,7 @@ def generate_embeddings(data, chatbot_id):
 
 def obtener_embeddings(texto):
     # Llamada a la API de OpenAI para obtener embeddings
-    response = create(input=texto, engine="text-similarity-babbage-001")
+    response = openai.Embedding.create(input=texto, engine="text-similarity-babbage-001")
     # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
     embedding = np.array(response['data'][0]['embedding'])
     return embedding
@@ -581,8 +577,6 @@ def fine_tune_model(chatbot_id):
 
 # Código para diagnosticar problemas con FAISS
 
-import faiss
-import chardet  # Added for encoding detection
 
 # Verificar la versión de FAISS
 print('Versión de FAISS:', faiss.__version__)
