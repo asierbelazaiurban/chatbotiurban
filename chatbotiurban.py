@@ -17,6 +17,7 @@ import chardet  # Added for encoding detection
 import os
 import shutil
 import os
+import json
 
 
 app = Flask(__name__)
