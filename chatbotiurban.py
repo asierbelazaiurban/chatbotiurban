@@ -335,16 +335,26 @@ def url_for_scraping():
 
 
 
+from flask import Flask, request, jsonify
+import os
+from urllib.parse import urlparse, urljoin
+from bs4 import BeautifulSoup
+# Asumiendo que safe_request es una función definida en otro lugar de tu código
+# from your_module import safe_request
+
+app = Flask(__name__)
+
 @app.route('/url_for_scraping_only_a_few', methods=['POST'])
 def url_for_scraping_only_a_few():
     try:
-        # Obtener URL y chatbot_id del request
+        # Obtener URL, chatbot_id y número máximo de URLs del request
         data = request.get_json()
         base_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
+        max_urls = data.get('max_urls')  # No hay valor por defecto
 
-        if not base_url:
-            return jsonify({'error': 'No URL provided'}), 400
+        if not base_url or not max_urls:
+            return jsonify({'error': 'No URL or max_urls provided'}), 400
 
         # Crear o verificar la carpeta específica del chatbot_id
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -361,13 +371,13 @@ def url_for_scraping_only_a_few():
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
 
-        # Hacer scraping y recoger hasta 5 URLs únicas
+        # Hacer scraping y recoger hasta max_urls URLs únicas
         urls = set()
         base_response = safe_request(base_url)
         if base_response:
             soup = BeautifulSoup(base_response.content, 'html.parser')
             for tag in soup.find_all('a', href=True):
-                if len(urls) >= 250:  # Limitar a 5 URLs
+                if len(urls) >= max_urls:  # Limitar a max_urls URLs
                     break
                 url = urljoin(base_url, tag.get('href'))
                 if same_domain(url) and url not in urls:
@@ -375,9 +385,9 @@ def url_for_scraping_only_a_few():
         else:
             return jsonify({'error': 'Failed to fetch base URL'}), 500
 
-        # Contar palabras en las primeras 5 URLs y preparar los datos para el JSON de salida
+        # Contar palabras en las URLs y preparar los datos para el JSON de salida
         urls_data = []
-        for url in list(urls)[:250]:  # Procesar solo las primeras 5 URLs
+        for url in list(urls)[:max_urls]:  # Procesar solo las URLs especificadas
             response = safe_request(url)
             if response:
                 soup = BeautifulSoup(response.content, 'html.parser')
@@ -387,13 +397,13 @@ def url_for_scraping_only_a_few():
             else:
                 urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
 
-        # Guardar solo las primeras 5 URLs en un archivo de texto con el nombre chatbot_id
+        # Guardar las URLs en un archivo de texto con el nombre chatbot_id
         with open(file_path, 'w') as text_file:
-            for url_data in urls_data[:250]:
+            for url_data in urls_data:
                 text_file.write(url_data['url'] + '\n')
 
-        # Devolver al front las primeras 5 URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data[:250])
+        # Devolver las URLs y el conteo de palabras asociado a cada una
+        return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
