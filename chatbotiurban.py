@@ -133,6 +133,17 @@ def allowed_file(filename, chatbot_id):
 
 #metodo param la subida de documentos
 
+from flask import Flask, request, jsonify
+import os
+import chardet
+import numpy as np
+import faiss
+
+app = Flask(__name__)
+
+UPLOAD_FOLDER = 'uploads'  # Asegúrate de definir esta variable correctamente
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
@@ -145,13 +156,22 @@ def upload_file():
         if file.filename == '':
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
+        # Crear la carpeta del chatbot si no existe
         chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
         os.makedirs(chatbot_folder, exist_ok=True)
-        destino = os.path.join(chatbot_folder, file.filename)
-        file.save(destino)
 
+        # Determinar la extensión del archivo y crear una subcarpeta
+        file_extension = os.path.splitext(file.filename)[1][1:]  # Obtiene la extensión sin el punto
+        extension_folder = os.path.join(chatbot_folder, file_extension)
+        os.makedirs(extension_folder, exist_ok=True)
+
+        # Guardar el archivo en la subcarpeta correspondiente
+        file_path = os.path.join(extension_folder, file.filename)
+        file.save(file_path)
+
+        # Procesamiento del archivo
         try:
-            with open(destino, 'rb') as f:
+            with open(file_path, 'rb') as f:
                 raw_data = f.read()
                 encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
                 if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
@@ -162,16 +182,26 @@ def upload_file():
         except Exception as e:
             return jsonify({"respuesta": f"No se pudo leer el archivo. Error: {e}", "codigo_error": 1})
 
+        # Intentar obtener embeddings y agregarlos al índice de FAISS
         try:
             vector_embedding = obtener_embeddings(contenido)
             global faiss_index
             faiss_index.add(np.array([vector_embedding], dtype=np.float32))
+            indexado_en_faiss = True
         except Exception as e:
+            indexado_en_faiss = False
             return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
 
-        return jsonify({"respuesta": "Archivo procesado e indexado con éxito.", "codigo_error": 0})
+        # Si todo salió bien, devolver una respuesta positiva
+        return jsonify({
+            "respuesta": "Archivo procesado e indexado con éxito.",
+            "indexado_en_faiss": indexado_en_faiss,
+            "codigo_error": 0
+        })
+
     except Exception as e:
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
 
 
 @app.route('/fine-tuning', methods=['POST'])
