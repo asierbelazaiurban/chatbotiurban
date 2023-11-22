@@ -79,11 +79,11 @@ def generate_embedding(text, openai_api_key, chatbot_id):
     
     return embedding
 
-
 def process_results(indices, data):
     # Procesa los índices obtenidos de FAISS para recuperar información relevante.
     info = "Información relacionada con los índices en Milvus: " + ', '.join(str(idx) for idx in indices)
     return info
+
 
 
 # Importar las bibliotecas necesarias
@@ -132,6 +132,7 @@ def allowed_file(filename, chatbot_id):
 
 
 #metodo param la subida de documentos
+
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
@@ -347,18 +348,18 @@ def process_urls():
 
 #Recibimos las urls no validas de front, de cicerone
 
-
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
     urls_to_delete = set(data.get('urls', []))  # Conjunto de URLs a eliminar
     chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
 
+    # Verifica si faltan datos necesarios
     if not urls_to_delete or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
-    # Cambiar la ruta para incluir el chatbot_id
-    chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))  # Corregir la ruta
+    # Construir la ruta del archivo basado en chatbot_id
+    chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
     if not os.path.exists(chatbot_folder):
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
@@ -367,15 +368,16 @@ def delete_urls():
         return jsonify({"status": "error", "message": "URLs file not found in chatbot folder"}), 404
 
     try:
-        # Leer el contenido actual del archivo
-        with open(file_path, 'r') as file:
+        # Leer y actualizar el archivo
+        with open(file_path, 'r+') as file:
             existing_urls = set(file.read().splitlines())
+            updated_urls = existing_urls - urls_to_delete
 
-        # Filtrar para eliminar las URLs especificadas
-        updated_urls = existing_urls - urls_to_delete
+            # Volver al inicio del archivo y limpiarlo
+            file.seek(0)
+            file.truncate()
 
-        # Guardar el contenido actualizado en el archivo
-        with open(file_path, 'w') as file:
+            # Guardar las URLs actualizadas
             for url in updated_urls:
                 file.write(url + '\n')
 
