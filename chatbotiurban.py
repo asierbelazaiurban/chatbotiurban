@@ -228,7 +228,7 @@ def save_urls():
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
-@app.route('/url', methods=['POST'])
+@app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     # Obtener URL del request
     data = request.get_json()
