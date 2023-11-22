@@ -125,6 +125,7 @@ def upload_file():
     try:
         if 'documento' not in request.files:
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
+        
         file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
 
@@ -140,8 +141,11 @@ def upload_file():
             with open(destino, 'rb') as f:
                 raw_data = f.read()
                 encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
-            with open(destino, 'r', encoding=encoding) as f:
-                contenido = f.read()
+                if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
+                    encoding = 'utf-8'
+            contenido = raw_data.decode(encoding, errors='replace')
+        except UnicodeDecodeError as e:
+            return jsonify({"respuesta": f"No se pudo decodificar el archivo. Error: {e}", "codigo_error": 1})
         except Exception as e:
             return jsonify({"respuesta": f"No se pudo leer el archivo. Error: {e}", "codigo_error": 1})
 
@@ -155,7 +159,6 @@ def upload_file():
         return jsonify({"respuesta": "Archivo procesado e indexado con éxito.", "codigo_error": 0})
     except Exception as e:
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
 
 
 @app.route('/fine-tuning', methods=['POST'])
