@@ -129,7 +129,28 @@ def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+
+import openai
+
 def dividir_en_segmentos(texto, max_tokens):
+    openai.api_key = 'tu_clave_api'
+
+    # Enviar el texto a la API y obtener una respuesta
+    response = openai.Completion.create(
+        engine="davinci",
+        prompt=texto,
+        max_tokens=1  # Solicitar una respuesta mínima para calcular el número de tokens
+    )
+
+    # Calcular el número de tokens del texto
+    num_tokens = response['usage']['total_tokens']
+
+    # Dividir el texto en segmentos basados en el número de tokens
+    # Implementar la lógica para dividir el texto correctamente
+    # ...
+
+    return segmentos
+
     # Tokenizar el texto usando el tokenizador de OpenAI
     tokens = openai.Tokenizer.encode(texto)
 
