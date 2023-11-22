@@ -217,6 +217,18 @@ def save_urls():
 
 
 
+def safe_request(url, max_retries=3):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                return response
+        except RequestException as e:
+            print(f"Attempt {attempt + 1} failed for {url}: {e}")
+    return None
+
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
@@ -239,32 +251,27 @@ def url_for_scraping():
 
         # Hacer scraping y recoger URLs únicas
         urls = set()
-        try:
-            response = requests.get(base_url)
-            if response.status_code != 200:
-                return jsonify({'error': f'Failed to fetch base URL with status code {response.status_code}'}), 500
-            soup = BeautifulSoup(response.content, 'html.parser')
+        base_response = safe_request(base_url)
+        if base_response:
+            soup = BeautifulSoup(base_response.content, 'html.parser')
             for tag in soup.find_all('a'):
                 url = urljoin(base_url, tag.get('href'))
                 if same_domain(url):
                     urls.add(url)
-        except Exception as e:
-            return jsonify({'error': f'Error during scraping base URL: {str(e)}'}), 500
+        else:
+            return jsonify({'error': 'Failed to fetch base URL'}), 500
 
         # Contar palabras en cada URL y preparar los datos para el JSON de salida
         urls_data = []
         for url in urls:
-            try:
-                page_response = requests.get(url)
-                if page_response.status_code == 200:
-                    soup = BeautifulSoup(page_response.content, 'html.parser')
-                    text = soup.get_text()
-                    word_count = len(text.split())
-                    urls_data.append({'url': url, 'word_count': word_count})
-                else:
-                    urls_data.append({'url': url, 'message': 'Failed HTTP request'})
-            except Exception as e:
-                urls_data.append({'url': url, 'message': f'Error during word count: {str(e)}'})
+            response = safe_request(url)
+            if response:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                text = soup.get_text()
+                word_count = len(text.split())
+                urls_data.append({'url': url, 'word_count': word_count})
+            else:
+                urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
 
         # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
         with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
