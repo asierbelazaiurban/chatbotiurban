@@ -21,7 +21,7 @@ import json
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import time
-
+from urllib.parse import urlparse, urljoin
 
 app = Flask(__name__)
 
@@ -231,6 +231,7 @@ def save_urls():
 
 
 
+
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
@@ -259,18 +260,32 @@ def url_for_scraping():
             soup = BeautifulSoup(response.content, 'html.parser')
             urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
 
-            # Limitar a solo las primeras 3 URLs
-            urls = urls[:3]
+            # Limitar a solo la primera URL
+            urls = urls[:1]
         except Exception as e:
             return jsonify({'error': f'Error during scraping base URL: {str(e)}'}), 500
 
+        # Contar palabras en cada URL y preparar los datos para el JSON de salida
+        urls_data = []
+        for url in urls:
+            try:
+                page_response = requests.get(url)
+                if page_response.status_code == 200:
+                    page_content = page_response.text
+                    word_count = len(page_content.split())
+                    urls_data.append({'url': url, 'word_count': word_count})
+                else:
+                    urls_data.append({'url': url, 'message': 'No se han podido contar las palabras debido a un error en la solicitud HTTP'})
+            except Exception:
+                urls_data.append({'url': url, 'message': 'No se han podido contar las palabras'})
+
         # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
         with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
-            for url in urls:
-                text_file.write(url + '\n')
+            for url_data in urls_data:
+                text_file.write(url_data['url'] + '\n')
 
-        # Devolver al front las URLs
-        return jsonify({'urls': urls})
+        # Devolver al front las URLs y el conteo de palabras asociado a cada una
+        return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
