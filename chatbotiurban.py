@@ -59,10 +59,24 @@ initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
 
 
 def generate_embedding(text, openai_api_key, chatbot_id):
-    # Genera un embedding para un texto dado utilizando OpenAI.
-    openai.api_key = openai.api_key # Set your OpenAI API key here
-    response = openai.Embedding.create(engine="text-similarity-babbage-001", input=text)
-    embedding = response['data'][0]['embedding']  # Usando el embedding de OpenAI  # Representación ficticia, reemplazar con la lógica adecuada
+    """
+    Genera un embedding para un texto dado utilizando OpenAI.
+    """
+    openai.api_key = openai_api_key  # Establece la clave API de OpenAI aquí
+
+    # Modificación para adaptarse a la nueva API de OpenAI
+    response = openai.Embedding.create(
+        engine="text-similarity-babbage-001", 
+        input=text
+    )
+    
+    # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
+    embedding = response['data'][0]['embedding'] if 'data' in response and response['data'] else None
+    
+    # Manejo de casos donde la respuesta no contiene embeddings
+    if embedding is None:
+        raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
+    
     return embedding
 
 
@@ -70,7 +84,6 @@ def process_results(indices, data):
     # Procesa los índices obtenidos de FAISS para recuperar información relevante.
     info = "Información relacionada con los índices en Milvus: " + ', '.join(str(idx) for idx in indices)
     return info
-
 
 
 # Importar las bibliotecas necesarias
