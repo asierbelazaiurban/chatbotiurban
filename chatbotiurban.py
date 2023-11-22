@@ -64,12 +64,12 @@ def generate_embedding(text, openai_api_key, chatbot_id):
 
     # Modificación para adaptarse a la nueva API de OpenAI
     response = openai.Embedding.create(
-        engine="text-similarity-babbage-001", 
-        input=text
+        model="text-similarity-babbage-001", 
+        input=[text]
     )
     
     # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
-    embedding = response['data'][0]['embedding'] if 'data' in response and response['data'] else None
+    embedding = response['data'][0]['embedding'] if 'data' in response else None
     
     # Manejo de casos donde la respuesta no contiene embeddings
     if embedding is None:
