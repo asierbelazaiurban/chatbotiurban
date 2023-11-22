@@ -53,19 +53,21 @@ def get_faiss_index():
 # Example of how to initialize the index (adjust dimension as needed)
 initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
 
-
-
+# Supongamos que estas son tus funciones para generar embeddings y manejar FAISS
 def generate_embedding(text, openai_api_key, chatbot_id):
     """
     Genera un embedding para un texto dado utilizando OpenAI.
     """
     openai.api_key = openai_api_key  # Establece la clave API de OpenAI aquí
 
-    # Modificación para adaptarse a la nueva API de OpenAI
-    response = create(
-                input=[text]
-    )
-    
+    try:
+        response = openai.Embedding.create(
+            input=[text],  # Ajuste para llamar a la función de embeddings de OpenAI
+            engine="text-similarity-babbage-001"  # Especifica el motor a utilizar
+        )
+    except Exception as e:
+        raise ValueError(f"No se pudo obtener el embedding: {e}")
+
     # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
     embedding = response['data'][0]['embedding'] if 'data' in response else None
     
@@ -74,6 +76,7 @@ def generate_embedding(text, openai_api_key, chatbot_id):
         raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
     
     return embedding
+
 
 def process_results(indices, data):
     # Procesa los índices obtenidos de FAISS para recuperar información relevante.
@@ -125,7 +128,31 @@ def allowed_file(filename, chatbot_id):
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def dividir_en_segmentos(texto, max_tokens):
+    """
+    Divide un texto en segmentos que no excedan el límite de tokens.
+    Esta es una aproximación simple y debe ajustarse para usar un tokenizador específico.
+    """
+    palabras = texto.split()
+    segmentos = []
+    segmento_actual = []
 
+    tokens_contados = 0
+    for palabra in palabras:
+        # Asumimos un promedio de 4 tokens por palabra como aproximación
+        if tokens_contados + len(palabra.split()) * 4 > max_tokens:
+            segmentos.append(' '.join(segmento_actual))
+            segmento_actual = [palabra]
+            tokens_contados = len(palabra.split()) * 4
+        else:
+            segmento_actual.append(palabra)
+            tokens_contados += len(palabra.split()) * 4
+
+    # Añadir el último segmento si hay alguno
+    if segmento_actual:
+        segmentos.append(' '.join(segmento_actual))
+
+    return segmentos
 
 #metodo param la subida de documentos
 
@@ -165,16 +192,25 @@ def upload_file():
                 if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
                     encoding = 'utf-8'
             contenido = raw_data.decode(encoding, errors='replace')
-        except UnicodeDecodeError as e:
-            return jsonify({"respuesta": f"No se pudo decodificar el archivo. Error: {e}", "codigo_error": 1})
-        except Exception as e:
-            return jsonify({"respuesta": f"No se pudo leer el archivo. Error: {e}", "codigo_error": 1})
 
-        # Intentar obtener embeddings y agregarlos al índice de FAISS
-        try:
-            vector_embedding = obtener_embeddings(contenido)
+            # Dividir el contenido en segmentos si supera el límite de tokens
+            MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
+            segmentos = dividir_en_segmentos(contenido, MAX_TOKENS_PER_SEGMENT)
+
+            # Procesar cada segmento y almacenar los embeddings
+            vector_embeddings = []
+            for segmento in segmentos:
+                try:
+                    embedding = obtener_embeddings(segmento)
+                    vector_embeddings.append(embedding)
+                except Exception as e:
+                    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
+
+            # Agregar todos los embeddings al índice de FAISS
             global faiss_index
-            faiss_index.add(np.array([vector_embedding], dtype=np.float32))
+            for embedding in vector_embeddings:
+                faiss_index.add(np.array([embedding], dtype=np.float32))
+
             indexado_en_faiss = True
         except Exception as e:
             indexado_en_faiss = False
@@ -186,7 +222,6 @@ def upload_file():
             "indexado_en_faiss": indexado_en_faiss,
             "codigo_error": 0
         })
-
     except Exception as e:
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
@@ -534,14 +569,6 @@ def ask():
         return jsonify({"response": response_text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-
-# Supongamos que estas son tus funciones para generar embeddings y manejar FAISS
-def generate_embeddings(data, chatbot_id):
-    # Esta función debe generar embeddings para tus datos usando el modelo de OpenAI
-    # Aquí hay un placeholder, reemplázalo con tu lógica específica
-    return [np.random.random(512) for _ in data]
 
 
 def obtener_embeddings(texto):
