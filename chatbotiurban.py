@@ -18,11 +18,9 @@ import os
 import shutil
 import os
 import json
-from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 import time
 from urllib.parse import urlparse, urljoin
-
 
 app = Flask(__name__)
 
@@ -132,12 +130,6 @@ def allowed_file(filename, chatbot_id):
 
 
 #metodo param la subida de documentos
-
-from flask import Flask, request, jsonify
-import os
-import chardet
-import numpy as np
-import faiss
 
 app = Flask(__name__)
 
