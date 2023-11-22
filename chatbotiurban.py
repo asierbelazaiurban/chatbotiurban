@@ -130,24 +130,24 @@ def allowed_file(filename, chatbot_id):
 
 
 def dividir_en_segmentos(texto, max_tokens):
-    palabras = texto.split()
+    # Tokenizar el texto usando el tokenizador de OpenAI
+    tokens = openai.Tokenizer.encode(texto)
+
     segmentos = []
     segmento_actual = []
 
-    tokens_contados = 0
-    for palabra in palabras:
-        if tokens_contados + len(palabra.split()) * 4 > max_tokens:
-            segmentos.append(' '.join(segmento_actual))
-            segmento_actual = [palabra]
-            tokens_contados = len(palabra.split()) * 4
+    for token in tokens:
+        if len(segmento_actual) + 1 > max_tokens:
+            segmentos.append(openai.Tokenizer.decode(segmento_actual))
+            segmento_actual = [token]
         else:
-            segmento_actual.append(palabra)
-            tokens_contados += len(palabra.split()) * 4
+            segmento_actual.append(token)
 
     if segmento_actual:
-        segmentos.append(' '.join(segmento_actual))
+        segmentos.append(openai.Tokenizer.decode(segmento_actual))
 
     return segmentos
+
 
     """
     Divide un texto en segmentos que no excedan el límite de tokens.
