@@ -71,8 +71,6 @@ def process_results(indices, data):
     return info
 
 
-# In[ ]:
-
 
 # Importar las bibliotecas necesarias
 # Suponiendo que los datos son embeddings de dimensión 768 (cambiar según sea necesario)
@@ -232,7 +230,6 @@ def save_urls():
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
 
-app = Flask(__name__)
 
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
@@ -261,37 +258,22 @@ def url_for_scraping():
                 return jsonify({'error': f'Failed to fetch base URL with status code {response.status_code}'}), 500
             soup = BeautifulSoup(response.content, 'html.parser')
             urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
+
+            # Limitar a solo las primeras 3 URLs
+            urls = urls[:3]
         except Exception as e:
             return jsonify({'error': f'Error during scraping base URL: {str(e)}'}), 500
 
-        # Contar palabras en cada URL y preparar los datos
-        urls_data = []
-        for url in urls:
-            try:
-                time.sleep(1)  # Pause to avoid rate limits
-                page_response = requests.get(url)
-                if page_response.status_code != 200:
-                    continue  # Skip URLs that fail to fetch
-                page_content = page_response.text
-                words = page_content.split()
-                word_count = len(words)
-                urls_data.append({'url': url, 'word_count': word_count})
-            except Exception as e:
-                print(f'Error processing URL {url}: {str(e)}')  # Logging the error
-
-        # Guardar los datos en un archivo JSON
-        with open(os.path.join(save_dir, 'urls_data.json'), 'w') as json_file:
-            json.dump(urls_data, json_file)
-
         # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
         with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
-            for url_data in urls_data:
-                text_file.write(url_data['url'] + '\n')
+            for url in urls:
+                text_file.write(url + '\n')
 
-        # Devolver al front las URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data)
+        # Devolver al front las URLs
+        return jsonify({'urls': urls})
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
 
 
 
