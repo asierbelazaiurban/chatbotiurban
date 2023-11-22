@@ -119,7 +119,6 @@ def allowed_file(filename, chatbot_id):
 
 
 #metodo param la subida de documentos
-
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
