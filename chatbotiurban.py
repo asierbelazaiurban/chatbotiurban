@@ -23,6 +23,7 @@ from bs4 import BeautifulSoup
 import time
 from urllib.parse import urlparse, urljoin
 
+
 app = Flask(__name__)
 
 
@@ -121,54 +122,39 @@ def allowed_file(filename, chatbot_id):
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
-    contenido = ""  # Initialize 'contenido' to an empty string
     try:
-        # Recibiendo el archivo y el chatbot_id desde el formulario
         if 'documento' not in request.files:
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         file = request.files['documento']
-        chatbot_id = request.form['chatbot_id']
+        chatbot_id = request.form.get('chatbot_id')
 
         if file.filename == '':
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Guardar el archivo en el sistema de archivos
         chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
         os.makedirs(chatbot_folder, exist_ok=True)
-
         destino = os.path.join(chatbot_folder, file.filename)
         file.save(destino)
 
-        # Intentar contar las palabras en el documento
         try:
             with open(destino, 'rb') as f:
                 raw_data = f.read()
-                encoding = chardet.detect(raw_data)['encoding']
-
+                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
             with open(destino, 'r', encoding=encoding) as f:
                 contenido = f.read()
-                numero_de_palabras = len(contenido.split())
-                mensaje_palabras = f"Número de palabras en el documento: {numero_de_palabras}. "
         except Exception as e:
-            mensaje_palabras = "No fue posible contar las palabras en el documento. Error: " + str(e)
+            return jsonify({"respuesta": f"No se pudo leer el archivo. Error: {e}", "codigo_error": 1})
 
-        # Añadir documento a FAISS
         try:
-            # Suponiendo que tienes una función 'obtener_embeddings' que toma el texto y devuelve un vector
-            vector_embedding = obtener_embeddings(contenido)  # Necesitas implementar esta función
-
-            # Añadir el embedding al índice de FAISS
-            faiss_index.add(np.array([vector_embedding]))
-
-            mensaje_palabras += f"Documento indexado en FAISS. "
+            vector_embedding = obtener_embeddings(contenido)
+            global faiss_index
+            faiss_index.add(np.array([vector_embedding], dtype=np.float32))
         except Exception as e:
-            mensaje_palabras += f"No fue posible indexar el documento en FAISS: {e}. "
+            return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
 
-        mensaje_exito = "Proceso completado con éxito. " + mensaje_palabras
-        return jsonify({"respuesta": mensaje_exito, "codigo_error": 0})
+        return jsonify({"respuesta": "Archivo procesado e indexado con éxito.", "codigo_error": 0})
     except Exception as e:
-        mensaje_error = f"Error: {str(e)}. " + mensaje_palabras
-        return jsonify({"respuesta": mensaje_error, "codigo_error": 1})
+        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
 
@@ -231,7 +217,6 @@ def save_urls():
 
 
 
-
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
@@ -252,17 +237,17 @@ def url_for_scraping():
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
 
-        # Hacer scraping y recoger URLs
+        # Hacer scraping y recoger URLs únicas
+        urls = set()
         try:
             response = requests.get(base_url)
             if response.status_code != 200:
                 return jsonify({'error': f'Failed to fetch base URL with status code {response.status_code}'}), 500
             soup = BeautifulSoup(response.content, 'html.parser')
-            urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
-
-            # Línea eliminada: Limitar a solo la primera URL
-            # urls = urls[:5]
-
+            for tag in soup.find_all('a'):
+                url = urljoin(base_url, tag.get('href'))
+                if same_domain(url):
+                    urls.add(url)
         except Exception as e:
             return jsonify({'error': f'Error during scraping base URL: {str(e)}'}), 500
 
@@ -272,13 +257,14 @@ def url_for_scraping():
             try:
                 page_response = requests.get(url)
                 if page_response.status_code == 200:
-                    page_content = page_response.text
-                    word_count = len(page_content.split())
+                    soup = BeautifulSoup(page_response.content, 'html.parser')
+                    text = soup.get_text()
+                    word_count = len(text.split())
                     urls_data.append({'url': url, 'word_count': word_count})
                 else:
-                    urls_data.append({'url': url, 'message': 'No se han podido contar las palabras debido a un error en la solicitud HTTP'})
-            except Exception:
-                urls_data.append({'url': url, 'message': 'No se han podido contar las palabras'})
+                    urls_data.append({'url': url, 'message': 'Failed HTTP request'})
+            except Exception as e:
+                urls_data.append({'url': url, 'message': f'Error during word count: {str(e)}'})
 
         # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
         with open(os.path.join(save_dir, f'{chatbot_id}.txt'), 'w') as text_file:
@@ -289,7 +275,6 @@ def url_for_scraping():
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
 
 
 
