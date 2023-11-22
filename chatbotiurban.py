@@ -334,6 +334,7 @@ def url_for_scraping():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
+
 @app.route('/url_for_scraping_only_a_few', methods=['POST'])
 def url_for_scraping_only_a_few():
     try:
@@ -398,65 +399,6 @@ def url_for_scraping_only_a_few():
 
 
 
-@app.route('/url_for_scraping', methods=['POST'])
-def url_for_scraping():
-    try:
-        # Obtener URL y chatbot_id del request
-        data = request.get_json()
-        base_url = data.get('url')
-        chatbot_id = data.get('chatbot_id')
-
-        if not base_url:
-            return jsonify({'error': 'No URL provided'}), 400
-
-        # Crear o verificar la carpeta específica del chatbot_id
-        save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-        os.makedirs(save_dir, exist_ok=True)
-
-        # Ruta del archivo a crear o sobrescribir
-        file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
-
-        # Borrar el archivo existente si existe
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-        # Función para determinar si la URL pertenece al mismo dominio
-        def same_domain(url):
-            return urlparse(url).netloc == urlparse(base_url).netloc
-
-        # Hacer scraping y recoger URLs únicas
-        urls = set()
-        base_response = safe_request(base_url)
-        if base_response:
-            soup = BeautifulSoup(base_response.content, 'html.parser')
-            for tag in soup.find_all('a'):
-                url = urljoin(base_url, tag.get('href'))
-                if same_domain(url):
-                    urls.add(url)
-        else:
-            return jsonify({'error': 'Failed to fetch base URL'}), 500
-
-        # Contar palabras en cada URL y preparar los datos para el JSON de salida
-        urls_data = []
-        for url in urls:
-            response = safe_request(url)
-            if response:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                text = soup.get_text()
-                word_count = len(text.split())
-                urls_data.append({'url': url, 'word_count': word_count})
-            else:
-                urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
-
-        # Guardar solo las URLs en un archivo de texto con el nombre chatbot_id
-        with open(file_path, 'w') as text_file:
-            for url_data in urls_data:
-                text_file.write(url_data['url'] + '\n')
-
-        # Devolver al front las URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data)
-    except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
 
