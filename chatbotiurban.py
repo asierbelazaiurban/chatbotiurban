@@ -260,8 +260,9 @@ def url_for_scraping():
             soup = BeautifulSoup(response.content, 'html.parser')
             urls = [urljoin(base_url, tag.get('href')) for tag in soup.find_all('a') if same_domain(urljoin(base_url, tag.get('href')))]
 
-            # Limitar a solo la primera URL
-            urls = urls[:5]
+            # Línea eliminada: Limitar a solo la primera URL
+            # urls = urls[:5]
+
         except Exception as e:
             return jsonify({'error': f'Error during scraping base URL: {str(e)}'}), 500
 
@@ -288,8 +289,6 @@ def url_for_scraping():
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
-
 
 
 
