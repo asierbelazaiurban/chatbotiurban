@@ -517,7 +517,7 @@ def ask():
         info = process_results(indices)
 
         # Utilizar OpenAI para generar una respuesta comprensible en español
-        response = openai.Completion.create(
+        response = openai.Completion.create(model='gpt-4-1106-preview', 
             model="gpt-4-1106-preview",  # Especifica el modelo de OpenAI a utilizar
             prompt=info,
             max_tokens=150,  # Define el número máximo de tokens en la respuesta
