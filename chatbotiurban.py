@@ -217,7 +217,7 @@ def save_urls():
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     # Crear o verificar la carpeta específica del chatbot_id
-    chatbot_folder = os.path.join('uploads/scraping', f'{chatbot_id}')
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     os.makedirs(chatbot_folder, exist_ok=True)
 
     # Crear o agregar a un archivo específico dentro de la carpeta del chatbot
@@ -239,7 +239,7 @@ def url_for_scraping():
         return jsonify({'error': 'No URL provided'}), 400
 
     # Modificar la ruta del directorio para guardar los resultados
-    save_dir = os.path.join('uploads/scraping', f'{chatbot_id}')
+    save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -284,7 +284,7 @@ def process_urls():
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
     # Crear el directorio para el chatbot_id si no existe
-    chatbot_folder = os.path.join('uploads/scraping', f'{chatbot_id}')
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
         os.makedirs(chatbot_folder)
 
@@ -335,7 +335,7 @@ def delete_urls():
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     # Cambiar la ruta para incluir el chatbot_id
-    chatbot_folder = os.path.join('uploads/scraping', f'{chatbot_id}')
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
