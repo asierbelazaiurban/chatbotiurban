@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+##!/usr/bin/env python
 # coding: utf-8
 
 
@@ -735,5 +735,6 @@ def add_document_to_faiss(text, url):
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
+
 
 
