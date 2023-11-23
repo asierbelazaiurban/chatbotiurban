@@ -21,6 +21,7 @@ from urllib.parse import urlparse, urljoin
 app = Flask(__name__)
 
 
+
 # Configura la clave de la API de OpenAI
 openai_api_key = os.environ.get('OPENAI_API_KEY')
 
