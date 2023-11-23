@@ -134,11 +134,11 @@ def allowed_file(filename, chatbot_id):
 def dividir_en_segmentos(texto, max_tokens):
 
     openai_api_key = os.environ.get('OPENAI_API_KEY')
-if openai_api_key is None:
-    print("No se encontró la clave de OpenAI en las variables de entorno.")
-else:
-    print("Clave de OpenAI encontrada:", openai_api_key)
-
+    
+    if openai_api_key is None:
+        print("No se encontró la clave de OpenAI en las variables de entorno.")
+    else:
+        print("Clave de OpenAI encontrada:", openai_api_key)
 
     # Enviar el texto a la API y obtener una respuesta para calcular el número total de tokens
     response = openai.Completion.create(
