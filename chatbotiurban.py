@@ -105,11 +105,6 @@ def generate_embedding(text):
     return embedding
 
 
-def process_results(indices, data):
-    # Procesa los índices obtenidos de FAISS para recuperar información relevante.
-    info = "Información relacionada con los índices en Milvus: " + ', '.join(str(idx) for idx in indices)
-    return info
-
 
 
 # Importar las bibliotecas necesarias
