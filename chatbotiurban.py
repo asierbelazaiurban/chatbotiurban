@@ -472,6 +472,7 @@ def url_for_scraping_only_a_few():
 
 
 
+@app.route('/process_urls', methods=['POST'])
 def process_urls():
     data = request.json
     chatbot_id = data.get('chatbot_id')
@@ -514,9 +515,7 @@ def process_urls():
             # Agregar resultado con error
             results.append({"url": url, "error": str(e)})
 
-    # Devolver un resumen de las operaciones
     return jsonify({"status": "success", "urls": results})
-
 
 
 #Recibimos las urls no validas de front, de cicerone
