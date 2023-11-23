@@ -169,7 +169,6 @@ else:
     return segmentos
 
 
-
     """
     Divide un texto en segmentos que no excedan el límite de tokens.
     Esta es una aproximación simple y debe ajustarse para usar un tokenizador específico.
