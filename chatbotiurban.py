@@ -506,45 +506,42 @@ def process_urls():
     data = request.json
     chatbot_id = data.get('chatbot_id')
     if not chatbot_id:
-        return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
+        return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
 
-    # Crear el directorio para el chatbot_id si no existe
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
         os.makedirs(chatbot_folder)
 
-    # Leer URLs desde el archivo específico para el chatbot_id
     try:
         with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
             urls = file.readlines()
     except FileNotFoundError:
-        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
+        return jsonify({"status": "error", "index": "URLs file not found for the provided chatbot_id"}), 404
 
-    results = []
+    all_indexed = True
+    error_message = ""
     for url in urls:
         url = url.strip()
         try:
-            # Scrapeo y procesamiento del contenido de la URL
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text()
 
-            # Dividir el texto en segmentos si es necesario
-            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)  # Esta función necesita ser implementada
+            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
-            # Procesar cada segmento y generar embeddings
             for segmento in segmentos:
-                embeddings = generate_chatgpt_embeddings(segmento)  # Esta función necesita ser implementada
-                # Añadir embeddings al índice de FAISS
+                embeddings = generate_chatgpt_embeddings(segmento)
                 faiss_index.add(np.array([embeddings], dtype=np.float32))
-
-            # Agregar resultado exitoso para cada segmento
-            results.append({"url": url, "word_count": len(text.split()), "indexed": True, "segments": len(segmentos)})
         except Exception as e:
-            # Agregar resultado con error
-            results.append({"url": url, "error": str(e)})
+            all_indexed = False
+            error_message = str(e)
+            break
 
-    return jsonify({"status": "success", "urls": results})
+    if all_indexed:
+        return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
+    else:
+        return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
+
 
 
 #Recibimos las urls no validas de front, de cicerone
