@@ -143,7 +143,7 @@ def dividir_en_segmentos(texto, max_tokens):
         print("Clave de OpenAI encontrada:", openai_api_key)
 
     # Enviar el texto a la API y obtener una respuesta para calcular el número total de tokens
-    response = openai.Completion.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4-1106-preview",  # Usando GPT-4
         prompt=texto,
         max_tokens=1  # Solicitar una respuesta mínima para calcular el número de tokens
@@ -591,7 +591,7 @@ def ask():
         info = process_results(indices)
 
         # Utilizar OpenAI para generar una respuesta comprensible en español
-        response = openai.Completion.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4-1106-preview",  # Especifica el modelo de OpenAI a utilizar
             prompt=info,
             max_tokens=150,  # Define el número máximo de tokens en la respuesta
@@ -717,6 +717,5 @@ def add_document_to_faiss(text, url):
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
-
 
 
