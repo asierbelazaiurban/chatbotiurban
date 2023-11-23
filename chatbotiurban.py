@@ -501,7 +501,7 @@ def process_urls():
             text = soup.get_text()
 
             # Dividir el texto en segmentos si es necesario
-            segmentos = dividir_texto_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)  # Esta función necesita ser implementada
+            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)  # Esta función necesita ser implementada
 
             # Procesar cada segmento y generar embeddings
             for segmento in segmentos:
