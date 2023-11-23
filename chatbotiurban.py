@@ -42,11 +42,11 @@ MAX_TOKENS_PER_SEGMENT = 1024
 faiss_index = None
 
 def initialize_faiss_index(dimension):
-    faiss.write_index(faiss_index, 'data/faiss_index')
+    global faiss_index
+faiss.write_index(faiss_index, 'data/faiss_index')
     """
     Initialize the FAISS index with the specified dimension.
     """
-    global faiss_index
     faiss_index = faiss.IndexFlatL2(dimension)
 
 def get_faiss_index():
@@ -723,6 +723,4 @@ def add_document_to_faiss(text, url):
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
-
-
 
