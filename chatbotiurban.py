@@ -131,8 +131,6 @@ def allowed_file(filename, chatbot_id):
 
 
 
-import openai
-
 def dividir_en_segmentos(texto, max_tokens):
 
     openai_api_key = os.environ.get('OPENAI_API_KEY')
@@ -568,10 +566,6 @@ def delete_urls():
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
-
 
 
 # Supongamos que ya tenemos un índice FAISS y funciones para generar embeddings y procesar resultados
