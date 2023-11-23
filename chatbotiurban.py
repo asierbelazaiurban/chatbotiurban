@@ -29,7 +29,8 @@ if openai_api_key is None:
 else:
     print("Clave de OpenAI encontrada:", openai_api_key)
 
-
+# Definición como una constante global
+MAX_TOKENS_PER_SEGMENT = 1024 
 
 # Global variable to store the FAISS index
 faiss_index = None
@@ -133,23 +134,23 @@ def allowed_file(filename, chatbot_id):
 import openai
 
 def dividir_en_segmentos(texto, max_tokens):
-    openai.api_key = 'tu_clave_api'
 
-    # Enviar el texto a la API y obtener una respuesta
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
+if openai_api_key is None:
+    print("No se encontró la clave de OpenAI en las variables de entorno.")
+else:
+    print("Clave de OpenAI encontrada:", openai_api_key)
+
+
+    # Enviar el texto a la API y obtener una respuesta para calcular el número total de tokens
     response = openai.Completion.create(
-        engine="davinci",
+        engine="gpt-4-1106-preview",  # Usando el motor específico mencionado
         prompt=texto,
         max_tokens=1  # Solicitar una respuesta mínima para calcular el número de tokens
     )
 
-    # Calcular el número de tokens del texto
+    # Calcular el número total de tokens del texto
     num_tokens = response['usage']['total_tokens']
-
-    # Dividir el texto en segmentos basados en el número de tokens
-    # Implementar la lógica para dividir el texto correctamente
-    # ...
-
-    return segmentos
 
     # Tokenizar el texto usando el tokenizador de OpenAI
     tokens = openai.Tokenizer.encode(texto)
@@ -168,6 +169,7 @@ def dividir_en_segmentos(texto, max_tokens):
         segmentos.append(openai.Tokenizer.decode(segmento_actual))
 
     return segmentos
+
 
 
     """
