@@ -21,10 +21,16 @@ from urllib.parse import urlparse, urljoin
 app = Flask(__name__)
 
 
-# Guardar el índice en el disco
-
 # Cargar el índice desde el disco
-faiss_index = faiss.read_index('data/faiss_index')
+# Verificar si el índice existe ya, para crearlo solo en la primera ejecución
+index_directory = 'data/faiss_index'
+index_file_name = 'faiss.idx'
+index_file_path = os.path.join(index_directory, index_file_name)
+if not os.path.exists(index_file_path):
+    create_and_save_faiss_index(index_directory, index_file_name)
+    print(f"Índice FAISS creado y guardado en: {index_file_path}")
+
+faiss_index = faiss.read_index('data/faiss_index/faiss.idx')
 
 
 # Configura la clave de la API de OpenAI
@@ -737,13 +743,7 @@ def create_and_save_faiss_index(directory='data/faiss_index', file_name='faiss.i
 
     return file_path
 
-# Verificar si el índice existe ya, para crearlo solo en la primera ejecución
-index_directory = 'data/faiss_index'
-index_file_name = 'faiss.idx'
-index_file_path = os.path.join(index_directory, index_file_name)
-if not os.path.exists(index_file_path):
-    create_and_save_faiss_index(index_directory, index_file_name)
-    print(f"Índice FAISS creado y guardado en: {index_file_path}")
+
 
 
 if __name__ == "__main__":
