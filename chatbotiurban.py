@@ -21,6 +21,23 @@ from urllib.parse import urlparse, urljoin
 app = Flask(__name__)
 
 
+def create_and_save_faiss_index(directory='data/faiss_index', file_name='faiss.idx', dimension=128):
+    # Crear un índice FAISS
+    index = faiss.IndexFlatL2(dimension)
+
+    # Ruta completa del archivo
+    file_path = os.path.join(directory, file_name)
+
+    # Crear el directorio si no existe
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Guardar el índice en un archivo
+    faiss.write_index(index, file_path)
+
+    return file_path
+
+
 # Cargar el índice desde el disco
 # Verificar si el índice existe ya, para crearlo solo en la primera ejecución
 index_directory = 'data/faiss_index'
@@ -725,23 +742,6 @@ def add_document_to_faiss(text, url):
     doc_id_to_faiss_index[url] = new_index  # Actualiza el mapeo
 
     # No se añade información a la base de datos en esta versión
-
-
-def create_and_save_faiss_index(directory='data/faiss_index', file_name='faiss.idx', dimension=128):
-    # Crear un índice FAISS
-    index = faiss.IndexFlatL2(dimension)
-
-    # Ruta completa del archivo
-    file_path = os.path.join(directory, file_name)
-
-    # Crear el directorio si no existe
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    # Guardar el índice en un archivo
-    faiss.write_index(index, file_path)
-
-    return file_path
 
 
 
