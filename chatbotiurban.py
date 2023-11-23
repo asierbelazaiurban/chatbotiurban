@@ -483,36 +483,38 @@ def process_urls():
     if not os.path.exists(chatbot_folder):
         os.makedirs(chatbot_folder)
 
-    results = []
-    with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
-        urls = file.readlines()
+    # Leer URLs desde el archivo específico para el chatbot_id
+    try:
+        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
+            urls = file.readlines()
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
 
+    results = []
     for url in urls:
         url = url.strip()
         try:
-            # Extraer el nombre de dominio principal de la URL
-            domain = urlparse(url).netloc.split(':')[0]
-            domain_file_path = os.path.join(chatbot_folder, f'{domain}.txt')
-
-            # Crear o abrir el archivo del dominio para escritura
-            with open(domain_file_path, 'a') as domain_file:
-                domain_file.write(url + '\n')
-
-            # Resto del procesamiento
+            # Scrapeo y procesamiento del contenido de la URL
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text().split()
-            word_count = len(text)
+            text = soup.get_text()
 
-            try:
-                add_document_to_faiss(' '.join(text), url)
-                results.append({"url": url, "word_count": word_count, "indexed": True})
-            except Exception as e:
-                results.append({"url": url, "word_count": word_count, "indexed": False, "index_error": str(e)})
+            # Dividir el texto en segmentos si es necesario
+            segmentos = dividir_texto_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)  # Esta función necesita ser implementada
 
-        except requests.RequestException as e:
+            # Procesar cada segmento y generar embeddings
+            for segmento in segmentos:
+                embeddings = generate_chatgpt_embeddings(segmento)  # Esta función necesita ser implementada
+                # Añadir embeddings al índice de FAISS
+                faiss_index.add(np.array([embeddings], dtype=np.float32))
+
+            # Agregar resultado exitoso para cada segmento
+            results.append({"url": url, "word_count": len(text.split()), "indexed": True, "segments": len(segmentos)})
+        except Exception as e:
+            # Agregar resultado con error
             results.append({"url": url, "error": str(e)})
 
+    # Devolver un resumen de las operaciones
     return jsonify({"status": "success", "urls": results})
 
 
