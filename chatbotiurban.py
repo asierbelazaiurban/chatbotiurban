@@ -186,24 +186,14 @@ def allowed_file(filename, chatbot_id):
 
 
 
-def dividir_en_segmentos(texto, max_tokens):
 
+def dividir_en_segmentos(texto, max_tokens):
     openai_api_key = os.environ.get('OPENAI_API_KEY')
     
     if openai_api_key is None:
         print("No se encontró la clave de OpenAI en las variables de entorno.")
     else:
         print("Clave de OpenAI encontrada:", openai_api_key)
-
-    # Enviar el texto a la API y obtener una respuesta para calcular el número total de tokens
-    response = openai.Completion.create(
-        model="gpt-4-1106-preview",  # Usando GPT-4
-        prompt=texto,
-        max_tokens=1  # Solicitar una respuesta mínima para calcular el número de tokens
-    )
-
-    # Calcular el número total de tokens del texto
-    num_tokens = response['usage']['total_tokens']
 
     # Tokenizar el texto usando el tokenizador de OpenAI
     tokens = openai.Tokenizer.encode(texto)
@@ -212,12 +202,14 @@ def dividir_en_segmentos(texto, max_tokens):
     segmento_actual = []
 
     for token in tokens:
-        if len(segmento_actual) + 1 > max_tokens:
+        # Cambiar la condición para que divida los segmentos antes de alcanzar el límite exacto de max_tokens
+        if len(segmento_actual) >= max_tokens:
             segmentos.append(openai.Tokenizer.decode(segmento_actual))
             segmento_actual = [token]
         else:
             segmento_actual.append(token)
 
+    # Añadir el último segmento si hay tokens restantes
     if segmento_actual:
         segmentos.append(openai.Tokenizer.decode(segmento_actual))
 
@@ -322,42 +314,6 @@ def upload_file():
 
 
 
-@app.route('/fine-tuning', methods=['POST'])
-def fine_tuning():
-    # Obtener los datos del cuerpo de la solicitud
-    data = request.json
-    training_text = data.get('training_text')
-    chat_id = data.get('chat_id')
-
-    # Validación de los datos recibidos
-    if not training_text or not isinstance(chat_id, int):
-        return jsonify({"status": "error", "message": "Invalid input"}), 400
-
-    # Aquí puedes hacer algo con training_text y chat_id si es necesario
-
-    # Datos para el proceso de fine-tuning
-    training_data = {
-        # Suponiendo que estos son los datos que OpenAI necesita para el fine-tuning
-        "text": training_text,
-        "chat_id": chat_id
-    }
-
-    # Endpoint y headers para la API de OpenAI
-    
-    openai_endpoint = "https://api.openai.com/v1/chat/completions"
-    headers = {
-        "Authorization": "Bearer " + openai.api_key
-    }
-
-    # Realizar la solicitud POST a la API de OpenAI
-    response = requests.post(openai_endpoint, json=training_data, headers=headers)
-
-    # Manejar la respuesta
-    if response.status_code == 200:
-        return jsonify({"status": "fine-tuning started", "response": response.json()})
-    else:
-        return jsonify({"status": "error", "message": response.text}), response.status_code
-
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
@@ -400,6 +356,42 @@ def process_urls():
     else:
         return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
 
+
+@app.route('/fine-tuning', methods=['POST'])
+def fine_tuning():
+    # Obtener los datos del cuerpo de la solicitud
+    data = request.json
+    training_text = data.get('training_text')
+    chat_id = data.get('chat_id')
+
+    # Validación de los datos recibidos
+    if not training_text or not isinstance(chat_id, int):
+        return jsonify({"status": "error", "message": "Invalid input"}), 400
+
+    # Aquí puedes hacer algo con training_text y chat_id si es necesario
+
+    # Datos para el proceso de fine-tuning
+    training_data = {
+        # Suponiendo que estos son los datos que OpenAI necesita para el fine-tuning
+        "text": training_text,
+        "chat_id": chat_id
+    }
+
+    # Endpoint y headers para la API de OpenAI
+    
+    openai_endpoint = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": "Bearer " + openai.api_key
+    }
+
+    # Realizar la solicitud POST a la API de OpenAI
+    response = requests.post(openai_endpoint, json=training_data, headers=headers)
+
+    # Manejar la respuesta
+    if response.status_code == 200:
+        return jsonify({"status": "fine-tuning started", "response": response.json()})
+    else:
+        return jsonify({"status": "error", "message": response.text}), response.status_code
 
 
 @app.route('/save_urls', methods=['POST'])
