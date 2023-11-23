@@ -65,7 +65,8 @@ def generate_embedding(text, openai_api_key, chatbot_id):
     try:
         response = openai.Embedding.create(
             input=[text],  # Ajuste para llamar a la función de embeddings de OpenAI
-            engine="text-similarity-babbage-001"  # Especifica el motor a utilizar
+            engine="gpt-4-1106-preview",# Especifica el motor a utilizar
+            max_tokens=1  
         )
     except Exception as e:
         raise ValueError(f"No se pudo obtener el embedding: {e}")
@@ -612,7 +613,7 @@ def ask():
 
 def obtener_embeddings(texto):
     # Llamada a la API de OpenAI para obtener embeddings
-    response = openai.Embedding.create(input=texto, engine="text-similarity-babbage-001")
+    response = openai.Embedding.create(input=texto, engine="gpt-4-1106-preview")
     # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
     embedding = np.array(response['data'][0]['embedding'])
     return embedding
