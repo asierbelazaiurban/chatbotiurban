@@ -84,25 +84,29 @@ def generate_embedding(text):
     """
     Genera un embedding para un texto dado utilizando OpenAI.
     """
-    openai_api_key = os.environ.get('OPENAI_API_KEY') # Establece la clave API de OpenAI aquí
+    openai_api_key = os.environ.get('OPENAI_API_KEY')  # Establece la clave API de OpenAI aquí
 
     try:
+        openai.api_key = openai_api_key
         response = openai.Embedding.create(
             input=[text],  # Ajuste para llamar a la función de embeddings de OpenAI
-            engine="text-embedding-ada-002",# Especifica el motor a utilizar
+            engine="text-embedding-ada-002",  # Especifica el motor a utilizar
             max_tokens=1  
         )
     except Exception as e:
         raise ValueError(f"No se pudo obtener el embedding: {e}")
 
     # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
-    embedding = response['data'][0]['embedding'] if 'data' in response else None
+    embedding = np.array(response['data'][0]['embedding']) if 'data' in response else None
     
-    # Manejo de casos donde la respuesta no contiene embeddings
-    if embedding is None:
+    # Asegurar que el embedding es un numpy array de tipo float32
+    if embedding is not None:
+        embedding = embedding.astype(np.float32)
+    else:
         raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
     
     return embedding
+
 
 
 
@@ -149,9 +153,6 @@ def allowed_file(filename, chatbot_id):
 # Función para verificar si el archivo tiene una extensión permitida
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-
 
 
 import nltk
@@ -298,6 +299,11 @@ def process_urls():
 
     all_indexed = True
     error_message = ""
+
+    # Asumimos que el índice de FAISS ya está inicializado correctamente
+    dimension = 128  # Ajusta esta dimensión según tus embeddings
+    faiss_index = faiss.IndexFlatL2(dimension)  
+
     for url in urls:
         url = url.strip()
         try:
@@ -309,7 +315,14 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding(segmento)
-                faiss_index.add(np.array([embeddings], dtype=np.float32))
+                if embeddings is not None:
+                    # Asegurar que los embeddings son del tipo correcto
+                    embeddings = embeddings.astype(np.float32)
+                    # Verificar la dimensión de los embeddings
+                    if embeddings.shape[0] == dimension:
+                        faiss_index.add(np.array([embeddings]))
+                    else:
+                        raise ValueError("Dimensión de embeddings incorrecta")
         except Exception as e:
             all_indexed = False
             error_message = str(e)
