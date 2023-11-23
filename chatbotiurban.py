@@ -288,7 +288,7 @@ def fine_tuning():
     }
 
     # Endpoint y headers para la API de OpenAI
-    openai_endpoint = "https://api.openai.com/v1/models/fine-tune"
+    openai_endpoint = "https://api.openai.com/v1/chat/completions"
     headers = {
         "Authorization": "Bearer " + openai.api_key
     }
@@ -622,23 +622,6 @@ def update_faiss_index(embeddings, chatbot_id):
     index = faiss.IndexFlatL2(512)  # Suponiendo que usas un índice FlatL2
     index.add(np.array(embeddings).astype(np.float32))
     return index
-
-
-@app.route('/fine-tuning', methods=['POST'])
-def fine_tune_model(chatbot_id):
-    training_data = request.json
-    # Envío de datos a la API de OpenAI para el proceso de fine-tuning
-    openai_endpoint = "https://api.openai.com/v1/models/fine-tune"
-    headers = {"Authorization": "Bearer your_api_key_here"}
-    response = requests.post(openai_endpoint, json=training_data, headers=headers)
-    if response.status_code == 200:
-        # Aquí, inicia el proceso de reentrenamiento de FAISS
-        embeddings = generate_embeddings(training_data)  # Genera nuevos embeddings
-        updated_index = update_faiss_index(embeddings)  # Actualiza el índice de FAISS
-        return jsonify({"status": "fine-tuning started", "FAISS index updated": True, "response": response.json()})
-    else:
-        return jsonify({"status": "error", "message": response.text})
-
 
 
 # Código para diagnosticar problemas con FAISS
