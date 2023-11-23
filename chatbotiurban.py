@@ -288,7 +288,7 @@ def fine_tuning():
     }
 
     # Endpoint y headers para la API de OpenAI
-    openai_endpoint = "https://api.openai.com/v1/chat/completions"
+    openai_endpoint = "https://api.openai.com/v1/models/fine-tune"
     headers = {
         "Authorization": "Bearer " + openai.api_key
     }
