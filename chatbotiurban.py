@@ -142,7 +142,7 @@ def dividir_en_segmentos(texto, max_tokens):
 
     # Enviar el texto a la API y obtener una respuesta para calcular el número total de tokens
     response = openai.Completion.create(
-        engine="gpt-4-1106-preview",  # Usando el motor específico mencionado
+        engine="text-davinci-004",  # Usando GPT-4
         prompt=texto,
         max_tokens=1  # Solicitar una respuesta mínima para calcular el número de tokens
     )
