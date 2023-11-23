@@ -66,11 +66,12 @@ faiss_index = None
 
 def initialize_faiss_index(dimension):
     global faiss_index
-    faiss.write_index(faiss_index, 'data/faiss_index/faiss.idx')
     """
     Initialize the FAISS index with the specified dimension.
     """
     faiss_index = faiss.IndexFlatL2(dimension)
+    faiss.write_index(faiss_index, 'data/faiss_index/faiss.idx')
+
 
 def get_faiss_index():
     """
