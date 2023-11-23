@@ -68,6 +68,7 @@ def initialize_faiss_index(dimension):
     # Initialize the FAISS index with the specified dimension.
     faiss_index = faiss.IndexFlatL2(dimension)
     faiss.write_index(faiss_index, 'data/faiss_index/faiss.idx')
+
 def get_faiss_index():
     """
     Return the current FAISS index. Ensure it has been initialized before calling this function.
@@ -97,7 +98,13 @@ def generate_embedding(text):
         raise ValueError(f"No se pudo obtener el embedding: {e}")
 
     # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
-    embedding = np.array(response['data'][0]['embedding']) if 'data' in response else None
+    
+    # Asegurarse de que la respuesta de la API contiene 'data' y tiene al menos un elemento
+    if 'data' in response and len(response['data']) > 0:
+        embedding = np.array(response['data'][0]['embedding'])
+    else:
+        raise ValueError("Respuesta de la API de OpenAI no válida o sin datos de embedding.")
+
     
     # Asegurar que el embedding es un numpy array de tipo float32
     if embedding is not None:
@@ -138,19 +145,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
 
-def allowed_file(filename, chatbot_id):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Esta función verifica si el archivo tiene una extensión permitida
-
-
-
-# Función para verificar si el archivo tiene una extensión permitida
-def allowed_file(filename, chatbot_id):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-# Función para verificar si el archivo tiene una extensión permitida
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
