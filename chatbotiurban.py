@@ -721,6 +721,30 @@ def add_document_to_faiss(text, url):
     # No se añade información a la base de datos en esta versión
 
 
+def create_and_save_faiss_index(directory='data/faiss_index', file_name='faiss.idx', dimension=128):
+    # Crear un índice FAISS
+    index = faiss.IndexFlatL2(dimension)
+
+    # Ruta completa del archivo
+    file_path = os.path.join(directory, file_name)
+
+    # Crear el directorio si no existe
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # Guardar el índice en un archivo
+    faiss.write_index(index, file_path)
+
+    return file_path
+
+# Verificar si el índice existe ya, para crearlo solo en la primera ejecución
+index_directory = 'data/faiss_index'
+index_file_name = 'faiss.idx'
+index_file_path = os.path.join(index_directory, index_file_name)
+if not os.path.exists(index_file_path):
+    create_and_save_faiss_index(index_directory, index_file_name)
+    print(f"Índice FAISS creado y guardado en: {index_file_path}")
+
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
-
