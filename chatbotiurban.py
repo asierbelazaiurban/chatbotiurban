@@ -89,7 +89,7 @@ def generate_embedding(text):
     try:
         response = openai.Embedding.create(
             input=[text],  # Ajuste para llamar a la función de embeddings de OpenAI
-            engine="gpt-4",# Especifica el motor a utilizar
+            engine="gpt-3.5-turbo-1106",# Especifica el motor a utilizar
             max_tokens=1  
         )
     except Exception as e:
@@ -602,7 +602,7 @@ def ask():
 
         # Utilizar OpenAI para generar una respuesta comprensible en español
         response = openai.Completion.create(
-            model="gpt-4",  # Especifica el modelo de OpenAI a utilizar
+            model="gpt-3.5-turbo-1106",  # Especifica el modelo de OpenAI a utilizar
             prompt=info,
             max_tokens=150,  # Define el número máximo de tokens en la respuesta
             temperature=0.7,  # Ajusta la creatividad de la respuesta
