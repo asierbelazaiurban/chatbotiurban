@@ -108,6 +108,31 @@ def generate_embedding(text, openai_api_key, chatbot_id):
     return embedding
 
 
+def generate_chatgpt_embeddings(text):
+    """
+    Genera un embedding para un texto dado utilizando OpenAI.
+    """
+    openai_api_key = os.environ.get('OPENAI_API_KEY')  # Establece la clave API de OpenAI aquí
+
+    try:
+        response = openai.Embedding.create(
+            input=[text],  # Texto para generar el embedding
+            engine="gpt-4-1106-preview",  # Especifica el motor a utilizar
+            max_tokens=1  
+        )
+    except Exception as e:
+        raise ValueError(f"No se pudo obtener el embedding: {e}")
+
+    # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
+    embedding = response['data'][0]['embedding'] if 'data' in response else None
+    
+    # Manejo de casos donde la respuesta no contiene embeddings
+    if embedding is None:
+        raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
+    
+    return embedding
+
+
 def process_results(indices, data):
     # Procesa los índices obtenidos de FAISS para recuperar información relevante.
     info = "Información relacionada con los índices en Milvus: " + ', '.join(str(idx) for idx in indices)
@@ -333,6 +358,49 @@ def fine_tuning():
         return jsonify({"status": "error", "message": response.text}), response.status_code
 
 
+@app.route('/process_urls', methods=['POST'])
+def process_urls():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    if not chatbot_id:
+        return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
+
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+    if not os.path.exists(chatbot_folder):
+        os.makedirs(chatbot_folder)
+
+    try:
+        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
+            urls = file.readlines()
+    except FileNotFoundError:
+        return jsonify({"status": "error", "index": "URLs file not found for the provided chatbot_id"}), 404
+
+    all_indexed = True
+    error_message = ""
+    for url in urls:
+        url = url.strip()
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            text = soup.get_text()
+
+            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
+
+            for segmento in segmentos:
+                embeddings = generate_chatgpt_embeddings(segmento)
+                faiss_index.add(np.array([embeddings], dtype=np.float32))
+        except Exception as e:
+            all_indexed = False
+            error_message = str(e)
+            break
+
+    if all_indexed:
+        return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
+    else:
+        return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
+
+
+
 @app.route('/save_urls', methods=['POST'])
 def save_urls():
     data = request.json
@@ -498,50 +566,6 @@ def url_for_scraping_only_a_few():
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
-
-
-@app.route('/process_urls', methods=['POST'])
-def process_urls():
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
-
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    if not os.path.exists(chatbot_folder):
-        os.makedirs(chatbot_folder)
-
-    try:
-        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
-            urls = file.readlines()
-    except FileNotFoundError:
-        return jsonify({"status": "error", "index": "URLs file not found for the provided chatbot_id"}), 404
-
-    all_indexed = True
-    error_message = ""
-    for url in urls:
-        url = url.strip()
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text()
-
-            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
-
-            for segmento in segmentos:
-                embeddings = generate_chatgpt_embeddings(segmento)
-                faiss_index.add(np.array([embeddings], dtype=np.float32))
-        except Exception as e:
-            all_indexed = False
-            error_message = str(e)
-            break
-
-    if all_indexed:
-        return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
-    else:
-        return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
-
 
 
 #Recibimos las urls no validas de front, de cicerone
