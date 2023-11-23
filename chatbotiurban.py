@@ -301,8 +301,7 @@ def process_urls():
     error_message = ""
 
     # Asumimos que el índice de FAISS ya está inicializado correctamente
-    dimension = 128  # Ajusta esta dimensión según tus embeddings
-    faiss_index = faiss.IndexFlatL2(dimension)  
+    FAISS_INDEX_DIMENSION = 128  # Ajusta esta dimensión según tus embeddings
 
     for url in urls:
         url = url.strip()
@@ -315,14 +314,9 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding(segmento)
-                if embeddings is not None:
-                    # Asegurar que los embeddings son del tipo correcto
-                    embeddings = embeddings.astype(np.float32)
-                    # Verificar la dimensión de los embeddings
-                    if embeddings.shape[0] == dimension:
-                        faiss_index.add(np.array([embeddings]))
-                    else:
-                        raise ValueError("Dimensión de embeddings incorrecta")
+                if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+                    raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
+                faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             all_indexed = False
             error_message = str(e)
