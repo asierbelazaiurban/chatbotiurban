@@ -187,31 +187,29 @@ def allowed_file(filename, chatbot_id):
 
 
 
-def dividir_en_segmentos(texto, max_tokens):
-    openai_api_key = os.environ.get('OPENAI_API_KEY')
-    
-    if openai_api_key is None:
-        print("No se encontró la clave de OpenAI en las variables de entorno.")
-    else:
-        print("Clave de OpenAI encontrada:", openai_api_key)
 
-    # Tokenizar el texto usando el tokenizador de OpenAI
-    tokens = openai.Tokenizer.encode(texto)
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import word_tokenize
+
+def dividir_en_segmentos(texto, max_tokens):
+    # Tokenizar el texto usando NLTK
+    tokens = word_tokenize(texto)
 
     segmentos = []
     segmento_actual = []
 
     for token in tokens:
         # Cambiar la condición para que divida los segmentos antes de alcanzar el límite exacto de max_tokens
-        if len(segmento_actual) >= max_tokens:
-            segmentos.append(openai.Tokenizer.decode(segmento_actual))
+        if len(segmento_actual) + len(token.split()) > max_tokens:
+            segmentos.append(' '.join(segmento_actual))
             segmento_actual = [token]
         else:
             segmento_actual.append(token)
 
     # Añadir el último segmento si hay tokens restantes
     if segmento_actual:
-        segmentos.append(openai.Tokenizer.decode(segmento_actual))
+        segmentos.append(' '.join(segmento_actual))
 
     return segmentos
 
