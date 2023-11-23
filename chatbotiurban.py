@@ -83,42 +83,16 @@ def get_faiss_index():
 initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
 
 # Supongamos que estas son tus funciones para generar embeddings y manejar FAISS
-def generate_embedding(text, openai_api_key, chatbot_id):
+def generate_embedding(text):
     """
     Genera un embedding para un texto dado utilizando OpenAI.
     """
-    openai.api_key = openai_api_key  # Establece la clave API de OpenAI aquí
+    openai_api_key = os.environ.get('OPENAI_API_KEY') # Establece la clave API de OpenAI aquí
 
     try:
         response = openai.Embedding.create(
             input=[text],  # Ajuste para llamar a la función de embeddings de OpenAI
             engine="gpt-4-1106-preview",# Especifica el motor a utilizar
-            max_tokens=1  
-        )
-    except Exception as e:
-        raise ValueError(f"No se pudo obtener el embedding: {e}")
-
-    # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
-    embedding = response['data'][0]['embedding'] if 'data' in response else None
-    
-    # Manejo de casos donde la respuesta no contiene embeddings
-    if embedding is None:
-        raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
-    
-    return embedding
-
-
-
-def generate_chatgpt_embeddings(text):
-    """
-    Genera un embedding para un texto dado utilizando OpenAI.
-    """
-    openai_api_key = os.environ.get('OPENAI_API_KEY')  # Establece la clave API de OpenAI aquí
-
-    try:
-        response = openai.Embedding.create(
-            input=[text],  # Texto para generar el embedding
-            engine="gpt-4-1106-preview",  # Especifica el motor a utilizar
             max_tokens=1  
         )
     except Exception as e:
@@ -342,7 +316,7 @@ def process_urls():
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
-                embeddings = generate_chatgpt_embeddings(segmento)
+                embeddings = generate_embedding(segmento)
                 faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             all_indexed = False
