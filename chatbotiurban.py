@@ -42,11 +42,12 @@ MAX_TOKENS_PER_SEGMENT = 1024
 faiss_index = None
 
 def initialize_faiss_index(dimension):
-"""
-Initialize the FAISS index with the specified dimension.
-"""
-global faiss_index
-faiss_index = faiss.IndexFlatL2(dimension)
+    faiss.write_index(faiss_index, 'data/faiss_index')
+    """
+    Initialize the FAISS index with the specified dimension.
+    """
+    global faiss_index
+    faiss_index = faiss.IndexFlatL2(dimension)
 
 def get_faiss_index():
     """
