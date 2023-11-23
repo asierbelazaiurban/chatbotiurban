@@ -108,6 +108,7 @@ def generate_embedding(text, openai_api_key, chatbot_id):
     return embedding
 
 
+
 def generate_chatgpt_embeddings(text):
     """
     Genera un embedding para un texto dado utilizando OpenAI.
