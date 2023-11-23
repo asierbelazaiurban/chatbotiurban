@@ -20,6 +20,8 @@ from urllib.parse import urlparse, urljoin
 
 app = Flask(__name__)
 
+# Global variable to store the FAISS index
+faiss_index = None
 
 # Guardar el índice en el disco
 faiss.write_index(faiss_index, 'data/faiss_index')
@@ -39,8 +41,6 @@ else:
 # Definición como una constante global
 MAX_TOKENS_PER_SEGMENT = 1024 
 
-# Global variable to store the FAISS index
-faiss_index = None
 
 def initialize_faiss_index(dimension):
     """
