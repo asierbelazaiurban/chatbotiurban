@@ -701,6 +701,66 @@ def filter_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+from flask import Flask, request, jsonify
+import random
+
+
+@app.route('/ask_prueba', methods=['POST'])
+def ask_prueba():
+    data = request.json
+
+    # Comprobaciones de seguridad para asegurarse de que todos los campos están presentes
+    if not data or 'pregunta' not in data or 'chatbot_id' not in data or 'token' not in data:
+        return jsonify({'error': 'Faltan campos requeridos'}), 400
+
+    # Respuestas predefinidas sobre el turismo en Málaga
+    respuestas = [
+        "Málaga es famosa por sus playas y su clima cálido.",
+        "El Museo Picasso es uno de los lugares más visitados en Málaga.",
+        "La Alcazaba, una fortaleza árabe, es una de las joyas históricas de la ciudad.",
+        "Málaga es conocida por ser la ciudad natal de Pablo Picasso.",
+        "El Caminito del Rey ofrece impresionantes vistas y senderos emocionantes.",
+        "El Parque Natural Montes de Málaga es ideal para amantes de la naturaleza.",
+        "Málaga celebra su feria anual en agosto con música, baile y comida tradicional.",
+        "El Centro Pompidou Málaga alberga arte moderno y contemporáneo.",
+        "La Catedral de Málaga es un impresionante ejemplo de arquitectura renacentista.",
+        "El Mercado Central de Atarazanas es famoso por sus productos frescos y locales.",
+        "El barrio de La Malagueta es conocido por su bulliciosa playa urbana.",
+        "El Castillo de Gibralfaro ofrece vistas panorámicas de la ciudad.",
+        "La gastronomía malagueña incluye espetos de sardinas y pescaíto frito.",
+        "Málaga es una ciudad vibrante con una animada vida nocturna.",
+        "El Jardín Botánico-Histórico La Concepción es un oasis tropical en Málaga.",
+        "El Soho de Málaga es famoso por su arte callejero y ambiente bohemio.",
+        "El Muelle Uno es un moderno espacio de ocio y comercio junto al mar.",
+        "El Teatro Romano es un vestigio del pasado romano de Málaga.",
+        "La Fiesta de los Verdiales celebra una antigua tradición musical local.",
+        "El Museo Carmen Thyssen Málaga exhibe arte español y andaluz.",
+        "Málaga es punto de partida para explorar la Costa del Sol.",
+        "El barrio del Perchel conserva la esencia tradicional de Málaga.",
+        "El vino dulce de Málaga es conocido internacionalmente.",
+        "El Museo Automovilístico y de la Moda combina coches clásicos con alta costura.",
+        "Málaga tiene una rica tradición en la producción de aceite de oliva.",
+        "La Semana Santa en Málaga es famosa por sus procesiones y pasos.",
+        "Los baños árabes Hammam Al Ándalus ofrecen una experiencia relajante.",
+        "El CAC Málaga es un centro de arte contemporáneo de referencia.",
+        "El Paseo del Parque es un agradable paseo lleno de vegetación tropical.",
+        "La Casa Natal de Picasso alberga obras tempranas del artista.",
+        "El Mercado de la Merced es un lugar popular para comer y socializar.",
+        "Málaga cuenta con hermosas playas como Guadalmar y El Palo.",
+        "La Térmica es un centro cultural y de creación contemporánea.",
+        "El FESTIVAL DE MÁLAGA es importante en el panorama cinematográfico español.",
+        "La Noria de Málaga ofrece vistas espectaculares desde sus cabinas.",
+        "Málaga es conocida por sus festivales de música y cultura.",
+        "El MUPAM es el Museo del Patrimonio Municipal de Málaga.",
+        "El Museo Revello de Toro alberga pinturas de Félix Revello de Toro.",
+        "El Barrio de Pedregalejo es famoso por sus chiringuitos y ambiente relajado."
+    ]
+
+    respuesta = random.choice(respuestas)  # Seleccionar una respuesta aleatoria
+    return jsonify({'pregunta': pregunta, 'respuesta': respuesta, 'chatbot_id': chatbot_id, 'token': token})
+
+
+
 def add_document_to_faiss(text, url):
     # Supongamos que 'faiss_index' es tu índice FAISS y 'doc_id_to_faiss_index' es un diccionario que mapea URLs a índices FAISS
     global faiss_index, doc_id_to_faiss_index
