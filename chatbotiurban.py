@@ -74,6 +74,44 @@ def create_bbdd(chatbot_id):
 ######## ########
 
 
+######## Embedding, tokenizacion y add to FAISS ########
+
+
+# Verificar la versión de FAISS
+print('Versión de FAISS:', faiss.__version__)
+
+# Listar los atributos y métodos de FAISS
+print('Atributos y métodos en FAISS:', dir(faiss))
+
+# Si necesitas reinstalar FAISS, descomenta las siguientes líneas:
+# !pip uninstall -y faiss faiss-gpu faiss-cpu
+# !pip install faiss-cpu  # Para CPU
+# !pip install faiss-gpu  # Para GPU
+
+
+# Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
+doc_id_to_faiss_index = {}
+
+def add_document_to_faiss(document, doc_id):
+    global doc_id_to_faiss_index  # Supone que este mapeo es una variable global
+
+    # Verifica si el documento ya está indexado
+    if doc_id in doc_id_to_faiss_index:
+        print(f"Documento con ID {doc_id} ya indexado.")
+        return
+
+    # Genera el embedding para el nuevo documento
+    # Asume que 'generate_embedding' puede manejar diferentes tipos de entrada
+    embedding = generate_embedding(document)
+
+    # Obtiene el índice de FAISS actual
+    faiss_index = get_faiss_index()
+
+    # Añade el embedding al índice de FAISS y actualiza el mapeo
+    faiss_index.add(np.array([embedding]))  # Añade el nuevo embedding
+    new_index = faiss_index.ntotal - 1  # El nuevo índice en FAISS
+    doc_id_to_faiss_index[doc_id] = new_index  # Actualiza el mapeo
+
 
 def generate_embedding(text):
     """
@@ -109,7 +147,6 @@ def generate_embedding(text):
     return embedding
 
 
-
 def generate_embedding_withou_openAI(text):
     """
     Genera un embedding para un texto dado utilizando un modelo Word2Vec de Gensim.
@@ -128,7 +165,9 @@ def generate_embedding_withou_openAI(text):
 
     return embedding
 
-# Ejemplo de uso
+
+
+######## ########
 
 
 
@@ -661,42 +700,6 @@ def update_faiss_index(embeddings, chatbot_id):
     return index
 
 
-# Código para diagnosticar problemas con FAISS
-
-
-# Verificar la versión de FAISS
-print('Versión de FAISS:', faiss.__version__)
-
-# Listar los atributos y métodos de FAISS
-print('Atributos y métodos en FAISS:', dir(faiss))
-
-# Si necesitas reinstalar FAISS, descomenta las siguientes líneas:
-# !pip uninstall -y faiss faiss-gpu faiss-cpu
-# !pip install faiss-cpu  # Para CPU
-# !pip install faiss-gpu  # Para GPU
-
-
-# Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
-doc_id_to_faiss_index = {}
-
-def add_document_to_faiss(document, doc_id):
-    # Verifica si el documento ya está indexado
-    if doc_id in doc_id_to_faiss_index:
-        print(f"Documento con ID {doc_id} ya indexado.")
-        return
-
-    # Genera el embedding para el nuevo documento
-    embedding = generate_embedding(document)
-
-    # Añade el embedding al índice de FAISS y actualiza el mapeo
-    faiss_index = get_faiss_index()  # Obtén tu índice de FAISS actual
-    faiss_index.add(np.array([embedding]))  # Añade el nuevo embedding
-    new_index = faiss_index.ntotal - 1  # El nuevo índice en FAISS
-    doc_id_to_faiss_index[doc_id] = new_index  # Actualiza el mapeo
-
-    # No olvides guardar el índice de FAISS y el mapeo actualizado de forma persistente
-
-
 @app.route('/filter_urls', methods=['POST'])
 def filter_urls():
     data = request.json
@@ -795,27 +798,6 @@ def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
-
-
-
-def add_document_to_faiss(text, url):
-    # Supongamos que 'faiss_index' es tu índice FAISS y 'doc_id_to_faiss_index' es un diccionario que mapea URLs a índices FAISS
-    global faiss_index, doc_id_to_faiss_index
-
-    # Genera el embedding para el nuevo documento
-    embedding = generate_embedding(text)
-
-    # Verifica si el documento ya está indexado
-    if url in doc_id_to_faiss_index:
-        print(f"Documento con URL {url} ya indexado.")
-        return
-
-    # Añade el embedding al índice de FAISS y actualiza el mapeo
-    faiss_index.add(np.array([embedding]))  # Añade el nuevo embedding
-    new_index = faiss_index.ntotal - 1  # El nuevo índice en FAISS
-    doc_id_to_faiss_index[url] = new_index  # Actualiza el mapeo
-
-    # No se añade información a la base de datos en esta versión
 
 
 
