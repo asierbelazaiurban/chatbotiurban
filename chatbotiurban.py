@@ -646,14 +646,24 @@ def delete_urls():
 
 
 # Supongamos que ya tenemos un índice FAISS y funciones para generar embeddings y procesar resultados
-# index = ... (índice FAISS ya creado)
-# generate_embedding = ... (función para generar embeddings a partir de texto)
-# process_results = ... (función para procesar los índices de FAISS y obtener información relevante)
 @app.route('/ask', methods=['POST'])
 def ask():
     try:
+        data = request.json
+        chatbot_id = data.get('chatbot_id')
+        if not chatbot_id:
+            return jsonify({"error": "No chatbot_id provided"}), 400
+
+        # Ruta al índice de FAISS para el chatbot_id
+        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+        if not os.path.exists(faiss_index_path):
+            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
+
+        # Cargar el índice de FAISS
+        index = faiss.read_index(faiss_index_path)
+
         # Recibir la consulta de texto
-        query_text = request.json.get('query')
+        query_text = data.get('query')
 
         # Generar un embedding para la consulta usando OpenAI
         query_embedding = generate_embedding(query_text)
@@ -678,17 +688,14 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
-    except Exception as e:
-        # Handle the exception
-        pass
-    if len(choices) > index:
-    
         response_text = response.choices[0].text.strip()
 
         # Devolver la respuesta
         return jsonify({"response": response_text})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 def obtener_embeddings(texto):
