@@ -33,7 +33,7 @@ faiss_index = None
 def initialize_faiss_index(dimension=128):
     global faiss_index
     faiss_index = faiss.IndexFlatL2(dimension)
-    faiss.write_index(faiss_index, 'data/faiss_index/faiss.idx')
+    faiss.write_index(faiss_index, 'data/faiss_index/{chatbot_id}/faiss.idx')
 
 def get_faiss_index():
     global faiss_index
@@ -54,13 +54,8 @@ def create_database(chatbot_id, dimension=128):
 
     return file_path
 
-@app.route('/create_new_bbdd', methods=['POST'])
-def create_bbdd():
+def create_bbdd(chatbot_id):
     data = request.json
-    chatbot_id = data.get('chatbot_id')
-    
-    if not chatbot_id:
-        return jsonify({"error": "No chatbot_id provided"}), 400
 
     index_file_path = create_database(chatbot_id)
     message = f"FAISS Index created or verified at: {index_file_path}"
@@ -288,14 +283,17 @@ def upload_file():
 
 
 
-
-
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     data = request.json
     chatbot_id = data.get('chatbot_id')
     if not chatbot_id:
         return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
+
+    # Comprueba si existe el índice de FAISS para el chatbot_id
+    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+    if not os.path.exists(faiss_index_path):
+        create_bbdd(chatbot_id)  # Llama a la función para crear una nueva BBDD si no existe
 
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
@@ -338,6 +336,7 @@ def process_urls():
     else:
         return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
 
+# Asegúrate de tener la función create_bbdd definida en algún lugar de tu código.
 
 
 @app.route('/fine-tuning', methods=['POST'])
