@@ -365,7 +365,11 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding_withou_openAI(segmento)
+if len(shape) > index:
+    
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+if len(shape) > index:
+    
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
@@ -676,6 +680,8 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
+if len(choices) > index:
+    
         response_text = response.choices[0].text.strip()
 
         # Devolver la respuesta
