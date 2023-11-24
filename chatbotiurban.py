@@ -25,67 +25,55 @@ from gensim.models import Word2Vec
 app = Flask(__name__)
 
 
-def create_and_save_faiss_index(directory='data/faiss_index', file_name='faiss.idx', dimension=128):
-    # Crear un índice FAISS
-    index = faiss.IndexFlatL2(dimension)
-
-    # Ruta completa del archivo
-    file_path = os.path.join(directory, file_name)
-
-    # Crear el directorio si no existe
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    # Guardar el índice en un archivo
-    faiss.write_index(index, file_path)
-
-    return file_path
-
-
-# Cargar el índice desde el disco
-# Verificar si el índice existe ya, para crearlo solo en la primera ejecución
-index_directory = 'data/faiss_index'
-index_file_name = 'faiss.idx'
-index_file_path = os.path.join(index_directory, index_file_name)
-if not os.path.exists(index_file_path):
-    create_and_save_faiss_index(index_directory, index_file_name)
-    print(f"Índice FAISS creado y guardado en: {index_file_path}")
-
-faiss_index = faiss.read_index('data/faiss_index/faiss.idx')
-
-
-# Configura la clave de la API de OpenAI
-openai_api_key = os.environ.get('OPENAI_API_KEY')
-
-if openai_api_key is None:
-    print("No se encontró la clave de OpenAI en las variables de entorno.")
-else:
-    print("Clave de OpenAI encontrada:", openai_api_key)
-
-# Definición como una constante global
-MAX_TOKENS_PER_SEGMENT = 1024 
+######## Creación de bbddd FAISS para cada cliente ########
 
 # Global variable to store the FAISS index
 faiss_index = None
 
-
-def initialize_faiss_index(dimension):
+def initialize_faiss_index(dimension=128):
     global faiss_index
-    # Initialize the FAISS index with the specified dimension.
     faiss_index = faiss.IndexFlatL2(dimension)
     faiss.write_index(faiss_index, 'data/faiss_index/faiss.idx')
 
 def get_faiss_index():
-    """
-    Return the current FAISS index. Ensure it has been initialized before calling this function.
-    """
     global faiss_index
     if faiss_index is None:
         raise ValueError("FAISS index has not been initialized.")
     return faiss_index
 
+def create_database(chatbot_id, dimension=128):
+    directory = os.path.join('data/faiss_index', chatbot_id)
+    file_name = 'faiss.idx'
+    file_path = os.path.join(directory, file_name)
+    
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    if not os.path.exists(file_path):
+        initialize_faiss_index(dimension)
+
+    return file_path
+
+@app.route('/create_new_bbdd', methods=['POST'])
+def create_bbdd():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    
+    if not chatbot_id:
+        return jsonify({"error": "No chatbot_id provided"}), 400
+
+    index_file_path = create_database(chatbot_id)
+    message = f"FAISS Index created or verified at: {index_file_path}"
+    
+    return jsonify({"message": message}), 200
+
 # Example of how to initialize the index (adjust dimension as needed)
 initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
+
+
+######## ########
+
+
 
 def generate_embedding(text):
     """
@@ -141,8 +129,6 @@ def generate_embedding_withou_openAI(text):
     return embedding
 
 # Ejemplo de uso
-texto = "Este es un ejemplo de texto."
-embedding = generate_embedding(texto)
 
 
 
