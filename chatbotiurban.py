@@ -327,7 +327,7 @@ def upload_file():
 
 
 
- @app.route('/process_urls', methods=['POST'])
+@app.route('/process_urls', methods=['POST'])
 def process_urls():
     data = request.json
     chatbot_id = data.get('chatbot_id')
