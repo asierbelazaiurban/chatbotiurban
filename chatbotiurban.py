@@ -1,3 +1,7 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 ##!/usr/bin/env python
 # coding: utf-8
 
@@ -47,6 +51,18 @@ def get_faiss_index():
     global faiss_index
     if faiss_index is None:
         raise ValueError("FAISS index has not been initialized.")
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return faiss_index
 
 def create_database(chatbot_id, dimension=128):
@@ -60,6 +76,18 @@ def create_database(chatbot_id, dimension=128):
     if not os.path.exists(file_path):
         initialize_faiss_index(128, chatbot_id)
 
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return file_path
 
 def create_bbdd(chatbot_id):
@@ -68,6 +96,18 @@ def create_bbdd(chatbot_id):
     index_file_path = create_database(chatbot_id)
     message = f"FAISS Index created or verified at: {index_file_path}"
     
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return jsonify({"message": message}), 200
 
 
@@ -144,6 +184,18 @@ def generate_embedding(text):
     else:
         raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
     
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return embedding
 
 
@@ -163,6 +215,18 @@ def generate_embedding_withou_openAI(text):
     else:
         raise ValueError("El texto proporcionado no contiene palabras reconocidas por el modelo.")
 
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return embedding
 
 
@@ -199,6 +263,18 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
 def allowed_file(filename, chatbot_id):
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
@@ -225,6 +301,18 @@ def dividir_en_segmentos(texto, max_tokens):
     if segmento_actual:
         segmentos.append(' '.join(segmento_actual))
 
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return segmentos
 
 
@@ -251,6 +339,18 @@ def dividir_en_segmentos(texto, max_tokens):
     if segmento_actual:
         segmentos.append(' '.join(segmento_actual))
 
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return segmentos
 
 #metodo param la subida de documentos
@@ -269,13 +369,37 @@ def upload_file():
             create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
 
         if 'documento' not in request.files:
-            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
         file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
 
         if file.filename == '':
-            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         # Crear la carpeta del chatbot si no existe
         chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
@@ -309,7 +433,19 @@ def upload_file():
                     embedding = obtener_embeddings(segmento)
                     vector_embeddings.append(embedding)
                 except Exception as e:
-                    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
+                    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
 
             for segmento in segmentos:
                 embeddings = generate_embedding_withou_openAI(segmento)
@@ -322,25 +458,75 @@ def upload_file():
                     faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             indexado_en_faiss = False
-            return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
 
         # Si todo salió bien, devolver una respuesta positiva
-        return jsonify({
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({
             "respuesta": "Archivo procesado e indexado con éxito.",
             "indexado_en_faiss": indexado_en_faiss,
             "codigo_error": 0
         })
     except Exception as e:
-        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
+    logger.info('Iniciando process_urls')
+    start_time = time.time()
     data = request.json
     chatbot_id = data.get('chatbot_id')
     if not chatbot_id:
-        return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
 
     # Comprueba si existe el índice de FAISS para el chatbot_id
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
@@ -355,7 +541,19 @@ def process_urls():
         with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
             urls = file.readlines()
     except FileNotFoundError:
-        return jsonify({"status": "error", "index": "URLs file not found for the provided chatbot_id"}), 404
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "index": "URLs file not found for the provided chatbot_id"}), 404
 
     all_indexed = True
     error_message = ""
@@ -388,9 +586,33 @@ def process_urls():
         sleep(0.2)  # Pausa de 0.2 segundos entre cada petición
 
     if all_indexed:
-        return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
     else:
-        return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
 
 
 
@@ -403,7 +625,19 @@ def fine_tuning():
 
     # Validación de los datos recibidos
     if not training_text or not isinstance(chat_id, int):
-        return jsonify({"status": "error", "message": "Invalid input"}), 400
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": "Invalid input"}), 400
 
     # Aquí puedes hacer algo con training_text y chat_id si es necesario
 
@@ -426,13 +660,39 @@ def fine_tuning():
 
     # Manejar la respuesta
     if response.status_code == 200:
-        return jsonify({"status": "fine-tuning started", "response": response.json()})
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "fine-tuning started", "response": response.json()})
     else:
-        return jsonify({"status": "error", "message": response.text}), response.status_code
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": response.text}), response.status_code
 
 
 @app.route('/save_urls', methods=['POST'])
 def save_urls():
+    logger.info('Iniciando save_urls')
+    start_time = time.time()
     data = request.json
     urls = data.get('urls', [])  # Asumimos que 'urls' es una lista de URLs
     chatbot_id = data.get('chatbot_id')
@@ -443,7 +703,19 @@ def save_urls():
         create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
 
     if not urls or not chatbot_id:
-        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     # Crear o verificar la carpeta específica del chatbot_id
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -461,6 +733,18 @@ def save_urls():
         for url in urls:
             file.write(url + '\n')
 
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
 
@@ -472,13 +756,39 @@ def safe_request(url, max_retries=3):
         try:
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
-                return response
+                
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return response
         except RequestException as e:
             print(f"Attempt {attempt + 1} failed for {url}: {e}")
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return None
 
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
+    logger.info('Iniciando url_for_scraping')
+    start_time = time.time()
     try:
         # Obtener URL y chatbot_id del request
         data = request.get_json()
@@ -486,7 +796,19 @@ def url_for_scraping():
         chatbot_id = data.get('chatbot_id')
 
         if not base_url:
-            return jsonify({'error': 'No URL provided'}), 400
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': 'No URL provided'}), 400
 
         # Crear o verificar la carpeta específica del chatbot_id
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -501,7 +823,19 @@ def url_for_scraping():
 
         # Función para determinar si la URL pertenece al mismo dominio
         def same_domain(url):
-            return urlparse(url).netloc == urlparse(base_url).netloc
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return urlparse(url).netloc == urlparse(base_url).netloc
 
         # Hacer scraping y recoger URLs únicas
         urls = set()
@@ -513,7 +847,19 @@ def url_for_scraping():
                 if same_domain(url):
                     urls.add(url)
         else:
-            return jsonify({'error': 'Failed to fetch base URL'}), 500
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': 'Failed to fetch base URL'}), 500
 
         # Contar palabras en cada URL y preparar los datos para el JSON de salida
         urls_data = []
@@ -533,9 +879,33 @@ def url_for_scraping():
                 text_file.write(url_data['url'] + '\n')
 
         # Devolver al front las URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data)
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify(urls_data)
     except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
 
@@ -549,7 +919,19 @@ def url_for_scraping_only_a_few():
         max_urls = data.get('max_urls')  # No hay valor por defecto
 
         if not base_url or not max_urls:
-            return jsonify({'error': 'No URL or max_urls provided'}), 400
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': 'No URL or max_urls provided'}), 400
 
         # Crear o verificar la carpeta específica del chatbot_id
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -564,7 +946,19 @@ def url_for_scraping_only_a_few():
 
         # Función para determinar si la URL pertenece al mismo dominio
         def same_domain(url):
-            return urlparse(url).netloc == urlparse(base_url).netloc
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return urlparse(url).netloc == urlparse(base_url).netloc
 
         # Hacer scraping y recoger hasta max_urls URLs únicas
         urls = set()
@@ -578,7 +972,19 @@ def url_for_scraping_only_a_few():
                 if same_domain(url) and url not in urls:
                     urls.add(url)
         else:
-            return jsonify({'error': 'Failed to fetch base URL'}), 500
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': 'Failed to fetch base URL'}), 500
 
         # Contar palabras en las URLs y preparar los datos para el JSON de salida
         urls_data = []
@@ -598,9 +1004,33 @@ def url_for_scraping_only_a_few():
                 text_file.write(url_data['url'] + '\n')
 
         # Devolver las URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data)
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify(urls_data)
     except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
 #Recibimos las urls no validas de front, de cicerone
@@ -613,7 +1043,19 @@ def delete_urls():
 
     # Verifica si faltan datos necesarios
     if not urls_to_delete or not chatbot_id:
-        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     # Construir la ruta del archivo basado en chatbot_id
     chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
@@ -622,7 +1064,19 @@ def delete_urls():
     print("Ruta del directorio del chatbot:", chatbot_folder)
 
     if not os.path.exists(chatbot_folder):
-        return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
     file_name = f"{chatbot_id}.txt"
     file_path = os.path.join(chatbot_folder, file_name)
@@ -631,7 +1085,19 @@ def delete_urls():
     print("Ruta del archivo de URLs:", file_path)
 
     if not os.path.exists(file_path):
-        return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
 
     try:
         # Leer y actualizar el archivo
@@ -648,9 +1114,33 @@ def delete_urls():
                 if url.strip():  # Asegura que la URL no sea una línea vacía
                     file.write(url + '\n')
 
-        return jsonify({"status": "success", "message": "URLs deleted successfully"})
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # Supongamos que ya tenemos un índice FAISS y funciones para generar embeddings y procesar resultados
@@ -660,12 +1150,36 @@ def ask():
         data = request.json
         chatbot_id = data.get('chatbot_id')
         if not chatbot_id:
-            return jsonify({"error": "No chatbot_id provided"}), 400
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"error": "No chatbot_id provided"}), 400
 
         # Ruta al índice de FAISS para el chatbot_id
         faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
         if not os.path.exists(faiss_index_path):
-            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
+            
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
         # Cargar el índice de FAISS
         index = faiss.read_index(faiss_index_path)
@@ -699,10 +1213,34 @@ def ask():
         response_text = response.choices[0].text.strip()
 
         # Devolver la respuesta
-        return jsonify({"response": response_text})
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"response": response_text})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"error": str(e)}), 500
 
 
 
@@ -711,6 +1249,18 @@ def obtener_embeddings(texto):
     response = openai.Embedding.create(input=texto, engine="text-embedding-ada-002")
     # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
     embedding = np.array(response['data'][0]['embedding'])
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return embedding
 
 
@@ -719,6 +1269,18 @@ def update_faiss_index(embeddings, chatbot_id):
     # Esta función debe actualizar el índice de FAISS con nuevos embeddings
     index = faiss.IndexFlatL2(512)  # Suponiendo que usas un índice FlatL2
     index.add(np.array(embeddings).astype(np.float32))
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return index
 
 
@@ -729,11 +1291,35 @@ def filter_urls():
     chatbot = data.get('chatbot')
 
     if not chatbot:
-        return jsonify({"status": "error", "message": "No chatbot provided"}), 400
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": "No chatbot provided"}), 400
 
     file_path = os.path.join('data/uploads/chatbot', 'urls.txt')
     if not os.path.exists(file_path):
-        return jsonify({"status": "error", "message": "File not found"}), 404
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": "File not found"}), 404
 
     try:
         with open(file_path, 'r') as file:
@@ -745,13 +1331,37 @@ def filter_urls():
             for url in urls_to_keep:
                 file.write(url + '\n')  # Corregido aquí
 
-        return jsonify({
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({
             "status": "success",
             "message": "URLs have been filtered",
             "kept_urls": list(urls_to_keep)
         })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({"status": "error", "message": str(e)}), 500
 
 
 
@@ -761,7 +1371,19 @@ def ask_prueba():
 
     # Comprobaciones de seguridad para asegurarse de que todos los campos están presentes
     if not data or 'pregunta' not in data or 'chatbot_id' not in data or 'token' not in data:
-        return jsonify({'error': 'Faltan campos requeridos'}), 400
+        
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+    return jsonify({'error': 'Faltan campos requeridos'}), 400
 
     # Extraer los datos de la solicitud
     pregunta = data['pregunta']
@@ -812,6 +1434,18 @@ def ask_prueba():
     ]
 
     respuesta = random.choice(respuestas)  # Seleccionar una respuesta aleatoria
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return jsonify({'pregunta': pregunta, 'respuesta': respuesta})
 
 
@@ -819,6 +1453,18 @@ def ask_prueba():
 def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
+    
+    end_time = time.time()
+    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
+    
+    end_time = time.time()
+    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
     return jsonify(folders)
 
 
