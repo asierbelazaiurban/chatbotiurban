@@ -362,44 +362,24 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
+    start_time = time.time()  # Iniciar el cronómetro
+
     try:
-        # Comprueba si existe el índice de FAISS para el chatbot_id
+        chatbot_id = request.form.get('chatbot_id')
         faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
         if not os.path.exists(faiss_index_path):
-            create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+            create_bbdd(chatbot_id)  # Suponiendo que esta función inicializa el índice FAISS
 
         if 'documento' not in request.files:
-            
-    pass  # Reemplaza esto con la lógica adecuada
-    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
-    return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
-        
-        file = request.files['documento']
-        chatbot_id = request.form.get('chatbot_id')
+            end_time = time.time()
+            logger.info(f'Finalizado upload_file en {end_time - start_time} segundos para chatbot_id {chatbot_id}')
+            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
+        file = request.files['documento']
         if file.filename == '':
-            
-    end_time = time.time()
-    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
-    return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+            end_time = time.time()
+            logger.info(f'Finalizado upload_file en {end_time - start_time} segundos para chatbot_id {chatbot_id}')
+            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         # Crear la carpeta del chatbot si no existe
         chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
@@ -433,78 +413,32 @@ def upload_file():
                     embedding = obtener_embeddings(segmento)
                     vector_embeddings.append(embedding)
                 except Exception as e:
-                    
-    end_time = time.time()
-    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
-    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
+                    end_time = time.time()
+                    logger.info(f'Finalizado upload_file en {end_time - start_time} segundos para chatbot_id {chatbot_id}')
+                    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
 
-            for segmento in segmentos:
-                embeddings = generate_embedding_withou_openAI(segmento)
-                shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
-                index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
+            # Aquí puede ir más lógica relacionada con el procesamiento de los embeddings
+            # ...
 
-                if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
-                    if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-                        raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
-                    faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             indexado_en_faiss = False
-            
-    end_time = time.time()
-    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
-    return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
+            end_time = time.time()
+            logger.info(f'Finalizado upload_file en {end_time - start_time} segundos para chatbot_id {chatbot_id}')
+            return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
 
         # Si todo salió bien, devolver una respuesta positiva
-        
-    end_time = time.time()
-    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
-    return jsonify({
+        end_time = time.time()
+        logger.info(f'Finalizado upload_file en {end_time - start_time} segundos para chatbot_id {chatbot_id}')
+        return jsonify({
             "respuesta": "Archivo procesado e indexado con éxito.",
             "indexado_en_faiss": indexado_en_faiss,
             "codigo_error": 0
         })
-    except Exception as e:
-        
-    end_time = time.time()
-    logger.info('Finalizado process_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado save_urls en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado safe_request en {end_time - start_time} segundos')
-    
-    end_time = time.time()
-    logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
-    return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
+    except Exception as e:
+        end_time = time.time()
+        logger.info(f'Finalizado upload_file en {end_time - start_time} segundos para chatbot_id {chatbot_id}')
+        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
 @app.route('/process_urls', methods=['POST'])
@@ -612,6 +546,8 @@ def process_urls():
     
     end_time = time.time()
     logger.info('Finalizado url_for_scraping en {end_time - start_time} segundos')
+
+    
     return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
 
 
