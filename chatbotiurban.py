@@ -306,12 +306,15 @@ def upload_file():
                 except Exception as e:
                     return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
 
-            # Agregar todos los embeddings al índice de FAISS
-            global faiss_index
-            for embedding in vector_embeddings:
-                faiss_index.add(np.array([embedding], dtype=np.float32))
+            for segmento in segmentos:
+                embeddings = generate_embedding_withou_openAI(segmento)
+                shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
+                index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
 
-            indexado_en_faiss = True
+                if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
+                    if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+                        raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
+                    faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             indexado_en_faiss = False
             return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
