@@ -678,7 +678,7 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
-        if len(choices) > index:
+    if len(choices) > index:
     
         response_text = response.choices[0].text.strip()
 
