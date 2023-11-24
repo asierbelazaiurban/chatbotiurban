@@ -780,6 +780,13 @@ def ask_prueba():
     return jsonify({'pregunta': pregunta, 'respuesta': respuesta})
 
 
+@app.route('/list_chatbot_ids', methods=['GET'])
+def list_folders():
+    directory = 'data/uploads/scraping/'
+    folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
+    return jsonify(folders)
+
+
 
 def add_document_to_faiss(text, url):
     # Supongamos que 'faiss_index' es tu índice FAISS y 'doc_id_to_faiss_index' es un diccionario que mapea URLs a índices FAISS
