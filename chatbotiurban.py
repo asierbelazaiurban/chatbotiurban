@@ -678,6 +678,9 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
+    except Exception as e:
+        # Handle the exception
+        pass
     if len(choices) > index:
     
         response_text = response.choices[0].text.strip()
@@ -802,8 +805,6 @@ def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
-
-
 
 
 if __name__ == "__main__":
