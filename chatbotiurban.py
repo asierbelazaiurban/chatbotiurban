@@ -370,7 +370,7 @@ def upload_file():
 
         if 'documento' not in request.files:
             
-    end_time = time.time()
+    pass  # Reemplaza esto con la lógica adecuada
     logger.info('Finalizado process_urls en {end_time - start_time} segundos')
     
     end_time = time.time()
