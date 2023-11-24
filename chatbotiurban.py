@@ -263,6 +263,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
+        # Comprueba si existe el índice de FAISS para el chatbot_id
+        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+        if not os.path.exists(faiss_index_path):
+        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+
         if 'documento' not in request.files:
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
