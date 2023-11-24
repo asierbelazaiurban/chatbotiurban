@@ -365,14 +365,22 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding_withou_openAI(segmento)
-# TODO: Define 'shape' and 'index' properly here
+shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
+index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
+    except Exception as e:
+        # Handle the exception
+        pass
     except Exception as e:
         # Handle the exception
         pass
 if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
     
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-# TODO: Define 'shape' and 'index' properly here
+shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
+index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
+    except Exception as e:
+        # Handle the exception
+        pass
 if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
     
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
