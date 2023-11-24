@@ -701,9 +701,6 @@ def filter_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-from flask import Flask, request, jsonify
-import random
-
 
 @app.route('/ask_prueba', methods=['POST'])
 def ask_prueba():
@@ -712,6 +709,11 @@ def ask_prueba():
     # Comprobaciones de seguridad para asegurarse de que todos los campos están presentes
     if not data or 'pregunta' not in data or 'chatbot_id' not in data or 'token' not in data:
         return jsonify({'error': 'Faltan campos requeridos'}), 400
+
+    # Extraer los datos de la solicitud
+    pregunta = data['pregunta']
+    chatbot_id = data['chatbot_id']
+    token = data['token']
 
     # Respuestas predefinidas sobre el turismo en Málaga
     respuestas = [
