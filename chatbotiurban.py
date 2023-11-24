@@ -1,4 +1,5 @@
 ##!/usr/bin/env python
+##!/usr/bin/env python
 # coding: utf-8
 
 
@@ -365,10 +366,12 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding_withou_openAI(segmento)
-if len(shape) > index:
+# TODO: Define 'shape' and 'index' properly here
+if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
     
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-if len(shape) > index:
+# TODO: Define 'shape' and 'index' properly here
+if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
     
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 faiss_index.add(np.array([embeddings], dtype=np.float32))
