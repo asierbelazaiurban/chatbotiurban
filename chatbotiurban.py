@@ -17,6 +17,11 @@ import time
 from urllib.parse import urlparse, urljoin
 import random
 from time import sleep
+
+import gensim.downloader as api
+from gensim.models import Word2Vec
+
+
 app = Flask(__name__)
 
 
@@ -116,6 +121,28 @@ def generate_embedding(text):
     return embedding
 
 
+
+def generate_embedding_withou_openAI(text):
+    """
+    Genera un embedding para un texto dado utilizando un modelo Word2Vec de Gensim.
+    """
+    # Cargar un modelo Word2Vec preentrenado. Puedes elegir otro modelo si lo prefieres.
+    model = api.load("word2vec-google-news-300")  # Este es un modelo grande y puede tardar en descargarse.
+
+    # Preprocesar el texto: dividir en palabras y eliminar palabras que no están en el modelo.
+    words = [word for word in text.split() if word in model.key_to_index]
+
+    # Generar embeddings para cada palabra y promediarlos.
+    if len(words) >= 1:
+        embedding = np.mean(model[words], axis=0)
+    else:
+        raise ValueError("El texto proporcionado no contiene palabras reconocidas por el modelo.")
+
+    return embedding
+
+# Ejemplo de uso
+texto = "Este es un ejemplo de texto."
+embedding = generate_embedding(texto)
 
 
 
@@ -309,7 +336,7 @@ def process_urls():
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
-                embeddings = generate_embedding(segmento)
+                embeddings = generate_embedding_withou_openAI(segmento)
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 faiss_index.add(np.array([embeddings], dtype=np.float32))
