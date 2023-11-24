@@ -387,6 +387,11 @@ def save_urls():
     urls = data.get('urls', [])  # Asumimos que 'urls' es una lista de URLs
     chatbot_id = data.get('chatbot_id')
 
+    # Comprueba si existe el índice de FAISS para el chatbot_id
+    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+    if not os.path.exists(faiss_index_path):
+        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+
     if not urls or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
