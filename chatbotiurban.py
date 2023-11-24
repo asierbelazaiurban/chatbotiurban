@@ -327,7 +327,7 @@ def upload_file():
 
 
 
-@app.route('/process_urls', methods=['POST'])
+ @app.route('/process_urls', methods=['POST'])
 def process_urls():
     data = request.json
     chatbot_id = data.get('chatbot_id')
@@ -364,27 +364,14 @@ def process_urls():
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
-                embeddings = generate_embedding_withou_openAI(segmento)
-shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
-index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
-    except Exception as e:
-        # Handle the exception
-        pass
-    except Exception as e:
-        # Handle the exception
-        pass
-if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
-    
-                if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
-index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
-    except Exception as e:
-        # Handle the exception
-        pass
-if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
-    
-                    raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
-                faiss_index.add(np.array([embeddings], dtype=np.float32))
+                embeddings = generate_embedding_without_openAI(segmento)
+                shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
+                index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
+
+                if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
+                    if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+                        raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
+                    faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             all_indexed = False
             error_message = str(e)
@@ -397,8 +384,6 @@ if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
     else:
         return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
 
-
-# Asegúrate de tener la función create_bbdd definida en algún lugar de tu código.
 
 
 @app.route('/fine-tuning', methods=['POST'])
@@ -693,7 +678,7 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
-if len(choices) > index:
+        if len(choices) > index:
     
         response_text = response.choices[0].text.strip()
 
