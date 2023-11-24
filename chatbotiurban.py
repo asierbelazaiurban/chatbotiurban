@@ -16,7 +16,7 @@ import json
 import time
 from urllib.parse import urlparse, urljoin
 import random
-
+from time import sleep
 app = Flask(__name__)
 
 
@@ -275,7 +275,7 @@ def upload_file():
 
 
 
-from time import sleep
+
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
