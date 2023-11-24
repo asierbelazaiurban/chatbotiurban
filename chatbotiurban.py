@@ -364,7 +364,7 @@ def process_urls():
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
-                embeddings = generate_embedding_without_openAI(segmento)
+                embeddings = generate_embedding_withou_openAI(segmento)
                 shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
                 index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
 
