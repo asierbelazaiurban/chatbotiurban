@@ -216,6 +216,8 @@ def dividir_en_segmentos(texto, max_tokens):
 
 #metodo param la subida de documentos
 
+MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
+
 UPLOAD_FOLDER = 'uploads'  # Asegúrate de definir esta variable correctamente
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -254,7 +256,6 @@ def upload_file():
             contenido = raw_data.decode(encoding, errors='replace')
 
             # Dividir el contenido en segmentos si supera el límite de tokens
-            MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
             segmentos = dividir_en_segmentos(contenido, MAX_TOKENS_PER_SEGMENT)
 
             # Procesar cada segmento y almacenar los embeddings
