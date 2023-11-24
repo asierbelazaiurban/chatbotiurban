@@ -58,7 +58,7 @@ def create_database(chatbot_id, dimension=128):
         os.makedirs(directory)
 
     if not os.path.exists(file_path):
-        initialize_faiss_index(128)
+        initialize_faiss_index(128, chatbot_id)
 
     return file_path
 
