@@ -1,5 +1,4 @@
 ##!/usr/bin/env python
-##!/usr/bin/env python
 # coding: utf-8
 
 
@@ -367,6 +366,9 @@ def process_urls():
             for segmento in segmentos:
                 embeddings = generate_embedding_withou_openAI(segmento)
 # TODO: Define 'shape' and 'index' properly here
+    except Exception as e:
+        # Handle the exception
+        pass
 if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
     
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
