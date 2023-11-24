@@ -275,6 +275,8 @@ def upload_file():
 
 
 
+from time import sleep
+
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     data = request.json
@@ -295,8 +297,7 @@ def process_urls():
     all_indexed = True
     error_message = ""
 
-    # Asumimos que el índice de FAISS ya está inicializado correctamente
-    FAISS_INDEX_DIMENSION = 128  # Ajusta esta dimensión según tus embeddings
+    FAISS_INDEX_DIMENSION = 128
 
     for url in urls:
         url = url.strip()
@@ -317,10 +318,13 @@ def process_urls():
             error_message = str(e)
             break
 
+        sleep(0.2)  # Pausa de 0.2 segundos entre cada petición
+
     if all_indexed:
         return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
     else:
         return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
+
 
 
 @app.route('/fine-tuning', methods=['POST'])
