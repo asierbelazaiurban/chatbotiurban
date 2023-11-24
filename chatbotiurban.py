@@ -760,7 +760,7 @@ def ask_prueba():
     ]
 
     respuesta = random.choice(respuestas)  # Seleccionar una respuesta aleatoria
-    return jsonify({'pregunta': pregunta, 'respuesta': respuesta, 'chatbot_id': chatbot_id, 'token': token})
+    return jsonify({'pregunta': pregunta, 'respuesta': respuesta})
 
 
 
