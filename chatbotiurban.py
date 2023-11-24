@@ -30,10 +30,18 @@ app = Flask(__name__)
 # Global variable to store the FAISS index
 faiss_index = None
 
-def initialize_faiss_index(dimension=128):
-    global faiss_index
+def initialize_faiss_index(dimension, chatbot_id):
+    # Crea un nuevo índice de FAISS con la dimensión especificada
     faiss_index = faiss.IndexFlatL2(dimension)
-    faiss.write_index(faiss_index, 'data/faiss_index/{chatbot_id}/faiss.idx')
+
+    # Reemplaza {chatbot_id} con el valor real del chatbot_id
+    faiss_index_path = f'data/faiss_index/{chatbot_id}/faiss.idx'
+
+    # Crea la carpeta si no existe
+    os.makedirs(os.path.dirname(faiss_index_path), exist_ok=True)
+
+    # Escribe el índice de FAISS
+    faiss.write_index(faiss_index, faiss_index_path)
 
 def get_faiss_index():
     global faiss_index
@@ -50,7 +58,7 @@ def create_database(chatbot_id, dimension=128):
         os.makedirs(directory)
 
     if not os.path.exists(file_path):
-        initialize_faiss_index(dimension)
+        initialize_faiss_index(128)
 
     return file_path
 
@@ -61,9 +69,6 @@ def create_bbdd(chatbot_id):
     message = f"FAISS Index created or verified at: {index_file_path}"
     
     return jsonify({"message": message}), 200
-
-# Example of how to initialize the index (adjust dimension as needed)
-initialize_faiss_index(128)  # Assuming your embeddings are 128-dimensional
 
 
 ######## ########
@@ -282,7 +287,6 @@ def upload_file():
 
 
 
-
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     data = request.json
@@ -293,7 +297,7 @@ def process_urls():
     # Comprueba si existe el índice de FAISS para el chatbot_id
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
     if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)  # Llama a la función para crear una nueva BBDD si no existe
+        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
 
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
@@ -335,6 +339,7 @@ def process_urls():
         return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
     else:
         return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
+
 
 # Asegúrate de tener la función create_bbdd definida en algún lugar de tu código.
 
