@@ -31,6 +31,9 @@ nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 
 
+app = Flask(__name__)
+
+
 # Configuración del registro de logs
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -61,7 +64,6 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 
 
-app = Flask(__name__)
 
 
 ######## Creación de bbddd FAISS para cada cliente ########
