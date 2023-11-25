@@ -386,7 +386,7 @@ def process_urls():
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
-                embeddings = generate_embedding_withou_openAI(segmento)
+                embeddings = generate_embedding(segmento)
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 # Aquí deberías añadir tus embeddings al índice FAISS
