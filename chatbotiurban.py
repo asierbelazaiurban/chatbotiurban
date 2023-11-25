@@ -376,7 +376,7 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding(segmento)
-                if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+                if embeddings.ndim != 2 or embeddings.shape[1] != FAISS_INDEX_DIMENSION:
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 # Aquí deberías añadir tus embeddings al índice FAISS
                 # Por ejemplo: faiss_index.add(np.array([embeddings], dtype=np.float32))
@@ -720,7 +720,10 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
-        response_text = response.choices[0].text.strip()
+        if response.choices:
+    response_text = response.choices[0].text.strip()
+else:
+    response_text = "No choices available"
 
         # Devolver la respuesta
         return jsonify({"response": response_text})
