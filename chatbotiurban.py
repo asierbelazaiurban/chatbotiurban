@@ -126,19 +126,6 @@ def create_bbdd(chatbot_id):
 
 ######## Embedding, tokenizacion y add to FAISS ########
 
-
-# Verificar la versión de FAISS
-print('Versión de FAISS:', faiss.__version__)
-
-# Listar los atributos y métodos de FAISS
-print('Atributos y métodos en FAISS:', dir(faiss))
-
-# Si necesitas reinstalar FAISS, descomenta las siguientes líneas:
-# !pip uninstall -y faiss faiss-gpu faiss-cpu
-# !pip install faiss-cpu  # Para CPU
-# !pip install faiss-gpu  # Para GPU
-
-
 # Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
 doc_id_to_faiss_index = {}
 
@@ -348,7 +335,7 @@ def dividir_en_segmentos(texto, max_tokens):
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
-    start_time = time.time()  # Inicio del registro de tiempo
+    #start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando process_urls')
 
     data = request.json
