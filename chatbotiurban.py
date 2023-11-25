@@ -29,7 +29,6 @@ from gensim.models import Word2Vec
 import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
-from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
@@ -126,6 +125,8 @@ def create_bbdd(chatbot_id):
 
 
 ######## Embedding, tokenizacion y add to FAISS ########
+
+
 
 # Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
 doc_id_to_faiss_index = {}
@@ -339,16 +340,10 @@ def process_urls():
     start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando process_urls')
 
-    # Obteniendo 'chatbot_id' de los datos del formulario
-    chatbot_id = request.form.get('chatbot_id')
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
-
-    # Opción para manejar la carga de archivos (si es necesario)
-    file = request.files.get('documento')
-    if file:
-        filename = secure_filename(file.filename)
-        file.save(os.path.join('tu_directorio_de_guardado', filename))
 
     # Comprueba si existe el índice de FAISS para el chatbot_id
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
@@ -374,9 +369,6 @@ def process_urls():
         url = url.strip()
         try:
             response = requests.get(url)
-            if response.status_code != 200:
-                raise Exception(f"Failed to retrieve URL {url}: Status code {response.status_code}")
-
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text()
 
@@ -403,6 +395,7 @@ def process_urls():
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
 
 
+
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     start_time = time.time()  # Inicio del registro de tiempo
@@ -421,7 +414,7 @@ def upload_file():
         # Comprueba si existe el índice de FAISS para el chatbot_id
         faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
         if not os.path.exists(faiss_index_path):
-            create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+            create_bbdd(chatbot_id)  # Asegúrate de que esta función exista
 
         # Crear la carpeta del chatbot si no existe
         chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
@@ -469,6 +462,7 @@ def upload_file():
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
     app.logger.info(f'Tiempo total en upload_file: {time.time() - start_time:.2f} segundos')
+
 
 
 @app.route('/save_urls', methods=['POST'])
