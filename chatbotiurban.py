@@ -29,6 +29,7 @@ from gensim.models import Word2Vec
 import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
+from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
@@ -335,13 +336,19 @@ def dividir_en_segmentos(texto, max_tokens):
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
-    #start_time = time.time()  # Inicio del registro de tiempo
+    start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando process_urls')
 
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
+    # Obteniendo 'chatbot_id' de los datos del formulario
+    chatbot_id = request.form.get('chatbot_id')
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
+
+    # Opción para manejar la carga de archivos (si es necesario)
+    file = request.files.get('documento')
+    if file:
+        filename = secure_filename(file.filename)
+        file.save(os.path.join('tu_directorio_de_guardado', filename))
 
     # Comprueba si existe el índice de FAISS para el chatbot_id
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
@@ -367,6 +374,9 @@ def process_urls():
         url = url.strip()
         try:
             response = requests.get(url)
+            if response.status_code != 200:
+                raise Exception(f"Failed to retrieve URL {url}: Status code {response.status_code}")
+
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text()
 
@@ -391,7 +401,6 @@ def process_urls():
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
-
 
 
 @app.route('/uploads', methods=['POST'])
