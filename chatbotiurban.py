@@ -20,6 +20,9 @@ from time import sleep
 
 import gensim.downloader as api
 from gensim.models import Word2Vec
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import word_tokenize
 
 
 app = Flask(__name__)
@@ -186,6 +189,20 @@ def generate_embedding_withou_openAI(text):
 
 ######## ########
 
+######## Hiperparámetros y funciones generales ########
+
+def safe_request(url, max_retries=3):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                return response
+        except RequestException as e:
+            print(f"Attempt {attempt + 1} failed for {url}: {e}")
+    return None
+
 
 
 # Importar las bibliotecas necesarias
@@ -205,14 +222,15 @@ distances, neighbors = index.search(query.reshape(1, -1), k)
 print("Índices de los vecinos más cercanos:", neighbors)
 print("Distancias de los vecinos más cercanos:", distances)
 
+#metodo param la subida de documentos
+
+MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 
 
 # Configuraciones
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-# Esta ruta maneja la subida de archivos y almacena los embeddings en Milvus
-
 
 
 def allowed_file(filename, chatbot_id):
@@ -220,9 +238,21 @@ def allowed_file(filename, chatbot_id):
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
-import nltk
-nltk.download('punkt')
-from nltk.tokenize import word_tokenize
+def obtener_embeddings(texto):
+    # Llamada a la API de OpenAI para obtener embeddings
+    response = openai.Embedding.create(input=texto, engine="text-embedding-ada-002")
+    # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
+    embedding = np.array(response['data'][0]['embedding'])
+    return embedding
+
+
+
+def update_faiss_index(embeddings, chatbot_id):
+    # Esta función debe actualizar el índice de FAISS con nuevos embeddings
+    index = faiss.IndexFlatL2(512)  # Suponiendo que usas un índice FlatL2
+    index.add(np.array(embeddings).astype(np.float32))
+    return index
+
 
 def dividir_en_segmentos(texto, max_tokens):
     # Tokenizar el texto usando NLTK
@@ -273,12 +303,71 @@ def dividir_en_segmentos(texto, max_tokens):
     return segmentos
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
-#metodo param la subida de documentos
+######## ########
 
-MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 
-UPLOAD_FOLDER = 'uploads'  # Asegúrate de definir esta variable correctamente
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+########  Inicio de endpints hasta el final########
+
+@app.route('/process_urls', methods=['POST'])
+def process_urls():
+    start_time = time.time()  # Inicio del registro de tiempo
+    app.logger.info('Iniciando process_urls')
+
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    if not chatbot_id:
+        return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
+
+    # Comprueba si existe el índice de FAISS para el chatbot_id
+    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+    if not os.path.exists(faiss_index_path):
+        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+    if not os.path.exists(chatbot_folder):
+        os.makedirs(chatbot_folder)
+
+    try:
+        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
+            urls = file.readlines()
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
+
+    all_indexed = True
+    error_message = ""
+
+    FAISS_INDEX_DIMENSION = 128
+
+    for url in urls:
+        url = url.strip()
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            text = soup.get_text()
+
+            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
+
+            for segmento in segmentos:
+                embeddings = generate_embedding_withou_openAI(segmento)
+                if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+                    raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
+                # Aquí deberías añadir tus embeddings al índice FAISS
+                # Por ejemplo: faiss_index.add(np.array([embeddings], dtype=np.float32))
+        except Exception as e:
+            all_indexed = False
+            error_message = str(e)
+            break
+
+        sleep(0.2)  # Pausa de 0.2 segundos entre cada petición
+
+    if all_indexed:
+        return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
+    else:
+        return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
+
+    app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+
+
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
@@ -286,11 +375,6 @@ def upload_file():
     app.logger.info('Iniciando upload_file')
 
     try:
-        # Comprueba si existe el índice de FAISS para el chatbot_id
-        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-        if not os.path.exists(faiss_index_path):
-            create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
-
         if 'documento' not in request.files:
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
@@ -299,7 +383,11 @@ def upload_file():
 
         if file.filename == '':
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
+
+        # Comprueba si existe el índice de FAISS para el chatbot_id
+        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+        if not os.path.exists(faiss_index_path):
+            create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
 
         # Crear la carpeta del chatbot si no existe
         chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
@@ -334,136 +422,19 @@ def upload_file():
                     vector_embeddings.append(embedding)
                 except Exception as e:
                     return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-            for segmento in segmentos:
-                embeddings = generate_embedding_withou_openAI(segmento)
-                shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
-                index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
-
-                if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
-                    if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-                        raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
-                    faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
-            indexado_en_faiss = False
             return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Si todo salió bien, devolver una respuesta positiva
         return jsonify({
             "respuesta": "Archivo procesado e indexado con éxito.",
-            "indexado_en_faiss": indexado_en_faiss,
+            "indexado_en_faiss": True,
             "codigo_error": 0
         })
     except Exception as e:
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
-
-
-@app.route('/process_urls', methods=['POST'])
-def process_urls():
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando process_urls')
-
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        return jsonify({"status": "error", "index": "No chatbot_id provided"}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-    # Comprueba si existe el índice de FAISS para el chatbot_id
-    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-    if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
-
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    if not os.path.exists(chatbot_folder):
-        os.makedirs(chatbot_folder)
-
-    try:
-        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
-            urls = file.readlines()
-    except FileNotFoundError:
-        return jsonify({"status": "error", "index": "URLs file not found for the provided chatbot_id"}), 404
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-    all_indexed = True
-    error_message = ""
-
-    FAISS_INDEX_DIMENSION = 128
-
-    for url in urls:
-        url = url.strip()
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text()
-
-            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
-
-            for segmento in segmentos:
-                embeddings = generate_embedding_withou_openAI(segmento)
-                shape = embeddings.shape  # Assuming 'shape' is the shape of 'embeddings'
-                index = 1  # Assuming 'index' is a placeholder value, needs to be set appropriately
-
-                if isinstance(shape, (list, tuple)) and len(shape) > index and index >= 0:
-                    if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-                        raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
-                    faiss_index.add(np.array([embeddings], dtype=np.float32))
-        except Exception as e:
-            all_indexed = False
-            error_message = str(e)
-            break
-
-        sleep(0.2)  # Pausa de 0.2 segundos entre cada petición
-
-    if all_indexed:
-        return jsonify({"status": "success", "index": "Todo indexado en FAISS correctamente"})
-    else:
-        return jsonify({"status": "error", "index": f"Error al indexar: {error_message}"})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-
-@app.route('/fine-tuning', methods=['POST'])
-def fine_tuning():
-    # Obtener los datos del cuerpo de la solicitud
-    data = request.json
-    training_text = data.get('training_text')
-    chat_id = data.get('chat_id')
-
-    # Validación de los datos recibidos
-    if not training_text or not isinstance(chat_id, int):
-        return jsonify({"status": "error", "message": "Invalid input"}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-    # Aquí puedes hacer algo con training_text y chat_id si es necesario
-
-    # Datos para el proceso de fine-tuning
-    training_data = {
-        # Suponiendo que estos son los datos que OpenAI necesita para el fine-tuning
-        "text": training_text,
-        "chat_id": chat_id
-    }
-
-    # Endpoint y headers para la API de OpenAI
-    
-    openai_endpoint = "https://api.openai.com/v1/chat/completions"
-    headers = {
-        "Authorization": "Bearer " + openai.api_key
-    }
-
-    # Realizar la solicitud POST a la API de OpenAI
-    response = requests.post(openai_endpoint, json=training_data, headers=headers)
-
-    # Manejar la respuesta
-    if response.status_code == 200:
-        return jsonify({"status": "fine-tuning started", "response": response.json()})
-    else:
-        return jsonify({"status": "error", "message": response.text}), response.status_code
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
+    app.logger.info(f'Tiempo total en upload_file: {time.time() - start_time:.2f} segundos')
 
 
 @app.route('/save_urls', methods=['POST'])
@@ -479,7 +450,6 @@ def save_urls():
 
     if not urls or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     # Crear o verificar la carpeta específica del chatbot_id
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -498,22 +468,10 @@ def save_urls():
             file.write(url + '\n')
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 
-def safe_request(url, max_retries=3):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                return response
-        except RequestException as e:
-            print(f"Attempt {attempt + 1} failed for {url}: {e}")
-    return None
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
+
 
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
@@ -525,7 +483,6 @@ def url_for_scraping():
 
         if not base_url:
             return jsonify({'error': 'No URL provided'}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Crear o verificar la carpeta específica del chatbot_id
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -541,7 +498,6 @@ def url_for_scraping():
         # Función para determinar si la URL pertenece al mismo dominio
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Hacer scraping y recoger URLs únicas
         urls = set()
@@ -554,7 +510,6 @@ def url_for_scraping():
                     urls.add(url)
         else:
             return jsonify({'error': 'Failed to fetch base URL'}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Contar palabras en cada URL y preparar los datos para el JSON de salida
         urls_data = []
@@ -577,7 +532,6 @@ def url_for_scraping():
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 
@@ -592,7 +546,6 @@ def url_for_scraping_only_a_few():
 
         if not base_url or not max_urls:
             return jsonify({'error': 'No URL or max_urls provided'}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Crear o verificar la carpeta específica del chatbot_id
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -608,7 +561,6 @@ def url_for_scraping_only_a_few():
         # Función para determinar si la URL pertenece al mismo dominio
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Hacer scraping y recoger hasta max_urls URLs únicas
         urls = set()
@@ -623,7 +575,6 @@ def url_for_scraping_only_a_few():
                     urls.add(url)
         else:
             return jsonify({'error': 'Failed to fetch base URL'}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Contar palabras en las URLs y preparar los datos para el JSON de salida
         urls_data = []
@@ -646,7 +597,6 @@ def url_for_scraping_only_a_few():
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 #Recibimos las urls no validas de front, de cicerone
@@ -660,7 +610,6 @@ def delete_urls():
     # Verifica si faltan datos necesarios
     if not urls_to_delete or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     # Construir la ruta del archivo basado en chatbot_id
     chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
@@ -670,7 +619,6 @@ def delete_urls():
 
     if not os.path.exists(chatbot_folder):
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     file_name = f"{chatbot_id}.txt"
     file_path = os.path.join(chatbot_folder, file_name)
@@ -680,7 +628,6 @@ def delete_urls():
 
     if not os.path.exists(file_path):
         return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     try:
         # Leer y actualizar el archivo
@@ -700,7 +647,6 @@ def delete_urls():
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 # Supongamos que ya tenemos un índice FAISS y funciones para generar embeddings y procesar resultados
@@ -711,13 +657,11 @@ def ask():
         chatbot_id = data.get('chatbot_id')
         if not chatbot_id:
             return jsonify({"error": "No chatbot_id provided"}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Ruta al índice de FAISS para el chatbot_id
         faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
         if not os.path.exists(faiss_index_path):
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
         # Cargar el índice de FAISS
         index = faiss.read_index(faiss_index_path)
@@ -752,30 +696,9 @@ def ask():
 
         # Devolver la respuesta
         return jsonify({"response": response_text})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-
-def obtener_embeddings(texto):
-    # Llamada a la API de OpenAI para obtener embeddings
-    response = openai.Embedding.create(input=texto, engine="text-embedding-ada-002")
-    # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
-    embedding = np.array(response['data'][0]['embedding'])
-    return embedding
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-
-def update_faiss_index(embeddings, chatbot_id):
-    # Esta función debe actualizar el índice de FAISS con nuevos embeddings
-    index = faiss.IndexFlatL2(512)  # Suponiendo que usas un índice FlatL2
-    index.add(np.array(embeddings).astype(np.float32))
-    return index
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 @app.route('/filter_urls', methods=['POST'])
@@ -786,12 +709,10 @@ def filter_urls():
 
     if not chatbot:
         return jsonify({"status": "error", "message": "No chatbot provided"}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     file_path = os.path.join('data/uploads/chatbot', 'urls.txt')
     if not os.path.exists(file_path):
         return jsonify({"status": "error", "message": "File not found"}), 404
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     try:
         with open(file_path, 'r') as file:
@@ -810,7 +731,6 @@ def filter_urls():
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 
@@ -821,7 +741,6 @@ def ask_prueba():
     # Comprobaciones de seguridad para asegurarse de que todos los campos están presentes
     if not data or 'pregunta' not in data or 'chatbot_id' not in data or 'token' not in data:
         return jsonify({'error': 'Faltan campos requeridos'}), 400
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
     # Extraer los datos de la solicitud
     pregunta = data['pregunta']
@@ -873,7 +792,6 @@ def ask_prueba():
 
     respuesta = random.choice(respuestas)  # Seleccionar una respuesta aleatoria
     return jsonify({'pregunta': pregunta, 'respuesta': respuesta})
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
@@ -881,7 +799,6 @@ def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
 if __name__ == "__main__":
