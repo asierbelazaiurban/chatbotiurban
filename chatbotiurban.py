@@ -721,9 +721,9 @@ def ask():
 
         # Extraer el texto de la respuesta
         if response.choices:
-    response_text = response.choices[0].text.strip()
-else:
-    response_text = "No choices available"
+            response_text = response.choices[0].text.strip()
+        else:
+            response_text = "No choices available"
 
         # Devolver la respuesta
         return jsonify({"response": response_text})
