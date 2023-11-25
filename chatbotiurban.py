@@ -155,44 +155,43 @@ def add_document_to_faiss(document, doc_id):
     doc_id_to_faiss_index[doc_id] = new_index  # Actualiza el mapeo
 
 
+def generate_embedding
 def generate_embedding(text):
     start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando generate_embedding')
 
-    """
-    Genera un embedding para un texto dado utilizando OpenAI.
-    """
     openai_api_key = os.environ.get('OPENAI_API_KEY')  # Establece la clave API de OpenAI aquí
 
     try:
         openai.api_key = openai_api_key
         response = openai.Embedding.create(
             input=[text],  # Ajuste para llamar a la función de embeddings de OpenAI
-            engine="text-embedding-ada-002",  # Especifica el motor a utilizar
+            engine='text-embedding-ada-002',  # Especifica el motor a utilizar
             max_tokens=1  
         )
     except Exception as e:
-        raise ValueError(f"No se pudo obtener el embedding: {e}")
+        raise ValueError(f'No se pudo obtener el embedding: {e}')
 
-    # Ajuste para extraer el embedding según la nueva estructura de respuesta de la API
-    
+    # Impresión para depuración: Estructura de la respuesta de la API
+    app.logger.debug(f'Respuesta de OpenAI: {response}')
+
     # Asegurarse de que la respuesta de la API contiene 'data' y tiene al menos un elemento
     if 'data' in response and len(response['data']) > 0:
         embedding = np.array(response['data'][0]['embedding'])
     else:
-        raise ValueError("Respuesta de la API de OpenAI no válida o sin datos de embedding.")
+        raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
 
-    
+    # Impresión para depuración: Forma y tipo del embedding
+    app.logger.debug(f'Forma del embedding: {embedding.shape}, Tipo: {embedding.dtype}')
+
     # Asegurar que el embedding es un numpy array de tipo float32
     if embedding is not None:
         embedding = embedding.astype(np.float32)
     else:
-        raise ValueError("No se pudo obtener el embedding del texto proporcionado.")
+        raise ValueError('No se pudo obtener el embedding del texto proporcionado.')
     
+    app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
     return embedding
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
 def generate_embedding_withou_openAI(text):
     """
     Genera un embedding para un texto dado utilizando un modelo Word2Vec de Gensim.
@@ -376,7 +375,7 @@ def process_urls():
 
             for segmento in segmentos:
                 embeddings = generate_embedding(segmento)
-                if embeddings.ndim != 2 or embeddings.shape[1] != FAISS_INDEX_DIMENSION:
+                if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 # Aquí deberías añadir tus embeddings al índice FAISS
                 # Por ejemplo: faiss_index.add(np.array([embeddings], dtype=np.float32))
@@ -720,10 +719,7 @@ def ask():
         )
 
         # Extraer el texto de la respuesta
-        if response.choices:
-            response_text = response.choices[0].text.strip()
-        else:
-            response_text = "No choices available"
+        response_text = response.choices[0].text.strip()
 
         # Devolver la respuesta
         return jsonify({"response": response_text})
