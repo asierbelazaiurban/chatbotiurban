@@ -639,7 +639,34 @@ def delete_urls():
 
 # Supongamos que ya tenemos un índice FAISS y funciones para generar embeddings y procesar resultados
 @app.route('/ask', methods=['POST'])
+
+@app.route('/ask', methods=['POST'])
 def ask():
+    # Obtener la consulta del usuario
+    user_query = request.json.get('query')
+
+    # Consultar el índice FAISS con la consulta del usuario
+    # Esto requerirá convertir la consulta del usuario en un vector usando el mismo método que se usó para las respuestas almacenadas
+    query_vector = convert_to_vector(user_query)  # Esta función necesita ser definida o referenciada desde otra parte del script
+    D, I = faiss_index.search(query_vector, k=1)  # Buscar la respuesta más cercana
+
+    # Comprobar si hay una coincidencia adecuada en FAISS
+    if D[0][0] < umbral_distancia:  # 'umbral_distancia' debe ser definido basado en la precisión deseada
+        # Devolver la respuesta coincidente
+        respuesta_faiss = obtener_respuesta_faiss(I[0][0])  # Esta función debe obtener la respuesta del índice FAISS
+        return jsonify({'respuesta': respuesta_faiss})
+
+    # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
+    openai.api_key = openai_api_key  # Asegurarse de que la clave API está configurada
+    response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": user_query}])
+
+    # Almacenar la nueva respuesta en FAISS
+    nueva_respuesta = response_openai['choices'][0]['message']['content']
+    almacenar_en_faiss(nueva_respuesta)  # Esta función necesita agregar la nueva respuesta al índice FAISS
+
+    # Devolver la nueva respuesta
+    return jsonify({'respuesta': nueva_respuesta})
+
     try:
         data = request.json
         chatbot_id = data.get('chatbot_id')
