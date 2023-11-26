@@ -98,6 +98,23 @@ def get_faiss_index(chatbot_id):
     return faiss_index
 
 
+def process_results(indices, info_database):
+    """
+    Procesa los índices obtenidos de una búsqueda en un índice FAISS y recupera la información correspondiente.
+
+    :param indices: Lista de índices recuperados de la búsqueda FAISS.
+    :param info_database: Base de datos o estructura donde se almacena la información relacionada con cada índice.
+    :return: Una lista de datos asociados con los índices dados.
+    """
+    results = []
+    for index in indices:
+        # Aquí asumimos que 'info_database' es una lista o un diccionario donde puedes recuperar la información
+        # usando el índice proporcionado. Esto dependerá de cómo estés almacenando los datos relacionados.
+        info = info_database.get(index, None)
+        if info:
+            results.append(info)
+
+    return results
 
 
 def create_database(chatbot_id):
