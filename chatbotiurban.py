@@ -148,9 +148,6 @@ def process_urls():
     else:
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
