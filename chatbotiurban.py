@@ -91,8 +91,8 @@ def get_faiss_index():
     return faiss_index
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
-def create_database(chatbot_id, dimension=1536):
-    start_time = time.time()  # Inicio del registro de tiempo
+def create_database(chatbot_id):
+    start_time = time.time()
     app.logger.info('Iniciando create_database')
 
     directory = os.path.join('data/faiss_index', chatbot_id)
@@ -103,10 +103,9 @@ def create_database(chatbot_id, dimension=1536):
         os.makedirs(directory)
 
     if not os.path.exists(file_path):
-        initialize_faiss_index(1536, chatbot_id)
+        initialize_faiss_index(1536, chatbot_id)  # Usa la dimensión 1536 directamente aquí
 
     return file_path
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 def create_bbdd(chatbot_id):
     data = request.json
