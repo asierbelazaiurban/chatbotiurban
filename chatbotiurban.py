@@ -129,11 +129,6 @@ def convert_to_vector(texto):
     vector = obtener_incrustacion(texto)
     return vector
 
-def convert_to_vector(texto):
-    # Utilizar la función 'obtener_incrustacion' para convertir texto en vector
-    vector = obtener_incrustacion(texto)
-    return vector
-
 
 def create_database(chatbot_id):
     start_time = time.time()
