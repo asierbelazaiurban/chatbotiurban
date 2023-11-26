@@ -162,27 +162,29 @@ def add_document_to_faiss(document, doc_id):
 
 
 def generate_embedding(text):
-    start_time = time.time()  # Inicio del registro de tiempo
+    start_time = time.time()
     app.logger.info('Iniciando generate_embedding')
 
-    openai_api_key = os.environ.get('OPENAI_API_KEY')  # Establece la clave API de OpenAI aquí
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
 
     if not openai_api_key:
+        app.logger.error("La clave API de OpenAI no está configurada.")
         raise ValueError("La clave API de OpenAI no está configurada.")
 
     try:
         openai.api_key = openai_api_key
         response = openai.Embedding.create(
-            input=text,  # Asegurarse de que 'text' es una cadena de texto
-            engine='text-embedding-ada-002',  # Especifica el motor a utilizar
+            input=text,
+            engine='text-embedding-ada-002',
         )
     except Exception as e:
-        raise ValueError(f'No se pudo obtener el embedding: {e}')
+        app.logger.error(f'Error al generar embedding: {e}')
+        raise
 
-    # Verificar la respuesta de la API
     if 'data' in response and len(response['data']) > 0 and 'embedding' in response['data'][0]:
         embedding = np.array(response['data'][0]['embedding'], dtype=np.float32)
     else:
+        app.logger.error('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
         raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
 
     app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
@@ -345,7 +347,7 @@ def process_urls():
     # Asegúrate de que el índice FAISS existe o inicialízalo
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
     if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)  # Esta función debe incluir initialize_faiss_index
+        create_bbdd(chatbot_id)
 
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
@@ -377,20 +379,23 @@ def process_urls():
                     embeddings = generate_embedding(segmento)
                     if embeddings.shape[0] != FAISS_INDEX_DIMENSION:
                         app.logger.error(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[0]}")
-                        continue  # Omitir este segmento si las dimensiones no coinciden
+                        continue
 
-                    faiss_index = get_faiss_index(chatbot_id)  # Asegúrate de pasar chatbot_id
+                    faiss_index = get_faiss_index(chatbot_id)
                     faiss_index.add(np.array([embeddings], dtype=np.float32))
                 except Exception as e:
-                    app.logger.error(f"Error al procesar el segmento: {e}")
-                    continue  # Omitir este segmento en caso de error
+                    app.logger.error(f"Error al procesar el segmento de la URL {url}: {e}")
+                    all_indexed = False
+                    error_message = str(e)
+                    continue
 
         except Exception as e:
+            app.logger.error(f"Error al procesar la URL {url}: {e}")
             all_indexed = False
             error_message = str(e)
             break
 
-        sleep(0.2)  # Pausa entre peticiones
+        sleep(0.2)
 
     if all_indexed:
         return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
@@ -399,75 +404,6 @@ def process_urls():
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
 
-
-
-
-@app.route('/uploads', methods=['POST'])
-def upload_file():
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando upload_file')
-
-    try:
-        if 'documento' not in request.files:
-            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
-        
-        file = request.files['documento']
-        chatbot_id = request.form.get('chatbot_id')
-
-        if file.filename == '':
-            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
-
-        # Comprueba si existe el índice de FAISS para el chatbot_id
-        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-        if not os.path.exists(faiss_index_path):
-            create_bbdd(chatbot_id)  # Asegúrate de que esta función exista
-
-        # Crear la carpeta del chatbot si no existe
-        chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
-        os.makedirs(chatbot_folder, exist_ok=True)
-
-        # Determinar la extensión del archivo y crear una subcarpeta
-        file_extension = os.path.splitext(file.filename)[1][1:]  # Obtiene la extensión sin el punto
-        extension_folder = os.path.join(chatbot_folder, file_extension)
-        os.makedirs(extension_folder, exist_ok=True)
-
-        # Guardar el archivo en la subcarpeta correspondiente
-        file_path = os.path.join(extension_folder, file.filename)
-        file.save(file_path)
-
-        # Procesamiento del archivo
-        try:
-            with open(file_path, 'rb') as f:
-                raw_data = f.read()
-                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
-                if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
-                    encoding = 'utf-8'
-            contenido = raw_data.decode(encoding, errors='replace')
-
-            # Dividir el contenido en segmentos si supera el límite de tokens
-            segmentos = dividir_en_segmentos(contenido, MAX_TOKENS_PER_SEGMENT)
-
-            # Procesar cada segmento y almacenar los embeddings
-            vector_embeddings = []
-            for segmento in segmentos:
-                try:
-                    embedding = obtener_embeddings(segmento)
-                    vector_embeddings.append(embedding)
-                except Exception as e:
-                    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
-        except Exception as e:
-            return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
-
-        # Si todo salió bien, devolver una respuesta positiva
-        return jsonify({
-            "respuesta": "Archivo procesado e indexado con éxito.",
-            "indexado_en_faiss": True,
-            "codigo_error": 0
-        })
-    except Exception as e:
-        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
-    app.logger.info(f'Tiempo total en upload_file: {time.time() - start_time:.2f} segundos')
 
 
 
