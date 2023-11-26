@@ -326,7 +326,7 @@ def dividir_en_segmentos(texto, max_tokens):
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
-    start_time = time.time()  # Inicio del registro de tiempo
+    start_time = time.time()
     app.logger.info('Iniciando process_urls')
 
     data = request.json
@@ -334,10 +334,9 @@ def process_urls():
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
-    # Comprueba si existe el índice de FAISS para el chatbot_id
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
     if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+        create_bbdd(chatbot_id)
 
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
@@ -364,18 +363,24 @@ def process_urls():
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
-                embeddings = generate_embedding(segmento)
-                if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
-                    raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
-                # Aquí deberías añadir tus embeddings al índice FAISS
-                faiss_index = get_faiss_index()  # Obtener el índice FAISS (asegúrate de que está correctamente inicializado)
-                faiss_index.add(np.array([embeddings], dtype=np.float32))  # Añadir embeddings al índice
+                try:
+                    embeddings = generate_embedding(segmento)
+                    if embeddings.shape[0] != FAISS_INDEX_DIMENSION:
+                        app.logger.error(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[0]}")
+                        continue  # Omitir este segmento
+
+                    faiss_index = get_faiss_index()
+                    faiss_index.add(np.array([embeddings], dtype=np.float32))
+                except Exception as e:
+                    app.logger.error(f"Error al procesar el segmento: {e}")
+                    continue  # Omitir este segmento
+
         except Exception as e:
             all_indexed = False
             error_message = str(e)
             break
 
-        sleep(0.2)  # Pausa de 0.2 segundos entre cada petición
+        sleep(0.2)
 
     if all_indexed:
         return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
@@ -383,6 +388,7 @@ def process_urls():
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+
 
 
 
