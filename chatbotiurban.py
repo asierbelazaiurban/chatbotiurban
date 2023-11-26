@@ -97,6 +97,8 @@ def get_faiss_index(chatbot_id):
             raise ValueError("FAISS index has not been initialized.")
     return faiss_index
 
+    
+
 
 def create_database(chatbot_id):
     start_time = time.time()
