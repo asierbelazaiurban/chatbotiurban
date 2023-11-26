@@ -189,6 +189,8 @@ def generate_embedding(text):
     
     app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
     return embedding
+
+
 def generate_embedding_withou_openAI(text):
     """
     Genera un embedding para un texto dado utilizando un modelo Word2Vec de Gensim.
@@ -296,7 +298,7 @@ def dividir_en_segmentos(texto, max_tokens):
     if segmento_actual:
         segmentos.append(' '.join(segmento_actual))
 
-    return segmentos
+    return [texto[:max_tokens]]
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 
@@ -375,7 +377,8 @@ def process_urls():
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
                 # Aquí deberías añadir tus embeddings al índice FAISS
-                # Por ejemplo: faiss_index.add(np.array([embeddings], dtype=np.float32))
+                faiss_index = get_faiss_index()  # Obtener el índice FAISS (asegúrate de que está correctamente inicializado)
+                faiss_index.add(np.array([embeddings], dtype=np.float32))  # Añadir embeddings al índice
         except Exception as e:
             all_indexed = False
             error_message = str(e)
