@@ -137,7 +137,7 @@ def obtener_lista_indices(chatbot_id):
     :return: Índice FAISS del chatbot especificado.
     """
     directorio_base = os.path.join('data/faiss_index', chatbot_id)
-    ruta_faiss = os.path.join(directorio_base, 'faiss.idx.idx')
+    ruta_faiss = os.path.join(directorio_base, 'faiss.idx')
 
     if os.path.exists(ruta_faiss):
         # Cargar el índice FAISS
