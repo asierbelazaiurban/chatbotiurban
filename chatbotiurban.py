@@ -653,9 +653,10 @@ def ask():
         return jsonify({"response": response_text})
 
     except Exception as e:
-        app.logger.error(f"Unexpected error in ask function: {e}")
+        tb = traceback.format_exc()  # Obtener el traceback completo
+        app.logger.error(f"Unexpected error in ask function: {e}\n{tb}")  # Registrar el mensaje de error y el traceback
         return jsonify({"error": str(e)}), 500
-
+        
 
 @app.route('/filter_urls', methods=['POST'])
 def filter_urls():
