@@ -106,6 +106,7 @@ def process_results(indices, info_database):
     :param info_database: Base de datos o estructura donde se almacena la información relacionada con cada índice.
     :return: Una lista de datos asociados con los índices dados.
     """
+
     results = []
     for index in indices:
         # Aquí asumimos que 'info_database' es una lista o un diccionario donde puedes recuperar la información
@@ -663,7 +664,7 @@ def ask():
         k = 5
         distances, indices = index.search(np.array([query_embedding]).astype(np.float32), k)
 
-        info = process_results(indices)
+        info = process_results(indices, info_database)
 
         response_text = generate_response_with_openai(info)
 
