@@ -126,11 +126,6 @@ def create_bbdd(chatbot_id):
 
 ######## Embedding, tokenizacion y add to FAISS ########
 
-
-
-# Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
-doc_id_to_faiss_index = {}
-
 def add_document_to_faiss(document, doc_id):
     start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando add_document_to_faiss')
@@ -155,7 +150,7 @@ def add_document_to_faiss(document, doc_id):
     doc_id_to_faiss_index[doc_id] = new_index  # Actualiza el mapeo
 
 
-def generate_embedding
+
 def generate_embedding(text):
     start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando generate_embedding')
