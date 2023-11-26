@@ -130,24 +130,22 @@ def convert_to_vector(texto):
     return vector
 
 
-def obtener_lista_indices(directorio_indices):
+def obtener_lista_indices(chatbot_id):
     """
-    Recopila y carga todos los índices FAISS almacenados en un directorio específico.
-    :param directorio_indices: Ruta al directorio donde se almacenan los archivos de índice FAISS.
-    :return: Diccionario con los índices FAISS cargados, donde las claves son los nombres de los archivos.
+    Carga el índice FAISS para un chatbot específico.
+    :param chatbot_id: ID del chatbot para el cual se cargará el índice FAISS.
+    :return: Índice FAISS del chatbot especificado.
     """
-    lista_indices = {}
+    directorio_base = os.path.join('data/faiss_index', chatbot_id)
+    ruta_faiss = os.path.join(directorio_base, chatbot_id + '.idx')
 
-    # Listar todos los archivos en el directorio dado
-    for archivo in os.listdir(directorio_indices):
-        if archivo.endswith(".index"):  # Asegúrate de que solo se procesen archivos de índices FAISS
-            ruta_completa = os.path.join(directorio_indices, archivo)
-            # Cargar el índice FAISS
-            indice_faiss = faiss.read_index(ruta_completa)
-            # Agregar el índice al diccionario
-            lista_indices[archivo] = indice_faiss
+    if os.path.exists(ruta_faiss):
+        # Cargar el índice FAISS
+        indice_faiss = faiss.read_index(ruta_faiss)
+        return indice_faiss
+    else:
+        return None
 
-    return lista_indices
     
 
 def create_database(chatbot_id):
@@ -671,42 +669,7 @@ def delete_urls():
 
 # Supongamos que ya tenemos un índice FAISS y funciones para generar embeddings y procesar resultados
 @app.route('/ask', methods=['POST'])
-
-@app.route('/ask', methods=['POST'])
 def ask():
-    user_query = request.json.get('query')
-    query_vector = convert_to_vector(user_query)
-
-    # Suponiendo que 'obtener_lista_indices' es una función que devuelve todos los índices FAISS
-    lista_indices = obtener_lista_indices()
-
-    mejor_distancia = float('inf')
-    mejor_respuesta = None
-    mejor_indice_id = None
-
-    for indice_id, indice in lista_indices.items():
-        D, I = indice.search(query_vector, k=1)
-        if D[0][0] < mejor_distancia:
-            mejor_distancia = D[0][0]
-            mejor_respuesta = obtener_respuesta_faiss(indice_id, indice)
-            mejor_indice_id = indice_id
-
-    umbral_distancia = 0.5  # Define tu propio umbral de distancia aquí
-
-    if mejor_distancia < umbral_distancia:
-        return jsonify({'respuesta': mejor_respuesta})
-
-    # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-    openai.api_key = openai_api_key  # Asegurarse de que la clave API está configurada
-    response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": user_query}])
-
-    # Almacenar la nueva respuesta en FAISS
-    nueva_respuesta = response_openai['choices'][0]['message']['content']
-    almacenar_en_faiss(nueva_respuesta)  # Esta función necesita agregar la nueva respuesta al índice FAISS
-
-    # Devolver la nueva respuesta
-    return jsonify({'respuesta': nueva_respuesta})
-
     try:
         data = request.json
         chatbot_id = data.get('chatbot_id')
@@ -714,32 +677,39 @@ def ask():
             app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
 
-        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-        if not os.path.exists(faiss_index_path):
+        # Llamar a obtener_lista_indices con el chatbot_id
+        indice_faiss = obtener_lista_indices(chatbot_id)
+        if indice_faiss is None:
             app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
-        index = faiss.read_index(faiss_index_path)
 
         query_text = data.get('query')
         if not query_text:
             app.logger.error("No query provided in the request")
             return jsonify({"error": "No query provided"}), 400
 
-        query_embedding = generate_embedding(query_text)
+        query_vector = convert_to_vector(query_text)
 
-        k = 5
-        distances, indices = index.search(np.array([query_embedding]).astype(np.float32), k)
+        # Buscar en el índice FAISS
+        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
 
-        info = process_results(indices, info_database)
+        umbral_distancia = 0.5  # Ajusta este valor según sea necesario
+        if D[0][0] < umbral_distancia:
+            mejor_respuesta = obtener_respuesta_faiss(I[0][0], indice_faiss)
+            return jsonify({'respuesta': mejor_respuesta})
 
-        response_text = generate_response_with_openai(info)
+        # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
+        openai.api_key = openai_api_key
+        response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": query_text}])
 
-        return jsonify({"response": response_text})
+        nueva_respuesta = response_openai['choices'][0]['message']['content']
+        almacenar_en_faiss(nueva_respuesta, indice_faiss)
+
+        return jsonify({'respuesta': nueva_respuesta})
 
     except Exception as e:
-        tb = traceback.format_exc()  # Obtener el traceback completo
-        app.logger.error(f"Unexpected error in ask function: {e}\n{tb}")  # Registrar el mensaje de error y el traceback
+        app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
 
 
