@@ -700,7 +700,7 @@ def ask():
             return jsonify({'respuesta': mejor_respuesta})
 
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-        openai.api_key = openai_api_key
+        openai.api_key = os.environ.get('OPENAI_API_KEY')
         response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": query_text}])
 
         nueva_respuesta = response_openai['choices'][0]['message']['content']
