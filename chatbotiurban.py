@@ -148,6 +148,7 @@ def obtener_lista_indices(directorio_indices):
             lista_indices[archivo] = indice_faiss
 
     return lista_indices
+    
 
 def create_database(chatbot_id):
     start_time = time.time()
@@ -854,7 +855,6 @@ def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
-
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
