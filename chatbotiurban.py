@@ -351,6 +351,7 @@ def process_urls():
     error_message = ""
 
     FAISS_INDEX_DIMENSION = 1536
+    
 
     for url in urls:
         url = url.strip()
