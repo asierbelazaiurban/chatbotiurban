@@ -69,6 +69,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 faiss_index = None
 
 def initialize_faiss_index(dimension, chatbot_id):
+    global faiss_index  # Usa la variable global 'faiss_index'
     start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando initialize_faiss_index')
 
@@ -83,13 +84,19 @@ def initialize_faiss_index(dimension, chatbot_id):
 
     # Escribe el índice de FAISS
     faiss.write_index(faiss_index, faiss_index_path)
+    app.logger.info(f'Tiempo total en initialize_faiss_index: {time.time() - start_time:.2f} segundos')
 
-def get_faiss_index():
+
+def get_faiss_index(chatbot_id):
     global faiss_index
     if faiss_index is None:
-        raise ValueError("FAISS index has not been initialized.")
+        faiss_index_path = f'data/faiss_index/{chatbot_id}/faiss.idx'
+        if os.path.exists(faiss_index_path):
+            faiss_index = faiss.read_index(faiss_index_path)
+        else:
+            raise ValueError("FAISS index has not been initialized.")
     return faiss_index
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
+
 
 def create_database(chatbot_id):
     start_time = time.time()
@@ -333,9 +340,10 @@ def process_urls():
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
+    # Asegúrate de que el índice FAISS existe o inicialízalo
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
     if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)
+        create_bbdd(chatbot_id)  # Esta función debe incluir initialize_faiss_index
 
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
@@ -350,8 +358,8 @@ def process_urls():
     all_indexed = True
     error_message = ""
 
+    # Asumiendo que la dimensión del índice FAISS es 1536
     FAISS_INDEX_DIMENSION = 1536
-    
 
     for url in urls:
         url = url.strip()
@@ -367,20 +375,20 @@ def process_urls():
                     embeddings = generate_embedding(segmento)
                     if embeddings.shape[0] != FAISS_INDEX_DIMENSION:
                         app.logger.error(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[0]}")
-                        continue  # Omitir este segmento
+                        continue  # Omitir este segmento si las dimensiones no coinciden
 
-                    faiss_index = get_faiss_index()
+                    faiss_index = get_faiss_index(chatbot_id)  # Asegúrate de pasar chatbot_id
                     faiss_index.add(np.array([embeddings], dtype=np.float32))
                 except Exception as e:
                     app.logger.error(f"Error al procesar el segmento: {e}")
-                    continue  # Omitir este segmento
+                    continue  # Omitir este segmento en caso de error
 
         except Exception as e:
             all_indexed = False
             error_message = str(e)
             break
 
-        sleep(0.2)
+        sleep(0.2)  # Pausa entre peticiones
 
     if all_indexed:
         return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
