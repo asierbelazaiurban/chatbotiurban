@@ -130,6 +130,25 @@ def convert_to_vector(texto):
     return vector
 
 
+def obtener_lista_indices(directorio_indices):
+    """
+    Recopila y carga todos los índices FAISS almacenados en un directorio específico.
+    :param directorio_indices: Ruta al directorio donde se almacenan los archivos de índice FAISS.
+    :return: Diccionario con los índices FAISS cargados, donde las claves son los nombres de los archivos.
+    """
+    lista_indices = {}
+
+    # Listar todos los archivos en el directorio dado
+    for archivo in os.listdir(directorio_indices):
+        if archivo.endswith(".index"):  # Asegúrate de que solo se procesen archivos de índices FAISS
+            ruta_completa = os.path.join(directorio_indices, archivo)
+            # Cargar el índice FAISS
+            indice_faiss = faiss.read_index(ruta_completa)
+            # Agregar el índice al diccionario
+            lista_indices[archivo] = indice_faiss
+
+    return lista_indices
+
 def create_database(chatbot_id):
     start_time = time.time()
     app.logger.info('Iniciando create_database')
