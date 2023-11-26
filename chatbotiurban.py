@@ -626,16 +626,19 @@ def ask():
         data = request.json
         chatbot_id = data.get('chatbot_id')
         if not chatbot_id:
+            app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
 
         faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
         if not os.path.exists(faiss_index_path):
+            app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
         index = faiss.read_index(faiss_index_path)
 
         query_text = data.get('query')
         if not query_text:
+            app.logger.error("No query provided in the request")
             return jsonify({"error": "No query provided"}), 400
 
         query_embedding = generate_embedding(query_text)
@@ -650,9 +653,8 @@ def ask():
         return jsonify({"response": response_text})
 
     except Exception as e:
-        app.logger.error(f"Error: {e}")  # Imprime el error en el log
+        app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 @app.route('/filter_urls', methods=['POST'])
