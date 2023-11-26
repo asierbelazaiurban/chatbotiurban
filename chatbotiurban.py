@@ -1,9 +1,7 @@
 ##!/usr/bin/env python
 # coding: utf-8
 
-
 import faiss
-import chardet  # Added for encoding detection  # Ensure faiss library is installed
 import numpy as np
 from flask import Flask, request, jsonify
 import logging
@@ -12,25 +10,12 @@ import os
 import openai
 import requests
 from bs4 import BeautifulSoup
-import chardet  # Added for encoding detection
-import os
-import shutil
 import json
 import time
-from urllib.parse import urlparse, urljoin
-import random
-from time import sleep
-
-import gensim.downloader as api
-from gensim.models import Word2Vec
-import nltk
-nltk.download('punkt')
 from nltk.tokenize import word_tokenize
-
 
 app = Flask(__name__)
 
-
 # Configuración del registro de logs
 if not os.path.exists('logs'):
     os.mkdir('logs')
@@ -38,305 +23,83 @@ file_handler = RotatingFileHandler('logs/chatbotiurban.log', maxBytes=10240, bac
 file_handler.setFormatter(logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
 ))
-file_handler.setLevel(logging.DEBUG)  # Cambiado a DEBUG para capturar todos los registros
+file_handler.setLevel(logging.DEBUG)
 app.logger.addHandler(file_handler)
-
-app.logger.setLevel(logging.DEBUG)  # Cambiado a DEBUG
-app.logger.info('Registro de prueba inmediatamente después de la configuración de logging')
-
-
-
-# Configuración del registro de logs
-if not os.path.exists('logs'):
-    os.mkdir('logs')
-file_handler = RotatingFileHandler('logs/chatbotiurban.log', maxBytes=10240, backupCount=10)
-file_handler.setFormatter(logging.Formatter(
-    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-))
-file_handler.setLevel(logging.INFO)
-app.logger.addHandler(file_handler)
-
-app.logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.DEBUG)
 app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
+# Variables y funciones globales
 
-
-
-
-######## Creación de bbddd FAISS para cada cliente ########
-
-# Global variable to store the FAISS index
-faiss_index = None
+faiss_index = None  # Variable global para almacenar el índice FAISS
 
 def initialize_faiss_index(dimension, chatbot_id):
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando initialize_faiss_index')
-
-    # Crea un nuevo índice de FAISS con la dimensión especificada
+    global faiss_index
     faiss_index = faiss.IndexFlatL2(dimension)
-
-    # Reemplaza {chatbot_id} con el valor real del chatbot_id
     faiss_index_path = f'data/faiss_index/{chatbot_id}/faiss.idx'
-
-    # Crea la carpeta si no existe
     os.makedirs(os.path.dirname(faiss_index_path), exist_ok=True)
-
-    # Escribe el índice de FAISS
     faiss.write_index(faiss_index, faiss_index_path)
 
 def get_faiss_index():
-    global faiss_index
     if faiss_index is None:
         raise ValueError("FAISS index has not been initialized.")
     return faiss_index
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
 def create_database(chatbot_id, dimension=128):
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando create_database')
-
     directory = os.path.join('data/faiss_index', chatbot_id)
-    file_name = 'faiss.idx'
-    file_path = os.path.join(directory, file_name)
-    
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    if not os.path.exists(file_path):
-        initialize_faiss_index(128, chatbot_id)
-
-    return file_path
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
+    os.makedirs(directory, exist_ok=True)
+    initialize_faiss_index(dimension, chatbot_id)
 
 def create_bbdd(chatbot_id):
-    data = request.json
-
-    index_file_path = create_database(chatbot_id)
-    message = f"FAISS Index created or verified at: {index_file_path}"
-    
-    return jsonify({"message": message}), 200
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-######## ########
-
-
-######## Embedding, tokenizacion y add to FAISS ########
-
-
-
-# Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
-doc_id_to_faiss_index = {}
-
-def add_document_to_faiss(document, doc_id):
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando add_document_to_faiss')
-
-    global doc_id_to_faiss_index  # Supone que este mapeo es una variable global
-
-    # Verifica si el documento ya está indexado
-    if doc_id in doc_id_to_faiss_index:
-        print(f"Documento con ID {doc_id} ya indexado.")
-        return
-
-    # Genera el embedding para el nuevo documento
-    # Asume que 'generate_embedding' puede manejar diferentes tipos de entrada
-    embedding = generate_embedding(document)
-
-    # Obtiene el índice de FAISS actual
-    faiss_index = get_faiss_index()
-
-    # Añade el embedding al índice de FAISS y actualiza el mapeo
-    faiss_index.add(np.array([embedding]))  # Añade el nuevo embedding
-    new_index = faiss_index.ntotal - 1  # El nuevo índice en FAISS
-    doc_id_to_faiss_index[doc_id] = new_index  # Actualiza el mapeo
-
-
+    create_database(chatbot_id)
+    return jsonify({"message": f"FAISS Index created or verified for chatbot_id: {chatbot_id}"}), 200
 
 def generate_embedding(text):
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando generate_embedding')
-
-    openai_api_key = os.environ.get('OPENAI_API_KEY')  # Establece la clave API de OpenAI aquí
-
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
     if not openai_api_key:
         raise ValueError("La clave API de OpenAI no está configurada.")
 
     try:
         openai.api_key = openai_api_key
         response = openai.Embedding.create(
-            input=text,  # Asegurarse de que 'text' es una cadena de texto
-            engine='text-embedding-ada-002',  # Especifica el motor a utilizar
+            input=text,
+            engine='text-embedding-ada-002',
         )
+        if 'data' in response and len(response['data']) > 0 and 'embedding' in response['data'][0]:
+            embedding = np.array(response['data'][0]['embedding'], dtype=np.float32)
+        else:
+            raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
     except Exception as e:
         raise ValueError(f'No se pudo obtener el embedding: {e}')
 
-    # Verificar la respuesta de la API
-    if 'data' in response and len(response['data']) > 0 and 'embedding' in response['data'][0]:
-        embedding = np.array(response['data'][0]['embedding'], dtype=np.float32)
-    else:
-        raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
-
-    app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
     return embedding
-
-
-def generate_embedding_withou_openAI(text):
-    """
-    Genera un embedding para un texto dado utilizando un modelo Word2Vec de Gensim.
-    """
-    # Cargar un modelo Word2Vec preentrenado. Puedes elegir otro modelo si lo prefieres.
-    model = api.load("word2vec-google-news-300")  # Este es un modelo grande y puede tardar en descargarse.
-
-    # Preprocesar el texto: dividir en palabras y eliminar palabras que no están en el modelo.
-    words = [word for word in text.split() if word in model.key_to_index]
-
-    # Generar embeddings para cada palabra y promediarlos.
-    if len(words) >= 1:
-        embedding = np.mean(model[words], axis=0)
-    else:
-        raise ValueError("El texto proporcionado no contiene palabras reconocidas por el modelo.")
-
-    return embedding
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-
-######## ########
-
-######## Hiperparámetros y funciones generales ########
-
-def safe_request(url, max_retries=3):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-    for attempt in range(max_retries):
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                return response
-        except RequestException as e:
-            print(f"Attempt {attempt + 1} failed for {url}: {e}")
-    return None
-
-
-
-# Importar las bibliotecas necesarias
-# Suponiendo que los datos son embeddings de dimensión 768 (cambiar según sea necesario)
-dim = 768
-num_data_points = 10000  # Número de puntos de datos (cambiar según sea necesario)
-# Crear datos de ejemplo (reemplazar con tus propios datos)
-data = np.random.rand(num_data_points, dim).astype(np.float32)
-# Crear y entrenar el índice Faiss para la búsqueda de vecinos más cercanos
-index = faiss.IndexFlatL2(dim)  # Usar L2 para la distancia
-# Milvus adds data to the collection in a different way  # Agregar los datos al índice
-# Realizar una consulta de ejemplo
-query = np.random.rand(dim).astype(np.float32)
-k = 5  # Número de vecinos más cercanos a buscar
-distances, neighbors = index.search(query.reshape(1, -1), k)
-# Mostrar los resultados
-print("Índices de los vecinos más cercanos:", neighbors)
-print("Distancias de los vecinos más cercanos:", distances)
-
-#metodo param la subida de documentos
-
-MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
-
-
-# Configuraciones
-UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-
-def allowed_file(filename, chatbot_id):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-def obtener_embeddings(texto):
-    # Llamada a la API de OpenAI para obtener embeddings
-    response = openai.Embedding.create(input=texto, engine="text-embedding-ada-002")
-    # La respuesta incluye los embeddings, que puedes transformar en un array de numpy
-    embedding = np.array(response['data'][0]['embedding'])
-    return embedding
-
-
-
-def update_faiss_index(embeddings, chatbot_id):
-    # Esta función debe actualizar el índice de FAISS con nuevos embeddings
-    index = faiss.IndexFlatL2(512)  # Suponiendo que usas un índice FlatL2
-    index.add(np.array(embeddings).astype(np.float32))
-    return index
-
 
 def dividir_en_segmentos(texto, max_tokens):
-    # Tokenizar el texto usando NLTK
     tokens = word_tokenize(texto)
-
     segmentos = []
     segmento_actual = []
 
     for token in tokens:
-        # Cambiar la condición para que divida los segmentos antes de alcanzar el límite exacto de max_tokens
         if len(segmento_actual) + len(token.split()) > max_tokens:
             segmentos.append(' '.join(segmento_actual))
             segmento_actual = [token]
         else:
             segmento_actual.append(token)
 
-    # Añadir el último segmento si hay tokens restantes
     if segmento_actual:
         segmentos.append(' '.join(segmento_actual))
 
-    return [texto[:max_tokens]]
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-    """
-    Divide un texto en segmentos que no excedan el límite de tokens.
-    Esta es una aproximación simple y debe ajustarse para usar un tokenizador específico.
-    """
-    palabras = texto.split()
-    segmentos = []
-    segmento_actual = []
-
-    tokens_contados = 0
-    for palabra in palabras:
-        # Asumimos un promedio de 4 tokens por palabra como aproximación
-        if tokens_contados + len(palabra.split()) * 4 > max_tokens:
-            segmentos.append(' '.join(segmento_actual))
-            segmento_actual = [palabra]
-            tokens_contados = len(palabra.split()) * 4
-        else:
-            segmento_actual.append(palabra)
-            tokens_contados += len(palabra.split()) * 4
-
-    # Añadir el último segmento si hay alguno
-    if segmento_actual:
-        segmentos.append(' '.join(segmento_actual))
-
-    return segmentos
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-######## ########
-
-
-########  Inicio de endpints hasta el final########
+    return segmentos if segmentos else [""]
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando process_urls')
-
     data = request.json
     chatbot_id = data.get('chatbot_id')
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
-    # Comprueba si existe el índice de FAISS para el chatbot_id
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
     if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
+        create_bbdd(chatbot_id)
 
     chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
     if not os.path.exists(chatbot_folder):
@@ -350,108 +113,43 @@ def process_urls():
 
     all_indexed = True
     error_message = ""
-
     FAISS_INDEX_DIMENSION = 128
 
     for url in urls:
         url = url.strip()
+        if not url:
+            continue
+
         try:
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text()
-
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
+                if not segmento:
+                    continue
+
                 embeddings = generate_embedding(segmento)
                 if embeddings.shape[1] != FAISS_INDEX_DIMENSION:
                     raise ValueError(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[1]}")
-                # Aquí deberías añadir tus embeddings al índice FAISS
-                faiss_index = get_faiss_index()  # Obtener el índice FAISS (asegúrate de que está correctamente inicializado)
-                faiss_index.add(np.array([embeddings], dtype=np.float32))  # Añadir embeddings al índice
+
+                faiss_index = get_faiss_index()
+                faiss_index.add(np.array([embeddings], dtype=np.float32))
         except Exception as e:
             all_indexed = False
             error_message = str(e)
             break
 
-        sleep(0.2)  # Pausa de 0.2 segundos entre cada petición
+        sleep(0.2)
 
     if all_indexed:
         return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
     else:
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
-    app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
-
-
-
-@app.route('/uploads', methods=['POST'])
-def upload_file():
-    start_time = time.time()  # Inicio del registro de tiempo
-    app.logger.info('Iniciando upload_file')
-
-    try:
-        if 'documento' not in request.files:
-            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
-        
-        file = request.files['documento']
-        chatbot_id = request.form.get('chatbot_id')
-
-        if file.filename == '':
-            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
-
-        # Comprueba si existe el índice de FAISS para el chatbot_id
-        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-        if not os.path.exists(faiss_index_path):
-            create_bbdd(chatbot_id)  # Asegúrate de que esta función exista
-
-        # Crear la carpeta del chatbot si no existe
-        chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
-        os.makedirs(chatbot_folder, exist_ok=True)
-
-        # Determinar la extensión del archivo y crear una subcarpeta
-        file_extension = os.path.splitext(file.filename)[1][1:]  # Obtiene la extensión sin el punto
-        extension_folder = os.path.join(chatbot_folder, file_extension)
-        os.makedirs(extension_folder, exist_ok=True)
-
-        # Guardar el archivo en la subcarpeta correspondiente
-        file_path = os.path.join(extension_folder, file.filename)
-        file.save(file_path)
-
-        # Procesamiento del archivo
-        try:
-            with open(file_path, 'rb') as f:
-                raw_data = f.read()
-                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
-                if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
-                    encoding = 'utf-8'
-            contenido = raw_data.decode(encoding, errors='replace')
-
-            # Dividir el contenido en segmentos si supera el límite de tokens
-            segmentos = dividir_en_segmentos(contenido, MAX_TOKENS_PER_SEGMENT)
-
-            # Procesar cada segmento y almacenar los embeddings
-            vector_embeddings = []
-            for segmento in segmentos:
-                try:
-                    embedding = obtener_embeddings(segmento)
-                    vector_embeddings.append(embedding)
-                except Exception as e:
-                    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
-        except Exception as e:
-            return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
-
-        # Si todo salió bien, devolver una respuesta positiva
-        return jsonify({
-            "respuesta": "Archivo procesado e indexado con éxito.",
-            "indexado_en_faiss": True,
-            "codigo_error": 0
-        })
-    except Exception as e:
-        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
-    app.logger.info(f'Tiempo total en upload_file: {time.time() - start_time:.2f} segundos')
-
+if __name__ == '__main__':
+    app.run(debug=True)
 
 
 @app.route('/save_urls', methods=['POST'])
