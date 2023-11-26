@@ -152,6 +152,75 @@ if __name__ == '__main__':
     app.run(debug=True)
 
 
+@app.route('/uploads', methods=['POST'])
+def upload_file():
+    start_time = time.time()  # Inicio del registro de tiempo
+    app.logger.info('Iniciando upload_file')
+
+    try:
+        if 'documento' not in request.files:
+            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
+        
+        file = request.files['documento']
+        chatbot_id = request.form.get('chatbot_id')
+
+        if file.filename == '':
+            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+
+        # Comprueba si existe el índice de FAISS para el chatbot_id
+        faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+        if not os.path.exists(faiss_index_path):
+            create_bbdd(chatbot_id)  # Asegúrate de que esta función exista
+
+        # Crear la carpeta del chatbot si no existe
+        chatbot_folder = os.path.join(UPLOAD_FOLDER, str(chatbot_id))
+        os.makedirs(chatbot_folder, exist_ok=True)
+
+        # Determinar la extensión del archivo y crear una subcarpeta
+        file_extension = os.path.splitext(file.filename)[1][1:]  # Obtiene la extensión sin el punto
+        extension_folder = os.path.join(chatbot_folder, file_extension)
+        os.makedirs(extension_folder, exist_ok=True)
+
+        # Guardar el archivo en la subcarpeta correspondiente
+        file_path = os.path.join(extension_folder, file.filename)
+        file.save(file_path)
+
+        # Procesamiento del archivo
+        try:
+            with open(file_path, 'rb') as f:
+                raw_data = f.read()
+                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
+                if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
+                    encoding = 'utf-8'
+            contenido = raw_data.decode(encoding, errors='replace')
+
+            # Dividir el contenido en segmentos si supera el límite de tokens
+            segmentos = dividir_en_segmentos(contenido, MAX_TOKENS_PER_SEGMENT)
+
+            # Procesar cada segmento y almacenar los embeddings
+            vector_embeddings = []
+            for segmento in segmentos:
+                try:
+                    embedding = obtener_embeddings(segmento)
+                    vector_embeddings.append(embedding)
+                except Exception as e:
+                    return jsonify({"respuesta": f"No se pudo procesar el segmento. Error: {e}", "codigo_error": 1})
+        except Exception as e:
+            return jsonify({"respuesta": f"No se pudo indexar en FAISS. Error: {e}", "codigo_error": 1})
+
+        # Si todo salió bien, devolver una respuesta positiva
+        return jsonify({
+            "respuesta": "Archivo procesado e indexado con éxito.",
+            "indexado_en_faiss": True,
+            "codigo_error": 0
+        })
+    except Exception as e:
+        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
+    app.logger.info(f'Tiempo total en upload_file: {time.time() - start_time:.2f} segundos')
+
+
+
 @app.route('/save_urls', methods=['POST'])
 def save_urls():
     data = request.json
