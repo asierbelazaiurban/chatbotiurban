@@ -61,8 +61,6 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 
 
-
-
 ######## Creación de bbddd FAISS para cada cliente ########
 
 # Global variable to store the FAISS index
@@ -98,24 +96,43 @@ def get_faiss_index(chatbot_id):
     return faiss_index
 
 
-def process_results(indices, info_database):
-    """
-    Procesa los índices obtenidos de una búsqueda en un índice FAISS y recupera la información correspondiente.
+def almacenar_en_faiss(respuesta, faiss_index):
 
-    :param indices: Lista de índices recuperados de la búsqueda FAISS.
-    :param info_database: Base de datos o estructura donde se almacena la información relacionada con cada índice.
-    :return: Una lista de datos asociados con los índices dados.
-    """
+    respuesta_vector = convert_to_vector(respuesta)
 
-    results = []
-    for index in indices:
-        # Aquí asumimos que 'info_database' es una lista o un diccionario donde puedes recuperar la información
-        # usando el índice proporcionado. Esto dependerá de cómo estés almacenando los datos relacionados.
-        info = info_database.get(index, None)
-        if info:
-            results.append(info)
+    # Convertir el vector de respuesta en un array numpy, que es el formato requerido por FAISS.
+    # El vector debe ser de tipo 'float32' y se debe añadir una dimensión extra para convertirlo en un array 2D.
+    respuesta_vector_np = np.array([respuesta_vector]).astype('float32')
 
-    return results
+    # Añadir el vector al índice FAISS.
+    faiss_index.add(respuesta_vector_np)
+
+
+
+def obtener_incrustacion(texto):
+    # Configura tu clave API de OpenAI aquí
+    openai_api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Obtener la incrustación del texto
+    response = openai.Embedding.create(
+        input=texto,
+        engine="text-embedding-ada-002"
+    )
+    
+    # Extraer el vector de incrustación
+    incrustacion = response['data'][0]['embedding']
+
+    return incrustacion
+
+def convert_to_vector(texto):
+    # Utilizar la función 'obtener_incrustacion' para convertir texto en vector
+    vector = obtener_incrustacion(texto)
+    return vector
+
+def convert_to_vector(texto):
+    # Utilizar la función 'obtener_incrustacion' para convertir texto en vector
+    vector = obtener_incrustacion(texto)
+    return vector
 
 
 def create_database(chatbot_id):
@@ -642,19 +659,27 @@ def delete_urls():
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    # Obtener la consulta del usuario
     user_query = request.json.get('query')
+    query_vector = convert_to_vector(user_query)
 
-    # Consultar el índice FAISS con la consulta del usuario
-    # Esto requerirá convertir la consulta del usuario en un vector usando el mismo método que se usó para las respuestas almacenadas
-    query_vector = convert_to_vector(user_query)  # Esta función necesita ser definida o referenciada desde otra parte del script
-    D, I = faiss_index.search(query_vector, k=1)  # Buscar la respuesta más cercana
+    # Suponiendo que 'obtener_lista_indices' es una función que devuelve todos los índices FAISS
+    lista_indices = obtener_lista_indices()
 
-    # Comprobar si hay una coincidencia adecuada en FAISS
-    if D[0][0] < umbral_distancia:  # 'umbral_distancia' debe ser definido basado en la precisión deseada
-        # Devolver la respuesta coincidente
-        respuesta_faiss = obtener_respuesta_faiss(I[0][0])  # Esta función debe obtener la respuesta del índice FAISS
-        return jsonify({'respuesta': respuesta_faiss})
+    mejor_distancia = float('inf')
+    mejor_respuesta = None
+    mejor_indice_id = None
+
+    for indice_id, indice in lista_indices.items():
+        D, I = indice.search(query_vector, k=1)
+        if D[0][0] < mejor_distancia:
+            mejor_distancia = D[0][0]
+            mejor_respuesta = obtener_respuesta_faiss(indice_id, indice)
+            mejor_indice_id = indice_id
+
+    umbral_distancia = 0.5  # Define tu propio umbral de distancia aquí
+
+    if mejor_distancia < umbral_distancia:
+        return jsonify({'respuesta': mejor_respuesta})
 
     # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
     openai.api_key = openai_api_key  # Asegurarse de que la clave API está configurada
