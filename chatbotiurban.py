@@ -628,37 +628,31 @@ def ask():
         if not chatbot_id:
             return jsonify({"error": "No chatbot_id provided"}), 400
 
-        # Ruta al índice de FAISS para el chatbot_id
         faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
         if not os.path.exists(faiss_index_path):
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
-        # Cargar el índice de FAISS
         index = faiss.read_index(faiss_index_path)
 
-        # Recibir la consulta de texto
         query_text = data.get('query')
         if not query_text:
             return jsonify({"error": "No query provided"}), 400
 
-        # Generar un embedding para la consulta usando OpenAI
         query_embedding = generate_embedding(query_text)
 
-        # Realizar la búsqueda en FAISS
-        k = 5  # Número de resultados a devolver
+        k = 5
         distances, indices = index.search(np.array([query_embedding]).astype(np.float32), k)
 
-        # Procesar los índices para obtener la información correspondiente
         info = process_results(indices)
 
-        # Llamar al método externo para generar la respuesta
         response_text = generate_response_with_openai(info)
 
-        # Devolver la respuesta
         return jsonify({"response": response_text})
 
     except Exception as e:
+        app.logger.error(f"Error: {e}")  # Imprime el error en el log
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route('/filter_urls', methods=['POST'])
@@ -691,8 +685,6 @@ def filter_urls():
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
 
 
 @app.route('/ask_prueba', methods=['POST'])
