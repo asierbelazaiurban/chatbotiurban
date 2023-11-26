@@ -97,7 +97,7 @@ def get_faiss_index(chatbot_id):
             raise ValueError("FAISS index has not been initialized.")
     return faiss_index
 
-    
+
 
 
 def create_database(chatbot_id):
@@ -638,6 +638,8 @@ def ask():
 
         # Recibir la consulta de texto
         query_text = data.get('query')
+        if not query_text:
+            return jsonify({"error": "No query provided"}), 400
 
         # Generar un embedding para la consulta usando OpenAI
         query_embedding = generate_embedding(query_text)
@@ -649,20 +651,8 @@ def ask():
         # Procesar los índices para obtener la información correspondiente
         info = process_results(indices)
 
-        # Utilizar OpenAI para generar una respuesta comprensible en español
-        response = openai.Completion.create(
-            model="text-embedding-ada-002",  # Especifica el modelo de OpenAI a utilizar
-            prompt=info,
-            max_tokens=150,  # Define el número máximo de tokens en la respuesta
-            temperature=0.7,  # Ajusta la creatividad de la respuesta
-            top_p=1,  # Controla la diversidad de la respuesta
-            frequency_penalty=0,  # Penalización por frecuencia de uso de palabras
-            presence_penalty=0,  # Penalización por presencia de palabras
-            language="es"  # Especifica el idioma de la respuesta
-        )
-
-        # Extraer el texto de la respuesta
-        response_text = response.choices[0].text.strip()
+        # Llamar al método externo para generar la respuesta
+        response_text = generate_response_with_openai(info)
 
         # Devolver la respuesta
         return jsonify({"response": response_text})
@@ -701,6 +691,7 @@ def filter_urls():
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 
@@ -762,6 +753,21 @@ def ask_prueba():
 
     respuesta = random.choice(respuestas)  # Seleccionar una respuesta aleatoria
     return jsonify({'pregunta': pregunta, 'respuesta': respuesta})
+
+
+# Método externo para generar respuestas con OpenAI
+def generate_response_with_openai(info, model="text-embedding-ada-002", max_tokens=150, temperature=0.7, top_p=1, frequency_penalty=0, presence_penalty=0, language="es"):
+    response = openai.Completion.create(
+        model=model,
+        prompt=info,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        frequency_penalty=frequency_penalty,
+        presence_penalty=presence_penalty,
+        language=language
+    )
+    return response.choices[0].text.strip()
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
