@@ -20,7 +20,7 @@ import time
 from urllib.parse import urlparse, urljoin
 import random
 from time import sleep
-
+import traceback
 import gensim.downloader as api
 from gensim.models import Word2Vec
 import nltk
@@ -673,7 +673,7 @@ def ask():
         tb = traceback.format_exc()  # Obtener el traceback completo
         app.logger.error(f"Unexpected error in ask function: {e}\n{tb}")  # Registrar el mensaje de error y el traceback
         return jsonify({"error": str(e)}), 500
-        
+
 
 @app.route('/filter_urls', methods=['POST'])
 def filter_urls():
