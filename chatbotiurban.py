@@ -61,7 +61,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 
 
-######## Creación de bbddd FAISS para cada cliente ########
+######## FAISS ########
 
 # Global variable to store the FAISS index
 faiss_index = None
@@ -145,6 +145,27 @@ def obtener_lista_indices(chatbot_id):
         return indice_faiss
     else:
         return None
+
+
+def obtener_respuesta_faiss(indice, chatbot_id):
+    # Ruta al archivo JSON que mapea índices FAISS a textos
+    mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
+
+    # Verificar si el archivo de mapeo existe
+    if not os.path.exists(mapping_file_path):
+        raise FileNotFoundError("Mapping file not found.")
+
+    # Cargar el mapeo
+    with open(mapping_file_path, 'r') as file:
+        index_to_text = json.load(file)
+
+    # Obtener el texto correspondiente al índice
+    texto = index_to_text.get(str(indice))
+    if texto is None:
+        raise ValueError(f"No text found for index {indice}")
+
+    return texto
+
 
     
 
@@ -453,6 +474,89 @@ def process_urls():
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
 
 
+@app.route('/process_urls_pruebas', methods=['POST'])
+def process_urls_pruebas():
+    start_time = time.time()
+    app.logger.info('Iniciando process_urls')
+
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    if not chatbot_id:
+        return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
+
+    # Asegúrate de que el índice FAISS existe o inicialízalo
+    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+    if not os.path.exists(faiss_index_path):
+        create_bbdd(chatbot_id)
+
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+    if not os.path.exists(chatbot_folder):
+        os.makedirs(chatbot_folder)
+
+    mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
+    if not os.path.exists(mapping_file_path):
+        with open(mapping_file_path, 'w') as file:
+            json.dump({}, file)
+
+    try:
+        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
+            urls = file.readlines()
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
+
+    all_indexed = True
+    error_message = ""
+
+    # Asumiendo que la dimensión del índice FAISS es 1536
+    FAISS_INDEX_DIMENSION = 1536
+
+    for url in urls:
+        url = url.strip()
+        try:
+            response = requests.get(url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            text = soup.get_text()
+
+            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
+
+            for segmento in segmentos:
+                try:
+                    embeddings = generate_embedding(segmento)
+                    if embeddings.shape[0] != FAISS_INDEX_DIMENSION:
+                        app.logger.error(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[0]}")
+                        continue
+
+                    faiss_index = get_faiss_index(chatbot_id)
+                    faiss_index.add(np.array([embeddings], dtype=np.float32))
+
+                    # Actualizar el archivo JSON con el mapeo índice-texto
+                    with open(mapping_file_path, 'r+') as file:
+                        index_to_text = json.load(file)
+                        nuevo_indice = len(index_to_text)
+                        index_to_text[nuevo_indice] = segmento
+                        file.seek(0)
+                        json.dump(index_to_text, file)
+
+                except Exception as e:
+                    app.logger.error(f"Error al procesar el segmento de la URL {url}: {e}")
+                    all_indexed = False
+                    error_message = str(e)
+                    continue
+
+        except Exception as e:
+            app.logger.error(f"Error al procesar la URL {url}: {e}")
+            all_indexed = False
+            error_message = str(e)
+            break
+
+        sleep(0.2)
+
+    if all_indexed:
+        return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
+    else:
+        return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
+
+    app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
 
 
 @app.route('/save_urls', methods=['POST'])
@@ -754,18 +858,18 @@ def ask_pruebas_asier():
             app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
 
-        # Llamar a obtener_lista_indices con el chatbot_id
+        # Obtener el índice FAISS para el chatbot_id dado
         indice_faiss = obtener_lista_indices(chatbot_id)
         if indice_faiss is None:
             app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
-
 
         query_text = data.get('query')
         if not query_text:
             app.logger.error("No query provided in the request")
             return jsonify({"error": "No query provided"}), 400
 
+        # Convertir la consulta en un vector
         query_vector = convert_to_vector(query_text)
 
         # Buscar en el índice FAISS
@@ -773,7 +877,7 @@ def ask_pruebas_asier():
 
         umbral_distancia = 0.5  # Ajusta este valor según sea necesario
         if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], indice_faiss)
+            mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
             return jsonify({'respuesta': mejor_respuesta})
 
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
@@ -788,67 +892,6 @@ def ask_pruebas_asier():
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
-
-
-
-@app.route('/ask_prueba', methods=['POST'])
-def ask_prueba():
-    data = request.json
-
-    # Comprobaciones de seguridad para asegurarse de que todos los campos están presentes
-    if not data or 'pregunta' not in data or 'chatbot_id' not in data or 'token' not in data:
-        return jsonify({'error': 'Faltan campos requeridos'}), 400
-
-    # Extraer los datos de la solicitud
-    pregunta = data['pregunta']
-    chatbot_id = data['chatbot_id']
-    token = data['token']
-
-    # Respuestas predefinidas sobre el turismo en Málaga
-    respuestas = [
-        "Málaga es famosa por sus playas y su clima cálido.",
-        "El Museo Picasso es uno de los lugares más visitados en Málaga.",
-        "La Alcazaba, una fortaleza árabe, es una de las joyas históricas de la ciudad.",
-        "Málaga es conocida por ser la ciudad natal de Pablo Picasso.",
-        "El Caminito del Rey ofrece impresionantes vistas y senderos emocionantes.",
-        "El Parque Natural Montes de Málaga es ideal para amantes de la naturaleza.",
-        "Málaga celebra su feria anual en agosto con música, baile y comida tradicional.",
-        "El Centro Pompidou Málaga alberga arte moderno y contemporáneo.",
-        "La Catedral de Málaga es un impresionante ejemplo de arquitectura renacentista.",
-        "El Mercado Central de Atarazanas es famoso por sus productos frescos y locales.",
-        "El barrio de La Malagueta es conocido por su bulliciosa playa urbana.",
-        "El Castillo de Gibralfaro ofrece vistas panorámicas de la ciudad.",
-        "La gastronomía malagueña incluye espetos de sardinas y pescaíto frito.",
-        "Málaga es una ciudad vibrante con una animada vida nocturna.",
-        "El Jardín Botánico-Histórico La Concepción es un oasis tropical en Málaga.",
-        "El Soho de Málaga es famoso por su arte callejero y ambiente bohemio.",
-        "El Muelle Uno es un moderno espacio de ocio y comercio junto al mar.",
-        "El Teatro Romano es un vestigio del pasado romano de Málaga.",
-        "La Fiesta de los Verdiales celebra una antigua tradición musical local.",
-        "El Museo Carmen Thyssen Málaga exhibe arte español y andaluz.",
-        "Málaga es punto de partida para explorar la Costa del Sol.",
-        "El barrio del Perchel conserva la esencia tradicional de Málaga.",
-        "El vino dulce de Málaga es conocido internacionalmente.",
-        "El Museo Automovilístico y de la Moda combina coches clásicos con alta costura.",
-        "Málaga tiene una rica tradición en la producción de aceite de oliva.",
-        "La Semana Santa en Málaga es famosa por sus procesiones y pasos.",
-        "Los baños árabes Hammam Al Ándalus ofrecen una experiencia relajante.",
-        "El CAC Málaga es un centro de arte contemporáneo de referencia.",
-        "El Paseo del Parque es un agradable paseo lleno de vegetación tropical.",
-        "La Casa Natal de Picasso alberga obras tempranas del artista.",
-        "El Mercado de la Merced es un lugar popular para comer y socializar.",
-        "Málaga cuenta con hermosas playas como Guadalmar y El Palo.",
-        "La Térmica es un centro cultural y de creación contemporánea.",
-        "El FESTIVAL DE MÁLAGA es importante en el panorama cinematográfico español.",
-        "La Noria de Málaga ofrece vistas espectaculares desde sus cabinas.",
-        "Málaga es conocida por sus festivales de música y cultura.",
-        "El MUPAM es el Museo del Patrimonio Municipal de Málaga.",
-        "El Museo Revello de Toro alberga pinturas de Félix Revello de Toro.",
-        "El Barrio de Pedregalejo es famoso por sus chiringuitos y ambiente relajado."
-    ]
-
-    respuesta = random.choice(respuestas)  # Seleccionar una respuesta aleatoria
-    return jsonify({'pregunta': pregunta, 'respuesta': respuesta})
 
 
 
