@@ -116,7 +116,7 @@ def obtener_incrustacion(texto):
     # Extraer el vector de incrustación
     incrustacion = response['data'][0]['embedding']
     app.logger.info('Called incrustacion')
-    
+
     return incrustacion
 
 
@@ -134,8 +134,10 @@ def obtener_lista_indices(chatbot_id):
     if os.path.exists(ruta_faiss):
         # Cargar el índice FAISS
         indice_faiss = faiss.read_index(ruta_faiss)
+        app.logger.info(indice_faiss)
         return indice_faiss
     else:
+        app.logger.info("obtener_lista_indices "+ None)
         return None
 
 
