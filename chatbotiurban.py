@@ -123,7 +123,6 @@ def obtener_incrustacion(texto):
 def convert_to_vector(texto):
     app.logger.info('Called convert_to_vector')
     vector = obtener_incrustacion(texto)
-    app.logger.info(vector)
     
     return vector
 
@@ -782,9 +781,13 @@ def ask_pruebas_asier():
         app.logger.error(query_vector)
 
         # Buscar en el índice FAISS
-        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
+        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=5)
 
         umbral_distancia = 5.0  # Ajusta este valor según sea necesario
+        app.logger.error("D es: ")
+        app.logger.error(D)
+        app.logger.error("I es: ")
+        app.logger.error(I)
         if D[0][0] < umbral_distancia:
             mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
         else:
