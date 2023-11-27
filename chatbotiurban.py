@@ -445,11 +445,19 @@ def get_last_index(mapping_file_path):
     try:
         with open(mapping_file_path, 'r') as file:
             index_to_text = json.load(file)
-            if not index_to_text:
-                return 0
-            return max(map(int, index_to_text.keys()))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return 
+            # Asumiendo que cada entrada en index_to_text es un diccionario que contiene un campo 'embedding'
+            embeddings = [entry['embedding'] for entry in index_to_text.values() if 'embedding' in entry]
+            if not embeddings:
+                return 0, np.array([])
+            # Asegúrate de que todos los embeddings tengan la misma longitud
+            length = len(embeddings[0])
+            if all(len(embedding) == length for embedding in embeddings):
+                return max(map(int, index_to_text.keys())), np.array(embeddings, dtype=np.float32)
+            else:
+                raise ValueError("Inconsistent embedding lengths found in the data.")
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        app.logger.error(f"Error in get_last_index: {e}")
+        return 0, np.array([])
 
 def get_segment_position(segmento, texto_completo):
     """
@@ -481,7 +489,10 @@ def process_urls():
 
     all_indexed = True
     error_message = ""
-    indice_global = get_last_index(mapping_file_path)
+    indice_global, existing_embeddings = get_last_index(mapping_file_path)
+    if existing_embeddings.ndim != 2:
+        return jsonify({"status": "error", "message": "Existing embeddings are not in a valid format"}), 500
+
     FAISS_INDEX_DIMENSION = 1536
 
     for url in urls:
@@ -810,23 +821,28 @@ def train_pca():
             app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
 
-        # Construye la ruta al archivo de datos
         data_file_path = os.path.join('data/faiss_index', chatbot_id, 'index_to_text.json')
 
-        # Carga y procesa los datos
         try:
             with open(data_file_path, 'r') as file:
                 data_dict = json.load(file)
-                # Asegurarse de que los datos son una lista de vectores (listas de números)
                 vector_data = []
+                vector_length = None
                 for key, value in data_dict.items():
                     if isinstance(value, list) and all(isinstance(x, (int, float)) for x in value):
-                        vector_data.append(value)
+                        if vector_length is None:
+                            vector_length = len(value)
+                        if len(value) == vector_length:
+                            vector_data.append(value)
+                        else:
+                            app.logger.warning(f"Skipping vector with key {key} due to inconsistent length.")
                     else:
-                        app.logger.warning(f"Skipping invalid data for key {key}. Expected a list of numbers.")
+                        app.logger.warning(f"Skipping non-vector data for key {key}.")
+                
+                if not vector_data:
+                    raise ValueError("No valid vector data found.")
+                
                 vector_data = np.array(vector_data, dtype=np.float32)
-                if vector_data.ndim != 2:
-                    raise ValueError("Data must be a 2-dimensional array.")
         except FileNotFoundError:
             app.logger.error(f"Data file not found: {data_file_path}")
             return jsonify({"error": f"Data file not found: {data_file_path}"}), 404
@@ -834,7 +850,6 @@ def train_pca():
             app.logger.error(f"Error loading data: {str(e)}")
             return jsonify({"error": f"Error loading data: {str(e)}"}), 500
 
-        # Entrenar la matriz PCA
         entrenar_pca_con_datos(vector_data)
 
         return jsonify({"message": "PCA matrix trained successfully"})
@@ -842,7 +857,6 @@ def train_pca():
     except Exception as e:
         app.logger.error(f"Unexpected error in train_pca function: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 
