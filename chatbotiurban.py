@@ -33,6 +33,26 @@ from requests.exceptions import RequestException
 app = Flask(__name__)
 
 
+#### A revisar
+# Importar las bibliotecas necesarias
+# Suponiendo que los datos son embeddings de dimensión 768 (cambiar según sea necesario)
+dim = 768
+num_data_points = 10000  # Número de puntos de datos (cambiar según sea necesario)
+# Crear datos de ejemplo (reemplazar con tus propios datos)
+data = np.random.rand(num_data_points, dim).astype(np.float32)
+# Crear y entrenar el índice Faiss para la búsqueda de vecinos más cercanos
+index = faiss.IndexFlatL2(dim)  # Usar L2 para la distancia
+# Milvus adds data to the collection in a different way  # Agregar los datos al índice
+# Realizar una consulta de ejemplo
+query = np.random.rand(dim).astype(np.float32)
+k = 5  # Número de vecinos más cercanos a buscar
+distances, neighbors = index.search(query.reshape(1, -1), k)
+# Mostrar los resultados
+print("Índices de los vecinos más cercanos:", neighbors)
+print("Distancias de los vecinos más cercanos:", distances)
+
+
+
 ##### Configuración del registro de logs #####
 
 if not os.path.exists('logs'):
@@ -65,10 +85,12 @@ faiss_index = None
 def entrenar_pca_con_datos(data, n_components=100):
     global pca_matrix
     pca_matrix = faiss.PCAMatrix(data.shape[1], n_components, eigen_power=-0.5)
-    pca_matrix.train(data)
+    pca_matrix.train(data.astype(np.float32))
 
 def aplicar_pca_a_vector(vector):
     global pca_matrix
+    if pca_matrix is None:
+        raise Exception("PCA matrix has not been initialized. Please call initialize_and_train_pca first.")
     return pca_matrix.apply_py(np.array([vector]).astype(np.float32))
 
 
@@ -325,23 +347,6 @@ def safe_request(url, max_retries=3):
     return None
 
 
-
-# Importar las bibliotecas necesarias
-# Suponiendo que los datos son embeddings de dimensión 768 (cambiar según sea necesario)
-dim = 768
-num_data_points = 10000  # Número de puntos de datos (cambiar según sea necesario)
-# Crear datos de ejemplo (reemplazar con tus propios datos)
-data = np.random.rand(num_data_points, dim).astype(np.float32)
-# Crear y entrenar el índice Faiss para la búsqueda de vecinos más cercanos
-index = faiss.IndexFlatL2(dim)  # Usar L2 para la distancia
-# Milvus adds data to the collection in a different way  # Agregar los datos al índice
-# Realizar una consulta de ejemplo
-query = np.random.rand(dim).astype(np.float32)
-k = 5  # Número de vecinos más cercanos a buscar
-distances, neighbors = index.search(query.reshape(1, -1), k)
-# Mostrar los resultados
-print("Índices de los vecinos más cercanos:", neighbors)
-print("Distancias de los vecinos más cercanos:", distances)
 
 #metodo param la subida de documentos
 
@@ -816,7 +821,41 @@ def ask_pruebas_asier():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/train', methods=['POST'])
+def train_pca():
+    try:
+        data = request.json
+        chatbot_id = data.get('chatbot_id')
 
+        if not chatbot_id:
+            app.logger.error("No chatbot_id provided in the request")
+            return jsonify({"error": "No chatbot_id provided"}), 400
+
+        # Construye la ruta al archivo de datos
+        data_file_path = os.path.join('data/faiss_index', chatbot_id, 'index_to_text.json')
+
+        # Carga los datos
+        try:
+            with open(data_file_path, 'r') as file:
+                data = json.load(file)
+                # Asume que los datos están en un formato adecuado para ser convertidos a un array de numpy
+                # Debes adaptar esta parte para que coincida con la estructura real de tus datos
+                vector_data = np.array([vector for vector in data.values()], dtype=np.float32)
+        except FileNotFoundError:
+            app.logger.error(f"Data file not found: {data_file_path}")
+            return jsonify({"error": f"Data file not found: {data_file_path}"}), 404
+        except Exception as e:
+            app.logger.error(f"Error loading data: {str(e)}")
+            return jsonify({"error": f"Error loading data: {str(e)}"}), 500
+
+        # Entrenar la matriz PCA
+        entrenar_pca_con_datos(vector_data)
+
+        return jsonify({"message": "PCA matrix trained successfully"})
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in train_pca function: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 # Método externo para generar respuestas con OpenAI
