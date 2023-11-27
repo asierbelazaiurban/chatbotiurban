@@ -847,7 +847,7 @@ def train_faiss():
         # Cargar el índice FAISS existente
         app.logger.info("Loading existing FAISS index")
         faiss_index = faiss.read_index(faiss_index_path)
-        app.logger.warning("TOTAL: "+faiss_index.ntotal)
+        app.logger.warning(faiss_index.ntotal)
 
         # Verificar si hay vectores en el índice FAISS
         if faiss_index.ntotal == 0:
