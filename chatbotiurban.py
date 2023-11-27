@@ -115,7 +115,7 @@ def obtener_incrustacion(texto):
     
     # Extraer el vector de incrustación
     incrustacion = response['data'][0]['embedding']
-    app.logger.info('Called incrustacion')
+    app.logger.info(incrustacion)
 
     return incrustacion
 
@@ -123,6 +123,8 @@ def obtener_incrustacion(texto):
 def convert_to_vector(texto):
     app.logger.info('Called convert_to_vector')
     vector = obtener_incrustacion(texto)
+    app.logger.info("vector "+vector)
+    
     return vector
 
 
