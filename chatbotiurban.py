@@ -428,7 +428,9 @@ def read_urls(chatbot_folder, chatbot_id):
             urls = [url.strip() for url in file.readlines()]
         return urls
     except FileNotFoundError:
-        app.logger.error(f"Archivo de URLs no encontrado para el chat
+        app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
+        return None
+
 
 def get_last_index(mapping_file_path):
     try:
