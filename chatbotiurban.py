@@ -279,13 +279,16 @@ def generate_embedding(text):
 
     if 'data' in response and len(response['data']) > 0 and 'embedding' in response['data'][0]:
         embedding = np.array(response['data'][0]['embedding'], dtype=np.float32)
+        # Ajustar la dimensión del embedding a 1536
+        if embedding.shape[0] != 1536:
+            # Rellenar o truncar el embedding según sea necesario
+            embedding = np.pad(embedding, (0, max(0, 1536 - embedding.shape[0])), 'constant')
     else:
         app.logger.error('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
         raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
 
     app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
     return embedding
-
 
 
 def generate_embedding_withou_openAI(text):
@@ -350,7 +353,20 @@ def obtener_embeddings(texto):
     embedding = np.array(response['data'][0]['embedding'])
     return embedding
 
+def load_existing_embeddings(mapping_file_path):
+    try:
+        with open(mapping_file_path, 'r') as file:
+            existing_embeddings = json.load(file)
+            # Suponiendo que los embeddings están almacenados como listas de listas
+            return np.array(existing_embeddings)
+    except Exception as e:
+        app.logger.error(f"Error al cargar embeddings existentes: {e}")
+        return None
 
+def validate_embeddings(embeddings, expected_dim):
+    if embeddings is None or embeddings.ndim != 2 or embeddings.shape[1] != expected_dim:
+        return False
+    return True
 
 def update_faiss_index(embeddings, chatbot_id):
     # Esta función debe actualizar el índice de FAISS con nuevos embeddings
