@@ -79,7 +79,6 @@ def initialize_faiss_index(dimension, chatbot_id):
     app.logger.info(f'Tiempo total en initialize_faiss_index: {time.time() - start_time:.2f} segundos')
 
 
-
 def get_faiss_index(chatbot_id):
     app.logger.info('Called get_faiss_index')
     global faiss_index
@@ -190,8 +189,6 @@ def create_bbdd(chatbot_id):
 
 
 ######## Embedding, tokenizacion y add to FAISS ########
-
-
 
 # Suponiendo que tienes un diccionario para mapear IDs de documentos a índices en FAISS
 doc_id_to_faiss_index = {}
