@@ -745,6 +745,52 @@ def filter_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/ask_pruebas_asier', methods=['POST'])
+def ask_pruebas_asier():
+    try:
+        data = request.json
+        chatbot_id = data.get('chatbot_id')
+        if not chatbot_id:
+            app.logger.error("No chatbot_id provided in the request")
+            return jsonify({"error": "No chatbot_id provided"}), 400
+
+        # Llamar a obtener_lista_indices con el chatbot_id
+        indice_faiss = obtener_lista_indices(chatbot_id)
+        if indice_faiss is None:
+            app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
+            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
+
+
+        query_text = data.get('query')
+        if not query_text:
+            app.logger.error("No query provided in the request")
+            return jsonify({"error": "No query provided"}), 400
+
+        query_vector = convert_to_vector(query_text)
+
+        # Buscar en el índice FAISS
+        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
+
+        umbral_distancia = 0.5  # Ajusta este valor según sea necesario
+        if D[0][0] < umbral_distancia:
+            mejor_respuesta = obtener_respuesta_faiss(I[0][0], indice_faiss)
+            return jsonify({'respuesta': mejor_respuesta})
+
+        # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
+        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": query_text}])
+
+        nueva_respuesta = response_openai['choices'][0]['message']['content']
+        almacenar_en_faiss(nueva_respuesta, indice_faiss)
+
+        return jsonify({'respuesta': nueva_respuesta})
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in ask function: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+
 @app.route('/ask_prueba', methods=['POST'])
 def ask_prueba():
     data = request.json
