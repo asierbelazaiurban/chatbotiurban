@@ -471,7 +471,6 @@ def get_segment_position(segmento, texto_completo):
 
 ########  Inicio de endpints hasta el final########
 
-
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     start_time = time.time()
