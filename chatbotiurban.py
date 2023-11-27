@@ -63,8 +63,10 @@ faiss_index = None
 # Función para entrenar la matriz PCA con todos los datos
 def entrenar_pca_con_datos(data, n_components=100):
     global pca_matrix
+    if data.shape[0] == 0:
+        raise ValueError("No data available for PCA training.")
     pca_matrix = faiss.PCAMatrix(data.shape[1], n_components, eigen_power=-0.5)
-    pca_matrix.train(data.astype(np.float32))
+    pca_matrix.train(data)
 
 def aplicar_pca_a_vector(vector):
     global pca_matrix
@@ -461,25 +463,35 @@ def get_last_index(mapping_file_path):
     try:
         with open(mapping_file_path, 'r') as file:
             index_to_text = json.load(file)
-            # Asumiendo que cada entrada en index_to_text es un diccionario que contiene un campo 'embedding'
-            embeddings = [entry['embedding'] for entry in index_to_text.values() if 'embedding' in entry]
-            if not embeddings:
-                return 0, np.array([])
-            
-            # Ajustar cada embedding a la dimensión deseada
-            adjusted_embeddings = []
-            for embedding in embeddings:
-                if len(embedding) != 1536:
-                    adjusted_embedding = np.pad(embedding, (0, max(0, 1536 - len(embedding))), 'constant')
-                else:
-                    adjusted_embedding = embedding
-                adjusted_embeddings.append(adjusted_embedding)
-            
-            return max(map(int, index_to_text.keys())), np.array(adjusted_embeddings, dtype=np.float32)
+            embeddings = []
 
-    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+            for entry in index_to_text.values():
+                if 'embedding' in entry:
+                    embedding = entry['embedding']
+                    if isinstance(embedding, list) and len(embedding) > 0:
+                        # Ajustar la longitud del embedding a 1536
+                        adjusted_embedding = np.array(embedding, dtype=np.float32)
+                        if adjusted_embedding.shape[0] != 1536:
+                            adjusted_embedding = np.pad(adjusted_embedding, (0, 1536 - adjusted_embedding.shape[0]), 'constant', constant_values=0)
+                        embeddings.append(adjusted_embedding)
+            
+            if not embeddings:
+                return 0, np.empty((0, 1536), dtype=np.float32)
+
+            embeddings_matrix = np.vstack(embeddings)
+            return max(index_to_text.keys(), key=int), embeddings_matrix
+
+    except Exception as e:
         app.logger.error(f"Error in get_last_index: {e}")
-        return 0, np.array([])
+        return 0, np.empty((0, 1536), dtype=np.float32)
+
+def entrenar_pca_con_datos(data, n_components=100):
+    global pca_matrix
+    if data.shape[0] == 0:
+        raise ValueError("No data available for PCA training.")
+    pca_matrix = faiss.PCAMatrix(data.shape[1], n_components, eigen_power=-0.5)
+    pca_matrix.train(data)
+
 
 
 def get_segment_position(segmento, texto_completo):
