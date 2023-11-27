@@ -817,11 +817,16 @@ def train_pca():
         try:
             with open(data_file_path, 'r') as file:
                 data_dict = json.load(file)
-                # Aquí necesitas procesar data_dict para convertirlo en un array adecuado
-                # Esto dependerá de la estructura exacta de tus datos
-                # El siguiente es un ejemplo genérico y puede necesitar ser ajustado
-                vector_data = np.array([value for key, value in data_dict.items() if isinstance(value, list)],
-                                       dtype=np.float32)
+                # Asegurarse de que los datos son una lista de vectores (listas de números)
+                vector_data = []
+                for key, value in data_dict.items():
+                    if isinstance(value, list) and all(isinstance(x, (int, float)) for x in value):
+                        vector_data.append(value)
+                    else:
+                        app.logger.warning(f"Skipping invalid data for key {key}. Expected a list of numbers.")
+                vector_data = np.array(vector_data, dtype=np.float32)
+                if vector_data.ndim != 2:
+                    raise ValueError("Data must be a 2-dimensional array.")
         except FileNotFoundError:
             app.logger.error(f"Data file not found: {data_file_path}")
             return jsonify({"error": f"Data file not found: {data_file_path}"}), 404
@@ -837,6 +842,7 @@ def train_pca():
     except Exception as e:
         app.logger.error(f"Unexpected error in train_pca function: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
