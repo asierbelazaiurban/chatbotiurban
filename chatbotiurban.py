@@ -886,6 +886,7 @@ def ask_pruebas_asier():
 
         umbral_distancia = 0.5  # Ajusta este valor según sea necesario
         #if D[0][0] < umbral_distancia:
+        
         mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
         return jsonify({'respuesta': mejor_respuesta})
 
@@ -899,7 +900,7 @@ def ask_pruebas_asier():
         #nueva_respuesta = response_openai['choices'][0]['message']['content']
         #almacenar_en_faiss(nueva_respuesta, indice_faiss)
 
-        return jsonify({'respuesta': mejor_respuesta})
+        #return jsonify({'respuesta': mejor_respuesta})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
