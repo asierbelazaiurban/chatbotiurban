@@ -825,7 +825,7 @@ def ask_pruebas_asier():
 
 
 @app.route('/train', methods=['POST'])
-def train_pca():
+def optimize_faiss_index():
     try:
         data = request.json
         chatbot_id = data.get('chatbot_id')
@@ -834,48 +834,43 @@ def train_pca():
             app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
 
-        data_file_path = os.path.join('data/faiss_index', chatbot_id, 'index_to_text.json')
+        # Ruta al índice FAISS existente
+        faiss_index_path = os.path.join('data/faiss_index', chatbot_id, 'faiss.idx')
 
-        try:
-            with open(data_file_path, 'r') as file:
-                data_dict = json.load(file)
-                vector_data = []
-                vector_length = None
-                for key, value in data_dict.items():
-                    # Verificar si value es un diccionario y contiene un campo 'embedding'
-                    if isinstance(value, dict) and 'embedding' in value:
-                        embedding = value['embedding']
-                        # Verificar que el embedding sea una lista de números
-                        if isinstance(embedding, list) and all(isinstance(x, (int, float)) for x in embedding):
-                            if vector_length is None:
-                                vector_length = len(embedding)
-                            if len(embedding) == vector_length:
-                                vector_data.append(embedding)
-                            else:
-                                app.logger.warning(f"Skipping vector with key {key} due to inconsistent length.")
-                        else:
-                            app.logger.warning(f"Skipping non-vector data for key {key}.")
-                
-                if not vector_data:
-                    raise ValueError("No valid vector data found.")
-                
-                vector_data = np.array(vector_data, dtype=np.float32)
+        if not os.path.exists(faiss_index_path):
+            app.logger.error(f"FAISS index file not found: {faiss_index_path}")
+            return jsonify({"error": "FAISS index file not found"}), 404
 
-        except FileNotFoundError:
-            app.logger.error(f"Data file not found: {data_file_path}")
-            return jsonify({"error": f"Data file not found: {data_file_path}"}), 404
-        except Exception as e:
-            app.logger.error(f"Error loading data: {str(e)}")
-            return jsonify({"error": f"Error loading data: {str(e)}"}), 500
+        # Cargar el índice FAISS existente
+        faiss_index = faiss.read_index(faiss_index_path)
 
-        # Asumiendo que 'entrenar_pca_con_datos' es una función definida que entrena PCA con los datos
-        entrenar_pca_con_datos(vector_data)
+        # Extraer los vectores del índice FAISS
+        nb_vectors = faiss_index.ntotal
+        dimension = faiss_index.d
+        vectors = np.zeros((nb_vectors, dimension), dtype=np.float32)
+        faiss_index.reconstruct_n(0, nb_vectors, vectors)
 
-        return jsonify({"message": "PCA matrix trained successfully"})
+        # Entrenar la matriz PCA con los datos
+        n_components = 100  # Ajusta esto según tus necesidades
+        entrenar_pca_con_datos(vectors, n_components)
+
+        # Aplicar PCA a cada vector
+        transformed_vectors = np.array([aplicar_pca_a_vector(vector)[0] for vector in vectors])
+
+        # Crear un nuevo índice FAISS con los vectores transformados
+        new_faiss_index = faiss.IndexFlatL2(n_components)
+        new_faiss_index.add(transformed_vectors)
+
+        # Guardar el nuevo índice FAISS
+        faiss.write_index(new_faiss_index, faiss_index_path)
+
+        return jsonify({"message": "FAISS index optimized with PCA successfully"})
 
     except Exception as e:
-        app.logger.error(f"Unexpected error in train_pca function: {e}")
+        app.logger.error(f"Unexpected error in optimize_faiss_index function: {e}")
         return jsonify({"error": str(e)}), 500
+
+
 
 
 
