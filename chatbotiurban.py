@@ -401,6 +401,38 @@ def dividir_en_segmentos(texto, max_tokens):
 
 ######## ########
 
+def prepare_paths(chatbot_id):
+    # Rutas de los directorios y archivos necesarios
+    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+    mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
+
+    # Asegurarse de que el índice FAISS y los directorios existen o inicializarlos
+    os.makedirs(os.path.dirname(faiss_index_path), exist_ok=True)
+    if not os.path.exists(faiss_index_path):
+        create_bbdd(chatbot_id)
+
+    # Asegurarse de que el directorio del chatbot y el archivo de mapeo existen
+    os.makedirs(chatbot_folder, exist_ok=True)
+    if not os.path.exists(mapping_file_path):
+        with open(mapping_file_path, 'w') as file:
+            json.dump({}, file)
+
+    return chatbot_folder, mapping_file_path
+
+
+
+def read_urls(chatbot_folder, chatbot_id):
+    urls_file_path = os.path.join(chatbot_folder, f'{chatbot_id}.txt')
+    try:
+        with open(urls_file_path, 'r') as file:
+            urls = [url.strip() for url in file.readlines()]
+        return urls
+    except FileNotFoundError:
+        app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
+        return None
+
+
 
 ########  Inicio de endpints hasta el final########
 
@@ -475,89 +507,15 @@ def process_urls():
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
 
 
-@app.route('/process_urls_pruebas', methods=['POST'])
-def process_urls_pruebas():
-    start_time = time.time()
-    app.logger.info('Iniciando process_urls')
-
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
-
-    # Asegúrate de que el índice FAISS existe o inicialízalo
-    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-    if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)
-
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    if not os.path.exists(chatbot_folder):
-        os.makedirs(chatbot_folder)
-
-    mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
-    if not os.path.exists(mapping_file_path):
-        with open(mapping_file_path, 'w') as file:
-            json.dump({}, file)
-
+def read_urls(chatbot_folder, chatbot_id):
+    urls_file_path = os.path.join(chatbot_folder, f'{chatbot_id}.txt')
     try:
-        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
-            urls = file.readlines()
+        with open(urls_file_path, 'r') as file:
+            urls = [url.strip() for url in file.readlines()]
+        return urls
     except FileNotFoundError:
-        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
-
-    all_indexed = True
-    error_message = ""
-
-    # Asumiendo que la dimensión del índice FAISS es 1536
-    FAISS_INDEX_DIMENSION = 1536
-
-    for url in urls:
-        url = url.strip()
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text()
-
-            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
-
-            for segmento in segmentos:
-                try:
-                    embeddings = generate_embedding(segmento)
-                    if embeddings.shape[0] != FAISS_INDEX_DIMENSION:
-                        app.logger.error(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[0]}")
-                        continue
-
-                    faiss_index = get_faiss_index(chatbot_id)
-                    faiss_index.add(np.array([embeddings], dtype=np.float32))
-
-                    # Actualizar el archivo JSON con el mapeo índice-texto
-                    with open(mapping_file_path, 'r+') as file:
-                        index_to_text = json.load(file)
-                        nuevo_indice = len(index_to_text)
-                        index_to_text[nuevo_indice] = segmento
-                        file.seek(0)
-                        json.dump(index_to_text, file)
-
-                except Exception as e:
-                    app.logger.error(f"Error al procesar el segmento de la URL {url}: {e}")
-                    all_indexed = False
-                    error_message = str(e)
-                    continue
-
-        except Exception as e:
-            app.logger.error(f"Error al procesar la URL {url}: {e}")
-            all_indexed = False
-            error_message = str(e)
-            break
-
-        sleep(0.2)
-
-    if all_indexed:
-        return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
-    else:
-        return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
-
-    app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+        app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
+        return None
 
 
 @app.route('/save_urls', methods=['POST'])
@@ -649,71 +607,6 @@ def url_for_scraping():
                 text_file.write(url_data['url'] + '\n')
 
         # Devolver al front las URLs y el conteo de palabras asociado a cada una
-        return jsonify(urls_data)
-    except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
-
-
-@app.route('/url_for_scraping_only_a_few', methods=['POST'])
-def url_for_scraping_only_a_few():
-    try:
-        # Obtener URL, chatbot_id y número máximo de URLs del request
-        data = request.get_json()
-        base_url = data.get('url')
-        chatbot_id = data.get('chatbot_id')
-        max_urls = data.get('max_urls')  # No hay valor por defecto
-
-        if not base_url or not max_urls:
-            return jsonify({'error': 'No URL or max_urls provided'}), 400
-
-        # Crear o verificar la carpeta específica del chatbot_id
-        save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-        os.makedirs(save_dir, exist_ok=True)
-
-        # Ruta del archivo a crear o sobrescribir
-        file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
-
-        # Borrar el archivo existente si existe
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
-        # Función para determinar si la URL pertenece al mismo dominio
-        def same_domain(url):
-            return urlparse(url).netloc == urlparse(base_url).netloc
-
-        # Hacer scraping y recoger hasta max_urls URLs únicas
-        urls = set()
-        base_response = safe_request(base_url)
-        if base_response:
-            soup = BeautifulSoup(base_response.content, 'html.parser')
-            for tag in soup.find_all('a', href=True):
-                if len(urls) >= max_urls:  # Limitar a max_urls URLs
-                    break
-                url = urljoin(base_url, tag.get('href'))
-                if same_domain(url) and url not in urls:
-                    urls.add(url)
-        else:
-            return jsonify({'error': 'Failed to fetch base URL'}), 500
-
-        # Contar palabras en las URLs y preparar los datos para el JSON de salida
-        urls_data = []
-        for url in list(urls)[:max_urls]:  # Procesar solo las URLs especificadas
-            response = safe_request(url)
-            if response:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                text = soup.get_text()
-                word_count = len(text.split())
-                urls_data.append({'url': url, 'word_count': word_count})
-            else:
-                urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
-
-        # Guardar las URLs en un archivo de texto con el nombre chatbot_id
-        with open(file_path, 'w') as text_file:
-            for url_data in urls_data:
-                text_file.write(url_data['url'] + '\n')
-
-        # Devolver las URLs y el conteo de palabras asociado a cada una
         return jsonify(urls_data)
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
