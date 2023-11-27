@@ -56,8 +56,21 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 ######## FAISS ########
 
-# Global variable to store the FAISS index
+# Variables globales para la matriz PCA y el índice FAISS
+pca_matrix = None
 faiss_index = None
+
+
+# Función para entrenar la matriz PCA con todos los datos
+def entrenar_pca_con_datos(data, n_components=100):
+    global pca_matrix
+    pca_matrix = faiss.PCAMatrix(data.shape[1], n_components, eigen_power=-0.5)
+    pca_matrix.train(data)
+
+def aplicar_pca_a_vector(vector):
+    global pca_matrix
+    return pca_matrix.apply_py(np.array([vector]).astype(np.float32))
+
 
 def initialize_faiss_index(dimension, chatbot_id):
     app.logger.info('Called initialize_faiss_index')
@@ -95,12 +108,11 @@ def almacenar_en_faiss(respuesta, faiss_index):
     app.logger.info('Called almacenar_en_faiss')
     respuesta_vector = convert_to_vector(respuesta)
 
-    # Convertir el vector de respuesta en un array numpy, que es el formato requerido por FAISS.
-    # El vector debe ser de tipo 'float32' y se debe añadir una dimensión extra para convertirlo en un array 2D.
-    respuesta_vector_np = np.array([respuesta_vector]).astype('float32')
+    # Aplicar PCA al vector de respuesta
+    respuesta_vector_reducido = aplicar_pca_a_vector(respuesta_vector)
 
-    # Añadir el vector al índice FAISS.
-    faiss_index.add(respuesta_vector_np)
+    # Añadir el vector reducido al índice FAISS
+    faiss_index.add(respuesta_vector_reducido)
 
 
 def obtener_incrustacion(texto):
@@ -142,6 +154,11 @@ def obtener_lista_indices(chatbot_id):
         return None
 
 
+def buscar_en_faiss(query_vector, faiss_index, k=5):
+    query_vector_reducido = aplicar_pca_a_vector(query_vector)
+    D, I = faiss_index.search(query_vector_reducido, k)
+    return D, I
+
 def obtener_respuesta_faiss(indice, chatbot_id):
     # Ruta al archivo JSON que mapea índices FAISS a textos
     mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
@@ -161,6 +178,23 @@ def obtener_respuesta_faiss(indice, chatbot_id):
 
     return texto
 
+def buscar_y_obtener_respuestas_faiss(query_vector, chatbot_id, k=5):
+    global faiss_index
+    # Aplicar PCA al vector de consulta
+    query_vector_reducido = aplicar_pca_a_vector(query_vector)
+    
+    # Realizar la búsqueda en el índice FAISS
+    D, I = faiss_index.search(query_vector_reducido, k)
+
+    respuestas = []
+    for indice in I[0]:
+        if indice != -1:  # Verificar que el índice es válido
+            respuesta = obtener_respuesta_faiss(indice, chatbot_id)
+            respuestas.append(respuesta)
+        else:
+            respuestas.append("Respuesta no encontrada")
+
+    return respuestas
 
 
 def create_database(chatbot_id):
@@ -764,12 +798,6 @@ def ask_pruebas_asier():
             app.logger.error("No token provided in the request")
             return jsonify({"error": "No token provided"}), 400
 
-        # Obtener el índice FAISS para el chatbot_id dado
-        indice_faiss = obtener_lista_indices(chatbot_id)
-        if indice_faiss is None:
-            app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
-            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
-
         pregunta_text = data.get('pregunta')  # Cambiado de query a pregunta
         if not pregunta_text:
             app.logger.error("No pregunta provided in the request")
@@ -777,28 +805,16 @@ def ask_pruebas_asier():
 
         # Convertir la consulta en un vector
         query_vector = convert_to_vector(pregunta_text)  # Usar pregunta_text
-        app.logger.error("query_vector")
-        app.logger.error(query_vector)
 
-        # Buscar en el índice FAISS
-        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=5)
+        # Realizar la búsqueda en FAISS y obtener respuestas
+        respuestas = buscar_y_obtener_respuestas_faiss(query_vector, chatbot_id, k=5)
 
-        umbral_distancia = 5.0  # Ajusta este valor según sea necesario
-        app.logger.error("D es: ")
-        app.logger.error(D)
-        app.logger.error("I es: ")
-        app.logger.error(I)
-        if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
-        else:
-            # Manejar el caso en el que no se encuentra una coincidencia cercana
-            mejor_respuesta = "Respuesta no encontrada"  # o alguna otra lógica de manejo
-
-        return jsonify({'respuesta': mejor_respuesta})
+        return jsonify({'respuestas': respuestas})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask_pruebas_asier function: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
