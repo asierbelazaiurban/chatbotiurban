@@ -454,79 +454,9 @@ def get_segment_position(segmento, texto_completo):
 
 ########  Inicio de endpints hasta el final########
 
+
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
-    start_time = time.time()
-    app.logger.info('Iniciando process_urls')
-
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
-
-    # Asegúrate de que el índice FAISS existe o inicialízalo
-    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-    if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)
-
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    if not os.path.exists(chatbot_folder):
-        os.makedirs(chatbot_folder)
-
-    try:
-        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
-            urls = file.readlines()
-    except FileNotFoundError:
-        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
-
-    all_indexed = True
-    error_message = ""
-
-    # Asumiendo que la dimensión del índice FAISS es 1536
-    FAISS_INDEX_DIMENSION = 1536
-
-    for url in urls:
-        url = url.strip()
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text()
-
-            segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
-
-            for segmento in segmentos:
-                try:
-                    embeddings = generate_embedding(segmento)
-                    if embeddings.shape[0] != FAISS_INDEX_DIMENSION:
-                        app.logger.error(f"Dimensión de embeddings incorrecta: esperada {FAISS_INDEX_DIMENSION}, obtenida {embeddings.shape[0]}")
-                        continue
-
-                    faiss_index = get_faiss_index(chatbot_id)
-                    faiss_index.add(np.array([embeddings], dtype=np.float32))
-                except Exception as e:
-                    app.logger.error(f"Error al procesar el segmento de la URL {url}: {e}")
-                    all_indexed = False
-                    error_message = str(e)
-                    continue
-
-        except Exception as e:
-            app.logger.error(f"Error al procesar la URL {url}: {e}")
-            all_indexed = False
-            error_message = str(e)
-            break
-
-        sleep(0.2)
-
-    if all_indexed:
-        return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
-    else:
-        return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
-
-    app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
-
-
-@app.route('/process_urls_pruebas', methods=['POST'])
-def process_urls_pruebas():
     start_time = time.time()
     app.logger.info('Iniciando process_urls')
 
