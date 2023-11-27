@@ -68,6 +68,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 faiss_index = None
 
 def initialize_faiss_index(dimension, chatbot_id):
+    app.logger.info('Called initialize_faiss_index')
     global faiss_index  # Usa la variable global 'faiss_index'
     start_time = time.time()  # Inicio del registro de tiempo
     app.logger.info('Iniciando initialize_faiss_index')
@@ -86,7 +87,9 @@ def initialize_faiss_index(dimension, chatbot_id):
     app.logger.info(f'Tiempo total en initialize_faiss_index: {time.time() - start_time:.2f} segundos')
 
 
+
 def get_faiss_index(chatbot_id):
+    app.logger.info('Called get_faiss_index')
     global faiss_index
     if faiss_index is None:
         faiss_index_path = f'data/faiss_index/{chatbot_id}/faiss.idx'
@@ -98,7 +101,7 @@ def get_faiss_index(chatbot_id):
 
 
 def almacenar_en_faiss(respuesta, faiss_index):
-
+    app.logger.info('Called almacenar_en_faiss')
     respuesta_vector = convert_to_vector(respuesta)
 
     # Convertir el vector de respuesta en un array numpy, que es el formato requerido por FAISS.
@@ -109,9 +112,8 @@ def almacenar_en_faiss(respuesta, faiss_index):
     faiss_index.add(respuesta_vector_np)
 
 
-
 def obtener_incrustacion(texto):
-    # Configura tu clave API de OpenAI aquí
+    app.logger.info('Called obtener_incrustacion')
     openai_api_key = os.environ.get('OPENAI_API_KEY')
 
     # Obtener la incrustación del texto
@@ -125,18 +127,15 @@ def obtener_incrustacion(texto):
 
     return incrustacion
 
+
 def convert_to_vector(texto):
-    # Utilizar la función 'obtener_incrustacion' para convertir texto en vector
+    app.logger.info('Called convert_to_vector')
     vector = obtener_incrustacion(texto)
     return vector
 
 
 def obtener_lista_indices(chatbot_id):
-    """
-    Carga el índice FAISS para un chatbot específico.
-    :param chatbot_id: ID del chatbot para el cual se cargará el índice FAISS.
-    :return: Índice FAISS del chatbot especificado.
-    """
+    app.logger.info('Called obtener_lista_indices')
     directorio_base = os.path.join('data/faiss_index', chatbot_id)
     ruta_faiss = os.path.join(directorio_base, 'faiss.idx')
 
