@@ -854,20 +854,25 @@ def train_pca():
                 vector_data = []
                 vector_length = None
                 for key, value in data_dict.items():
-                    if isinstance(value, list) and all(isinstance(x, (int, float)) for x in value):
-                        if vector_length is None:
-                            vector_length = len(value)
-                        if len(value) == vector_length:
-                            vector_data.append(value)
+                    # Verificar si value es un diccionario y contiene un campo 'embedding'
+                    if isinstance(value, dict) and 'embedding' in value:
+                        embedding = value['embedding']
+                        # Verificar que el embedding sea una lista de números
+                        if isinstance(embedding, list) and all(isinstance(x, (int, float)) for x in embedding):
+                            if vector_length is None:
+                                vector_length = len(embedding)
+                            if len(embedding) == vector_length:
+                                vector_data.append(embedding)
+                            else:
+                                app.logger.warning(f"Skipping vector with key {key} due to inconsistent length.")
                         else:
-                            app.logger.warning(f"Skipping vector with key {key} due to inconsistent length.")
-                    else:
-                        app.logger.warning(f"Skipping non-vector data for key {key}.")
+                            app.logger.warning(f"Skipping non-vector data for key {key}.")
                 
                 if not vector_data:
                     raise ValueError("No valid vector data found.")
                 
                 vector_data = np.array(vector_data, dtype=np.float32)
+
         except FileNotFoundError:
             app.logger.error(f"Data file not found: {data_file_path}")
             return jsonify({"error": f"Data file not found: {data_file_path}"}), 404
@@ -875,6 +880,7 @@ def train_pca():
             app.logger.error(f"Error loading data: {str(e)}")
             return jsonify({"error": f"Error loading data: {str(e)}"}), 500
 
+        # Asumiendo que 'entrenar_pca_con_datos' es una función definida que entrena PCA con los datos
         entrenar_pca_con_datos(vector_data)
 
         return jsonify({"message": "PCA matrix trained successfully"})
@@ -882,6 +888,7 @@ def train_pca():
     except Exception as e:
         app.logger.error(f"Unexpected error in train_pca function: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
