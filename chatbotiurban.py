@@ -859,9 +859,15 @@ def ask_pruebas_asier():
     try:
         data = request.json
         chatbot_id = data.get('chatbot_id')
+        token = data.get('token')  # Nuevo: obtener el token
+
         if not chatbot_id:
             app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
+
+        if not token:  # Verificar la existencia del token
+            app.logger.error("No token provided in the request")
+            return jsonify({"error": "No token provided"}), 400
 
         # Obtener el índice FAISS para el chatbot_id dado
         indice_faiss = obtener_lista_indices(chatbot_id)
@@ -869,13 +875,13 @@ def ask_pruebas_asier():
             app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
-        query_text = data.get('query')
-        if not query_text:
-            app.logger.error("No query provided in the request")
-            return jsonify({"error": "No query provided"}), 400
+        pregunta_text = data.get('pregunta')  # Cambiado de query a pregunta
+        if not pregunta_text:
+            app.logger.error("No pregunta provided in the request")
+            return jsonify({"error": "No pregunta provided"}), 400
 
         # Convertir la consulta en un vector
-        query_vector = convert_to_vector(query_text)
+        query_vector = convert_to_vector(pregunta_text)  # Usar pregunta_text
 
         # Buscar en el índice FAISS
         D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
@@ -887,7 +893,10 @@ def ask_pruebas_asier():
 
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
         openai.api_key = os.environ.get('OPENAI_API_KEY')
-        response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": query_text}])
+        response_openai = openai.ChatCompletion.create(
+            model="gpt-4", 
+            messages=[{"role": "user", "content": pregunta_text}]  # Usar pregunta_text
+        )
 
         nueva_respuesta = response_openai['choices'][0]['message']['content']
         almacenar_en_faiss(nueva_respuesta, indice_faiss)
