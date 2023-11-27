@@ -26,6 +26,7 @@ from gensim.models import Word2Vec
 import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
+from requests.exceptions import RequestException
 
 
 app = Flask(__name__)
