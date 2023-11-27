@@ -465,15 +465,22 @@ def get_last_index(mapping_file_path):
             embeddings = [entry['embedding'] for entry in index_to_text.values() if 'embedding' in entry]
             if not embeddings:
                 return 0, np.array([])
-            # Asegúrate de que todos los embeddings tengan la misma longitud
-            length = len(embeddings[0])
-            if all(len(embedding) == length for embedding in embeddings):
-                return max(map(int, index_to_text.keys())), np.array(embeddings, dtype=np.float32)
-            else:
-                raise ValueError("Inconsistent embedding lengths found in the data.")
+            
+            # Ajustar cada embedding a la dimensión deseada
+            adjusted_embeddings = []
+            for embedding in embeddings:
+                if len(embedding) != 1536:
+                    adjusted_embedding = np.pad(embedding, (0, max(0, 1536 - len(embedding))), 'constant')
+                else:
+                    adjusted_embedding = embedding
+                adjusted_embeddings.append(adjusted_embedding)
+            
+            return max(map(int, index_to_text.keys())), np.array(adjusted_embeddings, dtype=np.float32)
+
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
         app.logger.error(f"Error in get_last_index: {e}")
         return 0, np.array([])
+
 
 def get_segment_position(segmento, texto_completo):
     """
@@ -505,7 +512,9 @@ def process_urls():
     all_indexed = True
     error_message = ""
     indice_global, existing_embeddings = get_last_index(mapping_file_path)
-    if existing_embeddings.ndim != 2:
+
+    # Verificación adicional para asegurarse de que los embeddings existentes tienen la dimensión correcta
+    if existing_embeddings.size > 0 and (existing_embeddings.ndim != 2 or existing_embeddings.shape[1] != 1536):
         return jsonify({"status": "error", "message": "Existing embeddings are not in a valid format"}), 500
 
     FAISS_INDEX_DIMENSION = 1536
@@ -560,6 +569,7 @@ def process_urls():
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+
 
 
 
