@@ -8,6 +8,7 @@ import numpy as np
 from flask import Flask, request, jsonify
 import logging
 from logging.handlers import RotatingFileHandler
+from logging import FileHandler 
 import os
 import openai
 import requests
