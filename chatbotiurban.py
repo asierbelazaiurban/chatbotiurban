@@ -593,9 +593,6 @@ def save_urls():
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
 
-
-
-
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
@@ -902,7 +899,7 @@ def ask_pruebas_asier():
         #nueva_respuesta = response_openai['choices'][0]['message']['content']
         #almacenar_en_faiss(nueva_respuesta, indice_faiss)
 
-        #return jsonify({'respuesta': nueva_respuesta})
+        return jsonify({'respuesta': mejor_respuesta})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
