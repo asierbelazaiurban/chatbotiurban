@@ -825,7 +825,7 @@ def ask_pruebas_asier():
 
 
 @app.route('/train', methods=['POST'])
-def optimize_faiss_index():
+def train_faiss():
     try:
         data = request.json
         chatbot_id = data.get('chatbot_id')
@@ -837,6 +837,7 @@ def optimize_faiss_index():
         # Ruta al índice FAISS existente
         faiss_index_path = os.path.join('data/faiss_index', chatbot_id, 'faiss.idx')
 
+        # Asegurarse de que el archivo de índice FAISS exista
         if not os.path.exists(faiss_index_path):
             app.logger.error(f"FAISS index file not found: {faiss_index_path}")
             return jsonify({"error": "FAISS index file not found"}), 404
@@ -844,31 +845,38 @@ def optimize_faiss_index():
         # Cargar el índice FAISS existente
         faiss_index = faiss.read_index(faiss_index_path)
 
+        # Verificar si hay vectores en el índice FAISS
+        if faiss_index.ntotal == 0:
+            raise ValueError("No valid vector data found in the FAISS index.")
+
         # Extraer los vectores del índice FAISS
         nb_vectors = faiss_index.ntotal
         dimension = faiss_index.d
         vectors = np.zeros((nb_vectors, dimension), dtype=np.float32)
         faiss_index.reconstruct_n(0, nb_vectors, vectors)
 
-        # Entrenar la matriz PCA con los datos
-        n_components = 100  # Ajusta esto según tus necesidades
-        entrenar_pca_con_datos(vectors, n_components)
-
-        # Aplicar PCA a cada vector
-        transformed_vectors = np.array([aplicar_pca_a_vector(vector)[0] for vector in vectors])
+        # Entrenar la matriz PCA y aplicarla a los vectores
+        n_components = 128  # Número de componentes para PCA
+        pca_matrix = faiss.PCAMatrix(dimension, n_components, eigen_power=-0.5)
+        pca_matrix.train(vectors)
+        vectors_transformed = pca_matrix.apply_py(vectors)
 
         # Crear un nuevo índice FAISS con los vectores transformados
         new_faiss_index = faiss.IndexFlatL2(n_components)
-        new_faiss_index.add(transformed_vectors)
+        new_faiss_index.add(vectors_transformed)
 
         # Guardar el nuevo índice FAISS
         faiss.write_index(new_faiss_index, faiss_index_path)
 
-        return jsonify({"message": "FAISS index optimized with PCA successfully"})
+        return jsonify({"message": "FAISS index trained/optimized with PCA successfully"})
 
+    except ValueError as ve:
+        app.logger.error(f"Error during training: {str(ve)}")
+        return jsonify({"error": f"Error during training: {str(ve)}"}), 400
     except Exception as e:
-        app.logger.error(f"Unexpected error in optimize_faiss_index function: {e}")
+        app.logger.error(f"Unexpected error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
