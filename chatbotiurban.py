@@ -885,26 +885,18 @@ def ask_pruebas_asier():
         D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
 
         umbral_distancia = 0.5  # Ajusta este valor según sea necesario
-        #if D[0][0] < umbral_distancia:
-        
-        mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
+        if D[0][0] < umbral_distancia:
+            mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
+        else:
+            # Manejar el caso en el que no se encuentra una coincidencia cercana
+            mejor_respuesta = "Respuesta no encontrada"  # o alguna otra lógica de manejo
+
         return jsonify({'respuesta': mejor_respuesta})
 
-        # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-        #openai.api_key = os.environ.get('OPENAI_API_KEY')
-        #response_openai = openai.ChatCompletion.create(
-        #    model="gpt-4", 
-        #    messages=[{"role": "user", "content": pregunta_text}]  # Usar pregunta_text
-        #)
-
-        #nueva_respuesta = response_openai['choices'][0]['message']['content']
-        #almacenar_en_faiss(nueva_respuesta, indice_faiss)
-
-        #return jsonify({'respuesta': mejor_respuesta})
-
     except Exception as e:
-        app.logger.error(f"Unexpected error in ask function: {e}")
+        app.logger.error(f"Unexpected error in ask_pruebas_asier function: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
