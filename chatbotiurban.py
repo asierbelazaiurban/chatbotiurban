@@ -37,8 +37,8 @@ app = Flask(__name__)
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-# Configura un solo manejador de archivos de registro
-file_handler = RotatingFileHandler('logs/chatbotiurban.log', maxBytes=10240, backupCount=10)
+# Configura un manejador de archivos de registro simple
+file_handler = FileHandler('logs/chatbotiurban.log')
 file_handler.setFormatter(logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
 ))
@@ -158,7 +158,6 @@ def obtener_respuesta_faiss(indice, chatbot_id):
     return texto
 
 
-    
 
 def create_database(chatbot_id):
     start_time = time.time()
