@@ -893,16 +893,16 @@ def ask_pruebas_asier():
             return jsonify({'respuesta': mejor_respuesta})
 
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
-        response_openai = openai.ChatCompletion.create(
-            model="gpt-4", 
-            messages=[{"role": "user", "content": pregunta_text}]  # Usar pregunta_text
-        )
+        #openai.api_key = os.environ.get('OPENAI_API_KEY')
+        #response_openai = openai.ChatCompletion.create(
+        #    model="gpt-4", 
+        #    messages=[{"role": "user", "content": pregunta_text}]  # Usar pregunta_text
+        #)
 
-        nueva_respuesta = response_openai['choices'][0]['message']['content']
-        almacenar_en_faiss(nueva_respuesta, indice_faiss)
+        #nueva_respuesta = response_openai['choices'][0]['message']['content']
+        #almacenar_en_faiss(nueva_respuesta, indice_faiss)
 
-        return jsonify({'respuesta': nueva_respuesta})
+        #return jsonify({'respuesta': nueva_respuesta})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
