@@ -401,6 +401,7 @@ def dividir_en_segmentos(texto, max_tokens):
 
 ######## ########
 
+
 def prepare_paths(chatbot_id):
     # Rutas de los directorios y archivos necesarios
     faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
@@ -420,8 +421,6 @@ def prepare_paths(chatbot_id):
 
     return chatbot_folder, mapping_file_path
 
-
-
 def read_urls(chatbot_folder, chatbot_id):
     urls_file_path = os.path.join(chatbot_folder, f'{chatbot_id}.txt')
     try:
@@ -429,10 +428,27 @@ def read_urls(chatbot_folder, chatbot_id):
             urls = [url.strip() for url in file.readlines()]
         return urls
     except FileNotFoundError:
-        app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
-        return None
+        app.logger.error(f"Archivo de URLs no encontrado para el chat
 
+def get_last_index(mapping_file_path):
+    try:
+        with open(mapping_file_path, 'r') as file:
+            index_to_text = json.load(file)
+            if not index_to_text:
+                return 0
+            return max(map(int, index_to_text.keys()))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return 
 
+def get_segment_position(segmento, texto_completo):
+    """
+    Encuentra la posición del primer carácter del segmento dentro del texto completo.
+
+    :param segmento: El segmento de texto a buscar.
+    :param texto_completo: El texto completo donde buscar el segmento.
+    :return: Índice de la primera aparición del segmento en el texto completo. -1 si no se encuentra.
+    """
+    return texto_completo.find(segmento)
 
 ########  Inicio de endpints hasta el final########
 
@@ -517,39 +533,21 @@ def process_urls_pruebas():
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
-    # Asegúrate de que el índice FAISS existe o inicialízalo
-    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-    if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)
-
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    if not os.path.exists(chatbot_folder):
-        os.makedirs(chatbot_folder)
-
-    mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
-    if not os.path.exists(mapping_file_path):
-        with open(mapping_file_path, 'w') as file:
-            json.dump({}, file)
-
-    try:
-        with open(os.path.join(chatbot_folder, f'{chatbot_id}.txt'), 'r') as file:
-            urls = file.readlines()
-    except FileNotFoundError:
-        return jsonify({"status": "error", "message": "URLs file not found for the provided chatbot_id"}), 404
+    chatbot_folder, mapping_file_path = prepare_paths(chatbot_id)
+    urls = read_urls(chatbot_folder, chatbot_id)
+    if urls is None:
+        return jsonify({"status": "error", "message": "URLs file not found"}), 404
 
     all_indexed = True
     error_message = ""
-
-    # Asumiendo que la dimensión del índice FAISS es 1536
+    indice_global = get_last_index(mapping_file_path)
     FAISS_INDEX_DIMENSION = 1536
 
     for url in urls:
-        url = url.strip()
         try:
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text()
-
             segmentos = dividir_en_segmentos(text, MAX_TOKENS_PER_SEGMENT)
 
             for segmento in segmentos:
@@ -562,34 +560,43 @@ def process_urls_pruebas():
                     faiss_index = get_faiss_index(chatbot_id)
                     faiss_index.add(np.array([embeddings], dtype=np.float32))
 
-                    # Actualizar el archivo JSON con el mapeo índice-texto
                     with open(mapping_file_path, 'r+') as file:
                         index_to_text = json.load(file)
-                        nuevo_indice = len(index_to_text)
-                        index_to_text[nuevo_indice] = segmento
+                        nuevo_indice = indice_global + 1
+                        index_to_text[nuevo_indice] = {
+                            "indice": nuevo_indice,
+                            "url": url,
+                            "segmento": segmento,
+                            "posicion": get_segment_position(segmento, text)
+                        }
                         file.seek(0)
-                        json.dump(index_to_text, file)
+                        json.dump(index_to_text, file, indent=4)
+                        indice_global += 1
 
                 except Exception as e:
-                    app.logger.error(f"Error al procesar el segmento de la URL {url}: {e}")
+                    app.logger.error(f"Error al procesar el segmento: {e}")
                     all_indexed = False
                     error_message = str(e)
                     continue
 
         except Exception as e:
-            app.logger.error(f"Error al procesar la URL {url}: {e}")
+            app.logger.error(f"Error al procesar la URL: {e}")
             all_indexed = False
             error_message = str(e)
             break
 
-        sleep(0.2)
+        time.sleep(0.2)
 
     if all_indexed:
-        return jsonify({"status": "success", "message": "Todo indexado en FAISS correctamente"})
+        return jsonify({"status": "success", "message": "Todo indexado correctamente"})
     else:
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+
+
+
+
 
 
 @app.route('/save_urls', methods=['POST'])
