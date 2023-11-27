@@ -885,9 +885,9 @@ def ask_pruebas_asier():
         D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
 
         umbral_distancia = 0.5  # Ajusta este valor según sea necesario
-        if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
-            return jsonify({'respuesta': mejor_respuesta})
+        #if D[0][0] < umbral_distancia:
+        mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
+        return jsonify({'respuesta': mejor_respuesta})
 
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
         #openai.api_key = os.environ.get('OPENAI_API_KEY')
