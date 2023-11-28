@@ -134,26 +134,22 @@ def obtener_lista_indices(chatbot_id):
     if os.path.exists(ruta_faiss):
         # Cargar el índice FAISS
         indice_faiss = faiss.read_index(ruta_faiss)
-        app.logger.info(indice_faiss)
+        app.logger.info(f"Índice FAISS cargado para chatbot_id {chatbot_id}")
         return indice_faiss
     else:
-        app.logger.info("obtener_lista_indices "+ None)
+        app.logger.info("Índice FAISS no encontrado")
         return None
 
 
 def obtener_respuesta_faiss(indice, chatbot_id):
-    # Ruta al archivo JSON que mapea índices FAISS a textos
     mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
 
-    # Verificar si el archivo de mapeo existe
     if not os.path.exists(mapping_file_path):
         raise FileNotFoundError("Mapping file not found.")
 
-    # Cargar el mapeo
     with open(mapping_file_path, 'r') as file:
         index_to_text = json.load(file)
 
-    # Obtener el texto correspondiente al índice
     texto = index_to_text.get(str(indice))
     if texto is None:
         raise ValueError(f"No text found for index {indice}")
@@ -728,52 +724,53 @@ def ask_pruebas_asier():
     try:
         data = request.json
         chatbot_id = data.get('chatbot_id')
-        token = data.get('token')  # Nuevo: obtener el token
+        token = data.get('token')  # Obtener el token
 
         if not chatbot_id:
             app.logger.error("No chatbot_id provided in the request")
             return jsonify({"error": "No chatbot_id provided"}), 400
 
-        if not token:  # Verificar la existencia del token
+        if not token:
             app.logger.error("No token provided in the request")
             return jsonify({"error": "No token provided"}), 400
 
         # Obtener el índice FAISS para el chatbot_id dado
         indice_faiss = obtener_lista_indices(chatbot_id)
-        app.logger.error("indice_faiss")
-        app.logger.error(indice_faiss)
         if indice_faiss is None:
             app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
-        pregunta_text = data.get('pregunta')  # Cambiado de query a pregunta
+        pregunta_text = data.get('pregunta')
         if not pregunta_text:
             app.logger.error("No pregunta provided in the request")
             return jsonify({"error": "No pregunta provided"}), 400
 
         # Convertir la consulta en un vector
-        query_vector = convert_to_vector(pregunta_text)  # Usar pregunta_text
+        query_vector = convert_to_vector(pregunta_text)
+        app.logger.info(f"Query vector: {query_vector}")
 
         # Buscar en el índice FAISS
         D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=20)
-        app.logger.error("D")
-        app.logger.error(D) 
-        app.logger.error("I")
-        app.logger.error(I)
-        
+        app.logger.info(f"Distancias FAISS: {D}")
+        app.logger.info(f"Índices FAISS: {I}")
+
+        # Ajuste para manejar múltiples resultados y distancias extremas
+        encontrado = False
         umbral_distancia = 0.5  # Ajusta este valor según sea necesario
-        if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
-        else:
-            # Manejar el caso en el que no se encuentra una coincidencia cercana
-            mejor_respuesta = "Respuesta no encontrada"  # o alguna otra lógica de manejo
+        for i, distancia in enumerate(D[0]):
+            if distancia < umbral_distancia:
+                mejor_respuesta = obtener_respuesta_faiss(I[0][i], chatbot_id)
+                encontrado = True
+                break
+
+        if not encontrado:
+            mejor_respuesta = "Respuesta no encontrada"
 
         return jsonify({'respuesta': mejor_respuesta})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask_pruebas_asier function: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 
