@@ -736,6 +736,8 @@ def ask_pruebas_asier():
 
         # Obtener el índice FAISS para el chatbot_id dado
         indice_faiss = obtener_lista_indices(chatbot_id)
+
+        app.logger.info(f"indice_faiss: {indice_faiss}")
         if indice_faiss is None:
             app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
