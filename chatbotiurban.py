@@ -244,7 +244,6 @@ def generate_embedding(text):
     if 'data' in response and len(response['data']) > 0 and 'embedding' in response['data'][0]:
         embedding = np.array(response['data'][0]['embedding'], dtype=np.float32)
     else:
-        app.logger.error('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
         raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
 
     app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
@@ -288,27 +287,6 @@ def safe_request(url, max_retries=3):
         except RequestException as e:
             print(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
-
-
-
-# Importar las bibliotecas necesarias
-# Suponiendo que los datos son embeddings de dimensión 768 (cambiar según sea necesario)
-dim = 768
-num_data_points = 10000  # Número de puntos de datos (cambiar según sea necesario)
-# Crear datos de ejemplo (reemplazar con tus propios datos)
-data = np.random.rand(num_data_points, dim).astype(np.float32)
-# Crear y entrenar el índice Faiss para la búsqueda de vecinos más cercanos
-index = faiss.IndexFlatL2(dim)  # Usar L2 para la distancia
-# Milvus adds data to the collection in a different way  # Agregar los datos al índice
-# Realizar una consulta de ejemplo
-query = np.random.rand(dim).astype(np.float32)
-k = 5  # Número de vecinos más cercanos a buscar
-distances, neighbors = index.search(query.reshape(1, -1), k)
-# Mostrar los resultados
-print("Índices de los vecinos más cercanos:", neighbors)
-print("Distancias de los vecinos más cercanos:", distances)
-
-#metodo param la subida de documentos
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 
@@ -515,9 +493,6 @@ def process_urls():
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
-
-
-
 
 
 
@@ -765,6 +740,8 @@ def ask_pruebas_asier():
 
         # Obtener el índice FAISS para el chatbot_id dado
         indice_faiss = obtener_lista_indices(chatbot_id)
+        app.logger.error("indice_faiss")
+        app.logger.error(indice_faiss)
         if indice_faiss is None:
             app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
             return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
@@ -778,8 +755,12 @@ def ask_pruebas_asier():
         query_vector = convert_to_vector(pregunta_text)  # Usar pregunta_text
 
         # Buscar en el índice FAISS
-        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
-
+        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=20)
+        app.logger.error("D")
+        app.logger.error(D) 
+        app.logger.error("I")
+        app.logger.error(I)
+        
         umbral_distancia = 0.5  # Ajusta este valor según sea necesario
         if D[0][0] < umbral_distancia:
             mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
