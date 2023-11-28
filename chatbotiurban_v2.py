@@ -1,3 +1,6 @@
+##!/usr/bin/env python
+# coding: utf-8
+
 
 
 import chardet
@@ -9,6 +12,7 @@ from logging import FileHandler
 import os
 import openai
 import requests
+from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
 import json
 import time
@@ -34,6 +38,8 @@ import pandas as pd
 from tqdm import tqdm
 from transformers import AutoTokenizer
 from datasets import Dataset
+import subprocess
+
 
 tqdm.pandas()
 
@@ -57,9 +63,9 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 model_name="google/flan-t5-base"
 
 
-
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
-
+BASE_DATASET_DIR = "data/uploads/datasets/"
+BASE_DIR_SCRAPING = "data/uploads/scraping/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -68,23 +74,6 @@ def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
 
-
-
-def prepare_paths(chatbot_id):
-    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
-    mapping_file_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'index_to_text.json')
-
-    os.makedirs(os.path.dirname(faiss_index_path), exist_ok=True)
-    if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)
-
-    os.makedirs(chatbot_folder, exist_ok=True)
-    if not os.path.exists(mapping_file_path):
-        with open(mapping_file_path, 'w') as file:
-            json.dump({}, file)
-
-    return chatbot_folder, mapping_file_path
 
 def read_urls(chatbot_folder, chatbot_id):
     urls_file_path = os.path.join(chatbot_folder, f'{chatbot_id}.txt')
@@ -97,7 +86,19 @@ def read_urls(chatbot_folder, chatbot_id):
         return None
 
 
-import subprocess
+def safe_request(url, max_retries=3):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                return response
+        except RequestException as e:
+            print(f"Attempt {attempt + 1} failed for {url}: {e}")
+    return None
+
+
 
 def build_dataset(model_name, chatbot_id, input_min_text_length, input_max_text_length):
     """
@@ -139,6 +140,31 @@ def build_dataset(model_name, chatbot_id, input_min_text_length, input_max_text_
     return dataset_splits
 
 
+def generar_prompt(dataset_path, pregunta):
+    # Construir la ruta completa al archivo dataset.json
+    json_file_path = os.path.join(dataset_path, 'dataset.json')
+
+    # Construir el prompt con la pregunta al principio
+    prompt = f"pregunta: {pregunta} "
+
+    # Cargar el contenido del archivo JSON
+    with open(json_file_path, 'r') as file:
+        dataset = json.load(file)
+
+    # Extraer y añadir el texto del dataset al prompt
+    for entry in dataset.values():
+        text = entry.get("dialogue", "")  # Asumiendo que el texto está en la clave 'dialogue'
+        prompt += text + " "
+
+    return prompt.strip()
+
+def clean_and_transform_data(data):
+    # Aquí puedes implementar tu lógica de limpieza y transformación
+    cleaned_data = data.strip().replace("\r", "").replace("\n", " ")
+    return cleaned_data
+
+ ######## Inicio Endpoints ########
+
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     start_time = time.time()
@@ -149,24 +175,25 @@ def process_urls():
     if not chatbot_id:
         return jsonify({"status": "error", "message": "No chatbot_id provided"}), 400
 
-    chatbot_folder = os.path.join(BASE_DATASET_DIR, str(chatbot_id))
-    if not os.path.exists(chatbot_folder):
-        os.makedirs(chatbot_folder)
-
-    urls = data.get('urls')
-    if not urls:
-        return jsonify({"status": "error", "message": "No URLs provided"}), 400
-
+    chatbot_folder = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+    urls = read_urls(chatbot_folder, chatbot_id)
+    if urls is None:
+        return jsonify({"status": "error", "message": "URLs file not found"}), 404
+    
     all_processed = True
     error_message = ""
-    dataset_entries = []
+    dataset_entries = {}
 
     for url in urls:
         try:
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
             text = soup.get_text()
-            dataset_entries.append({"dialogue": text})
+            dataset_entries[len(dataset_entries) + 1] = {
+                "indice": len(dataset_entries) + 1,
+                "url": url,
+                "dialogue": text
+            }
 
         except Exception as e:
             app.logger.error(f"Error al procesar la URL: {e}")
@@ -177,9 +204,15 @@ def process_urls():
         time.sleep(0.2)
 
     if all_processed:
-        dataset_file_path = os.path.join(chatbot_folder, 'dataset.json')
+        # Construye la ruta del archivo donde se guardará el dataset
+        dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
+        os.makedirs(dataset_folder, exist_ok=True)  # Crea la carpeta si no existe
+        dataset_file_path = os.path.join(dataset_folder, 'dataset.json')
+
+        # Guarda el dataset en un archivo JSON
         with open(dataset_file_path, 'w') as dataset_file:
             json.dump(dataset_entries, dataset_file, indent=4)
+
 
         return jsonify({"status": "success", "message": "Datos procesados y almacenados correctamente"})
     else:
@@ -188,15 +221,12 @@ def process_urls():
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
 
 
+
 @app.route('/save_urls', methods=['POST'])
 def save_urls():
     data = request.json
     urls = data.get('urls', [])  # Asumimos que 'urls' es una lista de URLs
     chatbot_id = data.get('chatbot_id')
-
-    faiss_index_path = os.path.join('data/faiss_index', f'{chatbot_id}', 'faiss.idx')
-    if not os.path.exists(faiss_index_path):
-        create_bbdd(chatbot_id)  # Esta función ya debe incluir initialize_faiss_index
 
     if not urls or not chatbot_id:
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
@@ -311,41 +341,16 @@ def delete_urls():
 def ask():
     try:
         data = request.json
-        chatbot_id = data.get('chatbot_id')
-        token = data.get('token')  # Añadido para recibir un token del front-end
-
-        if not chatbot_id:
-            app.logger.error("No chatbot_id provided in the request")
-            return jsonify({"error": "No chatbot_id provided"}), 400
-
-        if not token:
-            app.logger.error("No token provided in the request")
-            return jsonify({"error": "No token provided"}), 400
-
-        indice_faiss = obtener_lista_indices(chatbot_id)
-        if indice_faiss is None:
-            app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
-            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
 
         pregunta = data.get('pregunta')
-        if not pregunta:
-            app.logger.error("No pregunta provided in the request")
-            return jsonify({"error": "No pregunta provided"}), 400
+    
 
-        pregunta_vector = convert_to_vector(pregunta)
-
-        D, I = indice_faiss.search(np.array([pregunta_vector]).astype(np.float32), k=1)
-
-        umbral_distancia = 0.5  # Ajusta este valor según sea necesario
-        if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], indice_faiss)
-            return jsonify({'respuesta': mejor_respuesta})
-
+        # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
         openai.api_key = os.environ.get('OPENAI_API_KEY')
         response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": pregunta}])
 
         nueva_respuesta = response_openai['choices'][0]['message']['content']
-        almacenar_en_faiss(nueva_respuesta, indice_faiss)
+       
 
         return jsonify({'respuesta': nueva_respuesta})
 
@@ -353,20 +358,55 @@ def ask():
         app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/ask_pruebas', methods=['POST'])
+def ask_pruebas():
+    try:
+        data = request.json
+        chatbot_id = data.get('chatbot_id')
+        token = data.get('token')
+
+        if not chatbot_id or not token:
+            app.logger.error("No chatbot_id or token provided in the request")
+            return jsonify({"error": "No chatbot_id or token provided"}), 400
+
+        # Cargar el dataset
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        with open(dataset_file_path, 'r') as file:
+            dataset = json.load(file)
+
+        pregunta = data.get('pregunta')
+        if not pregunta:
+            app.logger.error("No pregunta provided in the request")
+            return jsonify({"error": "No pregunta provided"}), 400
+
+        dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
+
+        # Obtener la respuesta de OpenAI
+        #client = OpenAI(
+        # defaults to os.environ.get("OPENAI_API_KEY")
+        #api_key="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",
+        #)
+
+        #chat_completion = client.chat.completions.create(
+        #    messages=[
+        #        {
+        #            "role": "user",
+        #            "prompt":generar_prompt(dataset_folder, pregunta)
+        #         }
+        #    ],
+        #    model="gpt-4",
+        #)
+        openai.api_key = "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"
+        response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "prompt": generar_prompt(dataset_folder, pregunta)}])
 
 
-def generate_response_with_openai(info, model="text-embedding-ada-002", max_tokens=150, temperature=0.7, top_p=1, frequency_penalty=0, presence_penalty=0, language="es"):
-    response = openai.Completion.create(
-        model=model,
-        prompt=info,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        top_p=top_p,
-        frequency_penalty=frequency_penalty,
-        presence_penalty=presence_penalty,
-        language=language
-    )
-    return response.choices[0].text.strip()
+        # Devolver solo el texto de la respuesta
+        return response.choices[0].text.strip()
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in ask function: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/list_chatbot_ids', methods=['GET'])
 def list_folders():
@@ -374,5 +414,7 @@ def list_folders():
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
 
+ ######## Fin Endpoints ########
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=4000, debug=True)
