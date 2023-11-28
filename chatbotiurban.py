@@ -755,22 +755,25 @@ def ask_pruebas_asier():
         app.logger.info(f"Índices FAISS: {I}")
 
         # Ajuste para manejar múltiples resultados y distancias extremas
-        encontrado = False
-        umbral_distancia = 0.5  # Ajusta este valor según sea necesario
+        umbral_distancia = 1.0  # Aumento del umbral para ser más flexible
+        respuestas = []
         for i, distancia in enumerate(D[0]):
             if distancia < umbral_distancia:
-                mejor_respuesta = obtener_respuesta_faiss(I[0][i], chatbot_id)
-                encontrado = True
-                break
+                respuesta = obtener_respuesta_faiss(I[0][i], chatbot_id)
+                respuestas.append((respuesta, distancia))
+                app.logger.info(f"Respuesta encontrada: {respuesta} con distancia {distancia}")
 
-        if not encontrado:
-            mejor_respuesta = "Respuesta no encontrada"
-
-        return jsonify({'respuesta': mejor_respuesta})
+        if respuestas:
+            # Ordenar respuestas por distancia
+            respuestas.sort(key=lambda x: x[1])
+            return jsonify({'respuesta': respuestas[0][0]})  # Devolver la respuesta más cercana
+        else:
+            return jsonify({'respuesta': 'Respuesta no encontrada'})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask_pruebas_asier function: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
