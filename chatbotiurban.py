@@ -120,7 +120,7 @@ def obtener_incrustacion(texto):
 
 def convert_to_vector(texto):
     app.logger.info('Called convert_to_vector')
-    vector = obtener_incrustacion(texto)
+    vector = generate_embedding(texto)
     app.logger.info(vector)
     
     return vector
