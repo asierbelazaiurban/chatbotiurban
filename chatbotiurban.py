@@ -630,7 +630,7 @@ def ask():
         response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": pregunta}])
 
         nueva_respuesta = response_openai['choices'][0]['message']['content']
-        almacenar_en_faiss(nueva_respuesta, indice_faiss)
+       
 
         return jsonify({'respuesta': nueva_respuesta})
 
