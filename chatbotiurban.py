@@ -746,7 +746,7 @@ def ask_pruebas_asier():
             return jsonify({"error": "No pregunta provided"}), 400
 
         # Convertir la consulta en un vector
-        query_vector = convert_to_vector(pregunta_text)
+        query_vector = generate_embedding(pregunta_text)
         app.logger.info(f"Query vector: {query_vector}")
 
         # Buscar en el índice FAISS
