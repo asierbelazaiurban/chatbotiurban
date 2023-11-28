@@ -51,11 +51,29 @@ app.logger.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consisten
 # Mensaje de prueba para verificar que la configuración funciona
 app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
+#####  #####
 
 ######## FAISS ########
 
-# Global variable to store the FAISS index
+# Variables globales para la matriz PCA y el índice FAISS
+pca_matrix = None
 faiss_index = None
+
+
+# Función para entrenar la matriz PCA con todos los datos
+def entrenar_pca_con_datos(data, n_components=100):
+    global pca_matrix
+    if data.shape[0] == 0:
+        raise ValueError("No data available for PCA training.")
+    pca_matrix = faiss.PCAMatrix(data.shape[1], n_components, eigen_power=-0.5)
+    pca_matrix.train(data)
+
+def aplicar_pca_a_vector(vector):
+    global pca_matrix
+    if pca_matrix is None:
+        raise Exception("PCA matrix has not been initialized. Please call initialize_and_train_pca first.")
+    return pca_matrix.apply_py(np.array([vector]).astype(np.float32))
+
 
 def initialize_faiss_index(dimension, chatbot_id):
     app.logger.info('Called initialize_faiss_index')
@@ -93,12 +111,11 @@ def almacenar_en_faiss(respuesta, faiss_index):
     app.logger.info('Called almacenar_en_faiss')
     respuesta_vector = convert_to_vector(respuesta)
 
-    # Convertir el vector de respuesta en un array numpy, que es el formato requerido por FAISS.
-    # El vector debe ser de tipo 'float32' y se debe añadir una dimensión extra para convertirlo en un array 2D.
-    respuesta_vector_np = np.array([respuesta_vector]).astype('float32')
+    # Aplicar PCA al vector de respuesta
+    respuesta_vector_reducido = aplicar_pca_a_vector(respuesta_vector)
 
-    # Añadir el vector al índice FAISS.
-    faiss_index.add(respuesta_vector_np)
+    # Añadir el vector reducido al índice FAISS
+    faiss_index.add(respuesta_vector_reducido)
 
 
 def obtener_incrustacion(texto):
@@ -121,7 +138,6 @@ def obtener_incrustacion(texto):
 def convert_to_vector(texto):
     app.logger.info('Called convert_to_vector')
     vector = obtener_incrustacion(texto)
-    app.logger.info(vector)
     
     return vector
 
@@ -140,6 +156,11 @@ def obtener_lista_indices(chatbot_id):
         app.logger.info("obtener_lista_indices "+ None)
         return None
 
+
+def buscar_en_faiss(query_vector, faiss_index, k=5):
+    query_vector_reducido = aplicar_pca_a_vector(query_vector)
+    D, I = faiss_index.search(query_vector_reducido, k)
+    return D, I
 
 def obtener_respuesta_faiss(indice, chatbot_id):
     # Ruta al archivo JSON que mapea índices FAISS a textos
@@ -160,6 +181,23 @@ def obtener_respuesta_faiss(indice, chatbot_id):
 
     return texto
 
+def buscar_y_obtener_respuestas_faiss(query_vector, chatbot_id, k=5):
+    global faiss_index
+    # Aplicar PCA al vector de consulta
+    query_vector_reducido = aplicar_pca_a_vector(query_vector)
+    
+    # Realizar la búsqueda en el índice FAISS
+    D, I = faiss_index.search(query_vector_reducido, k)
+
+    respuestas = []
+    for indice in I[0]:
+        if indice != -1:  # Verificar que el índice es válido
+            respuesta = obtener_respuesta_faiss(indice, chatbot_id)
+            respuestas.append(respuesta)
+        else:
+            respuestas.append("Respuesta no encontrada")
+
+    return respuestas
 
 
 def create_database(chatbot_id):
@@ -243,13 +281,16 @@ def generate_embedding(text):
 
     if 'data' in response and len(response['data']) > 0 and 'embedding' in response['data'][0]:
         embedding = np.array(response['data'][0]['embedding'], dtype=np.float32)
+        # Ajustar la dimensión del embedding a 1536
+        if embedding.shape[0] != 1536:
+            # Rellenar o truncar el embedding según sea necesario
+            embedding = np.pad(embedding, (0, max(0, 1536 - embedding.shape[0])), 'constant')
     else:
         app.logger.error('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
         raise ValueError('Respuesta de la API de OpenAI no válida o sin datos de embedding.')
 
     app.logger.info(f'Tiempo total en generate_embedding: {time.time() - start_time:.2f} segundos')
     return embedding
-
 
 
 def generate_embedding_withou_openAI(text):
@@ -291,23 +332,6 @@ def safe_request(url, max_retries=3):
 
 
 
-# Importar las bibliotecas necesarias
-# Suponiendo que los datos son embeddings de dimensión 768 (cambiar según sea necesario)
-dim = 768
-num_data_points = 10000  # Número de puntos de datos (cambiar según sea necesario)
-# Crear datos de ejemplo (reemplazar con tus propios datos)
-data = np.random.rand(num_data_points, dim).astype(np.float32)
-# Crear y entrenar el índice Faiss para la búsqueda de vecinos más cercanos
-index = faiss.IndexFlatL2(dim)  # Usar L2 para la distancia
-# Milvus adds data to the collection in a different way  # Agregar los datos al índice
-# Realizar una consulta de ejemplo
-query = np.random.rand(dim).astype(np.float32)
-k = 5  # Número de vecinos más cercanos a buscar
-distances, neighbors = index.search(query.reshape(1, -1), k)
-# Mostrar los resultados
-print("Índices de los vecinos más cercanos:", neighbors)
-print("Distancias de los vecinos más cercanos:", distances)
-
 #metodo param la subida de documentos
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
@@ -331,7 +355,20 @@ def obtener_embeddings(texto):
     embedding = np.array(response['data'][0]['embedding'])
     return embedding
 
+def load_existing_embeddings(mapping_file_path):
+    try:
+        with open(mapping_file_path, 'r') as file:
+            existing_embeddings = json.load(file)
+            # Suponiendo que los embeddings están almacenados como listas de listas
+            return np.array(existing_embeddings)
+    except Exception as e:
+        app.logger.error(f"Error al cargar embeddings existentes: {e}")
+        return None
 
+def validate_embeddings(embeddings, expected_dim):
+    if embeddings is None or embeddings.ndim != 2 or embeddings.shape[1] != expected_dim:
+        return False
+    return True
 
 def update_faiss_index(embeddings, chatbot_id):
     # Esta función debe actualizar el índice de FAISS con nuevos embeddings
@@ -426,11 +463,36 @@ def get_last_index(mapping_file_path):
     try:
         with open(mapping_file_path, 'r') as file:
             index_to_text = json.load(file)
-            if not index_to_text:
-                return 0
-            return max(map(int, index_to_text.keys()))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return 
+            embeddings = []
+
+            for entry in index_to_text.values():
+                if 'embedding' in entry:
+                    embedding = entry['embedding']
+                    if isinstance(embedding, list) and len(embedding) > 0:
+                        # Ajustar la longitud del embedding a 1536
+                        adjusted_embedding = np.array(embedding, dtype=np.float32)
+                        if adjusted_embedding.shape[0] != 1536:
+                            adjusted_embedding = np.pad(adjusted_embedding, (0, 1536 - adjusted_embedding.shape[0]), 'constant', constant_values=0)
+                        embeddings.append(adjusted_embedding)
+            
+            if not embeddings:
+                return 0, np.empty((0, 1536), dtype=np.float32)
+
+            embeddings_matrix = np.vstack(embeddings)
+            return max(index_to_text.keys(), key=int), embeddings_matrix
+
+    except Exception as e:
+        app.logger.error(f"Error in get_last_index: {e}")
+        return 0, np.empty((0, 1536), dtype=np.float32)
+
+def entrenar_pca_con_datos(data, n_components=100):
+    global pca_matrix
+    if data.shape[0] == 0:
+        raise ValueError("No data available for PCA training.")
+    pca_matrix = faiss.PCAMatrix(data.shape[1], n_components, eigen_power=-0.5)
+    pca_matrix.train(data)
+
+
 
 def get_segment_position(segmento, texto_completo):
     """
@@ -443,7 +505,6 @@ def get_segment_position(segmento, texto_completo):
     return texto_completo.find(segmento)
 
 ########  Inicio de endpints hasta el final########
-
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
@@ -462,7 +523,12 @@ def process_urls():
 
     all_indexed = True
     error_message = ""
-    indice_global = get_last_index(mapping_file_path)
+    indice_global, existing_embeddings = get_last_index(mapping_file_path)
+
+    # Verificación adicional para asegurarse de que los embeddings existentes tienen la dimensión correcta
+    if existing_embeddings.size > 0 and (existing_embeddings.ndim != 2 or existing_embeddings.shape[1] != 1536):
+        return jsonify({"status": "error", "message": "Existing embeddings are not in a valid format"}), 500
+
     FAISS_INDEX_DIMENSION = 1536
 
     for url in urls:
@@ -515,8 +581,6 @@ def process_urls():
         return jsonify({"status": "error", "message": f"Error al indexar: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
-
-
 
 
 
@@ -681,27 +745,6 @@ def ask():
             app.logger.error("No token provided in the request")
             return jsonify({"error": "No token provided"}), 400
 
-        # Llamar a obtener_lista_indices con el chatbot_id
-        indice_faiss = obtener_lista_indices(chatbot_id)
-        if indice_faiss is None:
-            app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
-            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
-
-        pregunta = data.get('pregunta')
-        if not pregunta:
-            app.logger.error("No pregunta provided in the request")
-            return jsonify({"error": "No pregunta provided"}), 400
-
-        pregunta_vector = convert_to_vector(pregunta)
-
-        # Buscar en el índice FAISS
-        D, I = indice_faiss.search(np.array([pregunta_vector]).astype(np.float32), k=1)
-
-        umbral_distancia = 0.5  # Ajusta este valor según sea necesario
-        if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], indice_faiss)
-            return jsonify({'respuesta': mejor_respuesta})
-
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
         openai.api_key = os.environ.get('OPENAI_API_KEY')
         response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": pregunta}])
@@ -763,12 +806,6 @@ def ask_pruebas_asier():
             app.logger.error("No token provided in the request")
             return jsonify({"error": "No token provided"}), 400
 
-        # Obtener el índice FAISS para el chatbot_id dado
-        indice_faiss = obtener_lista_indices(chatbot_id)
-        if indice_faiss is None:
-            app.logger.error(f"FAISS index not found for chatbot_id: {chatbot_id}")
-            return jsonify({"error": f"FAISS index not found for chatbot_id: {chatbot_id}"}), 404
-
         pregunta_text = data.get('pregunta')  # Cambiado de query a pregunta
         if not pregunta_text:
             app.logger.error("No pregunta provided in the request")
@@ -777,21 +814,83 @@ def ask_pruebas_asier():
         # Convertir la consulta en un vector
         query_vector = convert_to_vector(pregunta_text)  # Usar pregunta_text
 
-        # Buscar en el índice FAISS
-        D, I = indice_faiss.search(np.array([query_vector]).astype(np.float32), k=1)
+        # Realizar la búsqueda en FAISS y obtener respuestas
+        respuestas = buscar_y_obtener_respuestas_faiss(query_vector, chatbot_id, k=5)
 
-        umbral_distancia = 0.5  # Ajusta este valor según sea necesario
-        if D[0][0] < umbral_distancia:
-            mejor_respuesta = obtener_respuesta_faiss(I[0][0], chatbot_id)
-        else:
-            # Manejar el caso en el que no se encuentra una coincidencia cercana
-            mejor_respuesta = "Respuesta no encontrada"  # o alguna otra lógica de manejo
-
-        return jsonify({'respuesta': mejor_respuesta})
+        return jsonify({'respuestas': respuestas})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask_pruebas_asier function: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/train', methods=['POST'])
+def train_faiss():
+    try:
+        data = request.json
+        chatbot_id = data.get('chatbot_id')
+
+        if not chatbot_id:
+            app.logger.error("No chatbot_id provided in the request")
+            return jsonify({"error": "No chatbot_id provided"}), 400
+        app.logger.info(f"Training FAISS index for chatbot_id: {chatbot_id}")
+
+        # Ruta al índice FAISS existente
+        faiss_index_path = os.path.join('data/faiss_index', chatbot_id, 'faiss.idx')
+        app.logger.info(f"FAISS index path: {faiss_index_path}")
+
+        # Asegurarse de que el archivo de índice FAISS exista
+        if not os.path.exists(faiss_index_path):
+            app.logger.error(f"FAISS index file not found: {faiss_index_path}")
+            return jsonify({"error": "FAISS index file not found"}), 404
+
+        # Cargar el índice FAISS existente
+        app.logger.info("Loading existing FAISS index")
+        faiss_index = faiss.read_index(faiss_index_path)
+        app.logger.warning(faiss_index.ntotal)
+
+        # Verificar si hay vectores en el índice FAISS
+        if faiss_index.ntotal == 0:
+            app.logger.warning("No vectors found in the FAISS index")
+            raise ValueError("No valid vector data found in the FAISS index.")
+
+        app.logger.info(f"Number of vectors in FAISS index: {faiss_index.ntotal}")
+
+        # Extraer los vectores del índice FAISS
+        nb_vectors = faiss_index.ntotal
+        dimension = faiss_index.d
+        app.logger.info(f"Extracting {nb_vectors} vectors of dimension {dimension}")
+        vectors = np.zeros((nb_vectors, dimension), dtype=np.float32)
+        faiss_index.reconstruct_n(0, nb_vectors, vectors)
+
+        # Entrenar la matriz PCA y aplicarla a los vectores
+        n_components = 128  # Número de componentes para PCA
+        app.logger.info(f"Training PCA matrix with {n_components} components")
+        pca_matrix = faiss.PCAMatrix(dimension, n_components, eigen_power=-0.5)
+        pca_matrix.train(vectors)
+        vectors_transformed = pca_matrix.apply_py(vectors)
+
+        # Crear un nuevo índice FAISS con los vectores transformados
+        app.logger.info("Creating new FAISS index with transformed vectors")
+        new_faiss_index = faiss.IndexFlatL2(n_components)
+        new_faiss_index.add(vectors_transformed)
+
+        # Guardar el nuevo índice FAISS
+        app.logger.info("Saving new FAISS index")
+        faiss.write_index(new_faiss_index, faiss_index_path)
+
+        app.logger.info("FAISS index trained/optimized successfully")
+        return jsonify({"message": "FAISS index trained/optimized with PCA successfully"})
+
+    except ValueError as ve:
+        app.logger.error(f"Error during training: {str(ve)}")
+        return jsonify({"error": f"Error during training: {str(ve)}"}), 400
+    except Exception as e:
+        app.logger.error(f"Unexpected error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 
 
