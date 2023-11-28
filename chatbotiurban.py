@@ -736,6 +736,11 @@ def ask_pruebas_asier():
         app.logger.info(f"Distancias FAISS: {D}")
         app.logger.info(f"Índices FAISS: {I}")
 
+        # Registro de vectores (simulación, ya que no puedes acceder a los vectores directamente)
+        for indice in I[0]:
+            vector = "simulación de vector para el índice " + str(indice)
+            app.logger.info(f"Vector en índice {indice}: {vector}")
+
         # Ajuste para manejar múltiples resultados y distancias extremas
         umbral_distancia = 1.0  # Aumento del umbral para ser más flexible
         respuestas = []
