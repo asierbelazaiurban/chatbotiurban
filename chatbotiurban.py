@@ -621,8 +621,9 @@ def delete_urls():
 def ask():
     try:
         data = request.json
-        chatbot_id = data.get('chatbot_id')
-        token = data.get('token')  # Añadido para recibir un token del front-end
+
+        pregunta = data.get('pregunta')
+    
 
         # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
         openai.api_key = os.environ.get('OPENAI_API_KEY')
