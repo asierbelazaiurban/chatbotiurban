@@ -78,15 +78,13 @@ def initialize_faiss_index(dimension, chatbot_id):
 
 
 def get_faiss_index(chatbot_id):
-    app.logger.info('Called get_faiss_index')
     global faiss_index
-    if faiss_index is None:
-        faiss_index_path = f'data/faiss_index/{chatbot_id}/faiss.idx'
-        if os.path.exists(faiss_index_path):
-            faiss_index = faiss.read_index(faiss_index_path)
-        else:
-            raise ValueError("FAISS index has not been initialized.")
+    faiss_index_path = f'data/faiss_index/{chatbot_id}/faiss.idx'
+    if faiss_index is None or not os.path.exists(faiss_index_path):
+        initialize_faiss_index(1536, chatbot_id)  # Asegúrate de que la dimensión sea la correcta
+        faiss_index = faiss.read_index(faiss_index_path)
     return faiss_index
+
 
 
 def almacenar_en_faiss(respuesta, faiss_index):
@@ -99,6 +97,8 @@ def almacenar_en_faiss(respuesta, faiss_index):
 
     # Añadir el vector al índice FAISS.
     faiss_index.add(respuesta_vector_np)
+    # Guardar el índice actualizado
+    faiss.write_index(faiss_index, f'data/faiss_index/{chatbot_id}/faiss.idx')
 
 
 def obtener_incrustacion(texto):
@@ -314,6 +314,8 @@ def update_faiss_index(embeddings, chatbot_id):
     return index
 
 
+from nltk.tokenize import word_tokenize
+
 def dividir_en_segmentos(texto, max_tokens):
     # Tokenizar el texto usando NLTK
     tokens = word_tokenize(texto)
@@ -321,47 +323,25 @@ def dividir_en_segmentos(texto, max_tokens):
     segmentos = []
     segmento_actual = []
 
+    contador_tokens_actual = 0
+
     for token in tokens:
-        # Cambiar la condición para que divida los segmentos antes de alcanzar el límite exacto de max_tokens
-        if len(segmento_actual) + len(token.split()) > max_tokens:
-            segmentos.append(' '.join(segmento_actual))
+        # Si añadir el token actual excede el límite de tokens, guarda el segmento actual y comienza uno nuevo
+        if contador_tokens_actual + len(token.split()) > max_tokens:
+            if segmento_actual:  # Asegura que no se agreguen segmentos vacíos
+                segmentos.append(' '.join(segmento_actual))
             segmento_actual = [token]
+            contador_tokens_actual = len(token.split())
         else:
             segmento_actual.append(token)
+            contador_tokens_actual += len(token.split())
 
     # Añadir el último segmento si hay tokens restantes
     if segmento_actual:
         segmentos.append(' '.join(segmento_actual))
 
-    return [texto[:max_tokens]]
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
-
-
-    """
-    Divide un texto en segmentos que no excedan el límite de tokens.
-    Esta es una aproximación simple y debe ajustarse para usar un tokenizador específico.
-    """
-    palabras = texto.split()
-    segmentos = []
-    segmento_actual = []
-
-    tokens_contados = 0
-    for palabra in palabras:
-        # Asumimos un promedio de 4 tokens por palabra como aproximación
-        if tokens_contados + len(palabra.split()) * 4 > max_tokens:
-            segmentos.append(' '.join(segmento_actual))
-            segmento_actual = [palabra]
-            tokens_contados = len(palabra.split()) * 4
-        else:
-            segmento_actual.append(palabra)
-            tokens_contados += len(palabra.split()) * 4
-
-    # Añadir el último segmento si hay alguno
-    if segmento_actual:
-        segmentos.append(' '.join(segmento_actual))
-
     return segmentos
-    app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
+
 
 ######## ########
 
