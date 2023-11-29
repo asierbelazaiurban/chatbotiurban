@@ -102,30 +102,100 @@ def safe_request(url, max_retries=3):
     return None
 
 
-def generar_prompt(dataset_path, pregunta):
-    # Construir la ruta completa al archivo dataset.json
-    json_file_path = os.path.join(dataset_path, 'dataset.json')
-
-    # Construir el prompt con la pregunta al principio
-    prompt = f"pregunta: {pregunta} "
-
-    # Cargar el contenido del archivo JSON
-    with open(json_file_path, 'r') as file:
-        dataset = json.load(file)
-
-    # Extraer y añadir el texto del dataset al prompt
-    for entry in dataset.values():
-        text = entry.get("dialogue", "")  # Asumiendo que el texto está en la clave 'dialogue'
-        prompt += text + " "
-
-    return prompt.strip()
-
 def clean_and_transform_data(data):
     # Aquí puedes implementar tu lógica de limpieza y transformación
     cleaned_data = data.strip().replace("\r", "").replace("\n", " ")
     return cleaned_data
 
+def mejorar_respuesta_con_openai(respuesta_original, pregunta):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Construyendo el prompt para un modelo de chat
+    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 40 palabras"
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Estás aquí para ayudar a mejorar las respuestas a las preguntas."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message['content'].strip()
+    except Exception as e:
+        print(f"Error al interactuar con OpenAI: {e}")
+        return None
+
+def mejorar_respuesta_generales_con_openai(respuesta_original):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": """Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta, y di las cosas en forma de listado para que se vea más claro que hacer por días.SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta.Si te piden cualquier cosa de programación, recomendaciones turísticas o algo que no esté relacionado con Sevilla diles lo siento que solo puedes responder con información de la página webSolo puedes dar recomendaciones turísticas de Sevilla si te preguntan por otra ciudad diles que acceden a https://ciceroneai.com/ para ver qué ciudades están disponiblesCuando respondas a una pregunta al final de la respuesta quiero que le digas que "si quieres más información hazte tu ruta con Cicerone o mira las rutas de los expertos locales para guiarte"Solo responde a preguntas cuyo contenido es de sevilla No respondas a nada que no esté relacionado con turismo y planes de la ciudad de Sevilla, si te preguntan por otra ciudad  diles "Si quieres más información de otras ciudades mira en nuestra web las ciudades disponibles"Siempre tienes que responder en el mismo idioma que la pregunta del usuario, si pregunta en inglés responde en inglés, si preguntan en valenciano responde en valenciano, si preguntan en castellano respondes en castellano.Si no tienes la información, nunca empieces la respuesta con la frase "Lo siento, no puedo darte información específica", y di que mejor hagan su ruta con Cicerone para vivir una experiencia personalizadaSi tienen cualquier duda déjales el contacto para resolver dudas info@iurban.es"""},
+                {"role": "user", "content": respuesta_original}
+            ]
+        )
+        return response.choices[0].message['content'].strip()
+    except Exception as e:
+        print(f"Error al interactuar con OpenAI: {e}")
+        return None
+
+def encontrar_respuesta(pregunta, datos):
+    # Tokenizar y limpiar la pregunta
+    palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in stopwords.words('spanish')]
+
+    # Preparar documentos para TF-IDF (la pregunta y los textos del dataset)
+    documentos = [pregunta] + [item['texto'] for item in datos]
+
+    # Convertir los documentos en vectores TF-IDF
+    vectorizer = TfidfVectorizer()
+    vectores = vectorizer.fit_transform(documentos)
+
+    # Calcular la similitud coseno entre la pregunta y cada documento
+    similitudes = cosine_similarity(vectores[0:1], vectores[1:])
+
+    # Encontrar el índice del documento más similar
+    indice_maximo = similitudes.argsort()[0][-1]
+
+    # Devolver la respuesta asociada con el documento más similar
+    return datos[indice_maximo]['respuesta']
+
+
+def cargar_dataset(chatbot_id, base_dataset_dir):
+    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+    with open(dataset_file_path, 'r') as file:
+        data = json.load(file)
+    return data
+
  ######## Inicio Endpoints ########
+
+
+@app.route('/ask_general', methods=['POST'])
+def ask_general():
+    contenido = request.json
+    pregunta = contenido['pregunta']
+    chatbot_id = contenido['chatbot_id']
+    token = contenido.get('token', None)  # Añadido el token como un parámetro opcional
+   
+
+    # Aquí podrías validar o utilizar el token, si es necesario
+
+    datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
+    respuesta_original = encontrar_respuesta(pregunta, datos)
+
+    # Intentar mejorar la respuesta con OpenAI
+    try:
+        respuesta_mejorada = mejorar_respuesta_con_openai(respuesta_original)
+        if respuesta_mejorada:
+            return jsonify({'respuesta': respuesta_mejorada})
+    except Exception as e:
+        print(f"Error al mejorar respuesta con OpenAI: {e}")
+        # Devolver la respuesta original en caso de error
+        return jsonify({'respuesta': respuesta_original})
+
+
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
@@ -300,24 +370,7 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-def mejorar_respuesta_con_openai(respuesta_original, pregunta):
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Construyendo el prompt para un modelo de chat
-    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 40 palabras"
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Estás aquí para ayudar a mejorar las respuestas a las preguntas."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message['content'].strip()
-    except Exception as e:
-        print(f"Error al interactuar con OpenAI: {e}")
-        return None
 
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -331,9 +384,10 @@ def ask():
         app.logger.info(f"Datos recibidos: {data}")
         chatbot_id = data.get('chatbot_id')
         pregunta = data.get('pregunta')
+        token = data.get('token')
 
-        if not pregunta or not chatbot_id:
-            app.logger.error("Falta chatbot_id o pregunta en la solicitud.")
+        if not pregunta or not chatbot_id or not token:
+            app.logger.error("Falta chatbot_id o o token o pregunta en la solicitud.")
             return jsonify({"error": "Falta chatbot_id o pregunta en la solicitud."}), 400
 
         json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
@@ -358,10 +412,22 @@ def ask():
                 app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
 
         if max_similarity <= 0.5:
-            app.logger.info("No se encontró una coincidencia adecuada, generando respuesta con OpenAI")
-            openai.api_key = os.environ.get('OPENAI_API_KEY')
-            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
-            respuesta = response_openai.choices[0].text.strip()
+            app.logger.info("No se encontró una coincidencia adecuada, llamando a /ask_general")
+            try:
+                contenido_general = {
+                    'pregunta': pregunta,
+                    'chatbot_id': chatbot_id,
+                    'token': token,  
+                }
+
+                # Llamando a /ask_general internamente
+                respuesta_general = ask_general(contenido_general)
+                return respuesta_general
+
+            except Exception as e:
+                app.logger.error(f"Error al llamar a /ask_general: {e}")
+                # Si hay un error, devolver la respuesta generada por OpenAI
+                return jsonify({'respuesta': respuesta})
 
         # Intentar mejorar la respuesta con OpenAI
         try:
@@ -376,58 +442,6 @@ def ask():
 
     except Exception as e:
         app.logger.error(f"Error inesperado en /ask: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route('/ask_pruebas', methods=['POST'])
-def ask_pruebas():
-    try:
-        data = request.json
-        chatbot_id = data.get('chatbot_id')
-        token = data.get('token')
-
-        if not chatbot_id or not token:
-            app.logger.error("No chatbot_id or token provided in the request")
-            return jsonify({"error": "No chatbot_id or token provided"}), 400
-
-        # Cargar el dataset
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        with open(dataset_file_path, 'r') as file:
-            dataset = json.load(file)
-
-        pregunta = data.get('pregunta')
-        if not pregunta:
-            app.logger.error("No pregunta provided in the request")
-            return jsonify({"error": "No pregunta provided"}), 400
-
-        dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
-
-        # Obtener la respuesta de OpenAI
-        #client = OpenAI(
-        # defaults to os.environ.get("OPENAI_API_KEY")
-        #api_key="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",
-        #)
-
-        #chat_completion = client.chat.completions.create(
-        #    messages=[
-        #        {
-        #            "role": "user",
-        #            "prompt":generar_prompt(dataset_folder, pregunta)
-        #         }
-        #    ],
-        #    model="gpt-4",
-        #)
-
-
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
-        response_openai = openai.ChatCompletion.create(model="gpt-4-1106-preview", messages=[{"role": "user", "prompt": generar_prompt(dataset_folder, pregunta)}])
-
-
-        # Devolver solo el texto de la respuesta
-        return response.choices[0].text.strip()
-
-    except Exception as e:
-        app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -502,8 +516,6 @@ def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
             respuesta_mas_adeacuada = datos['respuesta']
 
     return respuesta_mas_adeacuada
-
-
 
  ######## Fin Endpoints ########
 
