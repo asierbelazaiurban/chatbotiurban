@@ -494,7 +494,7 @@ def ask():
                 respuesta = entry["respuesta"]
                 app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
 
-        if max_similarity <= 0.5:
+        if max_similarity <= 0.7:
             app.logger.info("No se encontró una coincidencia adecuada, llamando a /ask_general")
             try:
                 contenido_general = {
@@ -526,7 +526,7 @@ def ask():
     except Exception as e:
         app.logger.error(f"Error inesperado en /ask: {e}")
         return jsonify({"error": str(e)}), 500
-        
+
 
 
 @app.route('/pre_established_answers', methods=['POST'])
