@@ -395,6 +395,8 @@ def ask_pruebas():
         #    ],
         #    model="gpt-4",
         #)
+
+    
         openai.api_key = os.environ.get('OPENAI_API_KEY')
         response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "prompt": generar_prompt(dataset_folder, pregunta)}])
 
