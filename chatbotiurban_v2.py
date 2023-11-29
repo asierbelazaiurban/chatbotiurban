@@ -344,31 +344,6 @@ def ask():
         app.logger.error(f"Unexpected error in /ask: {e}")
         return jsonify({"error": str(e)}), 500
         
-@app.route('/ask', methods=['POST'])
-def ask():
-    try:
-        data = request.json
-        chatbot_id = data.get('chatbot_id')
-        pregunta = data.get('pregunta')
-
-        # [El mismo código para cargar el archivo JSON]
-
-        respuesta = procesar_pregunta(pregunta)
-
-        # Mejorar la respuesta con OpenAI si se encontró una coincidencia
-        if respuesta:
-            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta)
-            return jsonify({'respuesta': respuesta_mejorada or respuesta})
-        else:
-            # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-            openai.api_key = os.environ.get('OPENAI_API_KEY')
-            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
-
-        nueva_respuesta = response_openai['choices'][0]['message']['content']
-
-    except Exception as e:
-        app.logger.error(f"Unexpected error in ask function: {e}")
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/ask_pruebas', methods=['POST'])
