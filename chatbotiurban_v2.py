@@ -314,6 +314,35 @@ def mejorar_respuesta_con_openai(respuesta_original):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
+@app.route('/ask', methods=['POST'])
+def ask():
+    try:
+        data = request.json
+        chatbot_id = data.get('chatbot_id')
+        pregunta = data.get('pregunta')
+
+        json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+
+        # Asegurarse de que el archivo existe
+        if not os.path.exists(json_file_path):
+            return jsonify({'error': 'Archivo de respuestas preestablecidas no encontrado.'}), 404
+
+        # Leer el archivo JSON
+        with open(json_file_path, 'r', encoding='utf-8') as json_file:
+            preguntas_palabras_clave = json.load(json_file)
+
+        respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
+
+        if respuesta:
+            return jsonify({'respuesta': respuesta})
+        else:
+            # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
+            openai.api_key = os.environ.get('OPENAI_API_KEY')
+            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in /ask: {e}")
+        return jsonify({"error": str(e)}), 500
         
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -438,12 +467,10 @@ def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     respuesta_mas_adeacuada = None
     max_coincidencias = 0
 
-    # Recorrer todas las preguntas preestablecidas
     for pregunta, datos in preguntas_palabras_clave.items():
         palabras_clave = set(datos['palabras_clave'])
         coincidencias = palabras_relevantes_usuario.intersection(palabras_clave)
 
-        # Actualizar la mejor coincidencia
         if len(coincidencias) > max_coincidencias:
             max_coincidencias = len(coincidencias)
             respuesta_mas_adeacuada = datos['respuesta']
