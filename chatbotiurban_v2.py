@@ -422,7 +422,7 @@ def pre_established_answers():
     # Para este ejemplo, voy a simular una respuesta
    
     # Devolver la respuesta procesada
-    return jsonify({'respuesta': respuesta_procesada})
+    return jsonify({'respuesta': respuesta})
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
