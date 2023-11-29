@@ -1,8 +1,6 @@
 ##!/usr/bin/env python
 # coding: utf-8
 
-
-
 import chardet
 import numpy as np
 from flask import Flask, request, jsonify
@@ -357,6 +355,7 @@ def ask():
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/ask_pruebas', methods=['POST'])
 def ask_pruebas():
