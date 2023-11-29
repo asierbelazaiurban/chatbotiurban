@@ -396,51 +396,60 @@ def ask_pruebas():
 
 @app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
-    # Obtener los datos del cuerpo de la solicitud POST
     data = request.json
     chatbot_id = data.get('chatbot_id')
     pregunta = data.get('pregunta')
+    palabras_clave = data.get('palabras_clave', [])  # Asumiendo que también se envían
     respuesta = data.get('respuesta')
 
-    # Ruta del archivo JSON
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
-    # Leer o crear el archivo JSON
-    preguntas_respuestas = leer_o_crear_json(json_file_path)
+    # Verificar si el directorio existe, si no, crearlo
+    os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
+
+    # Intentar leer el archivo JSON existente o crear un nuevo diccionario si no existe
+    if os.path.isfile(json_file_path):
+        with open(json_file_path, 'r', encoding='utf-8') as json_file:
+            preguntas_respuestas = json.load(json_file)
+    else:
+        preguntas_respuestas = {}
 
     # Actualizar o añadir la nueva pregunta y respuesta
-    preguntas_respuestas[pregunta] = respuesta
+    preguntas_respuestas[pregunta] = {
+        "Pregunta": [pregunta],
+        "palabras_clave": palabras_clave,
+        "respuesta": respuesta
+    }
 
     # Guardar los cambios en el archivo JSON
-    with open(json_file_path, 'w') as json_file:
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
     # Devolver la respuesta
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
-def leer_o_crear_json(file_path):
-    # Verificar si el directorio existe, si no, crearlo
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-    # Intentar leer el archivo JSON existente
-    if os.path.isfile(file_path):
-        with open(file_path, 'r') as json_file:
-            return json.load(json_file)
-    else:
-        return {} 
 
-def procesar_pregunta(pregunta):
-    # Tokenizar y eliminar stopwords de la pregunta
-    palabras_pregunta = set(word_tokenize(pregunta.lower()))
+def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
+    palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
     stopwords_ = set(stopwords.words('spanish'))
-    palabras_relevantes_pregunta = palabras_pregunta - stopwords_
+    palabras_relevantes_usuario = palabras_pregunta_usuario - stopwords_
 
-    # Verificar si alguna palabra de la pregunta coincide con las claves del diccionario
-    for fragmento_pregunta, palabras_clave in preguntas_palabras_clave.items():
-        if fragmento_pregunta in palabras_relevantes_pregunta and palabras_relevantes_pregunta.intersection(palabras_clave):
-            return "Lo siento, no sé a qué te refieres."
+    respuesta_mas_adeacuada = None
+    max_coincidencias = 0
 
-    return "Lo siento, no sé a qué te refieres."
+    # Recorrer todas las preguntas preestablecidas
+    for pregunta, datos in preguntas_palabras_clave.items():
+        palabras_clave = set(datos['palabras_clave'])
+        coincidencias = palabras_relevantes_usuario.intersection(palabras_clave)
+
+        # Actualizar la mejor coincidencia
+        if len(coincidencias) > max_coincidencias:
+            max_coincidencias = len(coincidencias)
+            respuesta_mas_adeacuada = datos['respuesta']
+
+    return respuesta_mas_adeacuada
+
 
  ######## Fin Endpoints ########
 
