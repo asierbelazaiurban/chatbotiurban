@@ -39,6 +39,8 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 from datasets import Dataset
 import subprocess
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 
 
 tqdm.pandas()
@@ -402,16 +404,31 @@ def ask_pruebas():
         return jsonify({"error": str(e)}), 500
 
 
+def extraer_palabras_clave(pregunta):
+    # Tokenizar la pregunta
+    palabras = word_tokenize(pregunta)
+
+    # Filtrar las palabras de parada (stop words) y los signos de puntuación
+    palabras_filtradas = [palabra for palabra in palabras if palabra.isalnum()]
+
+    # Filtrar palabras comunes (stop words)
+    stop_words = set(stopwords.words('spanish'))
+    palabras_clave = [palabra for palabra in palabras_filtradas if palabra not in stop_words]
+
+    return palabras_clave
+
 @app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
     data = request.json
     chatbot_id = data.get('chatbot_id')
     pregunta = data.get('pregunta')
-    palabras_clave = data.get('palabras_clave', [])  # Asumiendo que también se envían
     respuesta = data.get('respuesta')
 
     if not (chatbot_id and pregunta and respuesta):
         return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, pregunta, respuesta)."}), 400
+
+    # Extraer palabras clave de la pregunta
+    palabras_clave = extraer_palabras_clave(pregunta)
 
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
