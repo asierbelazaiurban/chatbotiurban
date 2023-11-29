@@ -459,19 +459,22 @@ def delete_urls():
 def ask():
     app.logger.info("Inicio de la función /ask")
     try:
+        app.logger.info("Intentando obtener datos JSON de la solicitud")
         data = request.get_json()
         if not data:
             raise ValueError("No se recibieron datos JSON válidos.")
 
+        app.logger.info(f"Datos recibidos: {data}")
         chatbot_id = data.get('chatbot_id')
         pregunta = data.get('pregunta')
         token = data.get('token')
 
         if not pregunta or not chatbot_id or not token:
-            app.logger.error("Falta chatbot_id, token o pregunta en la solicitud.")
-            return jsonify({"error": "Falta chatbot_id, token o pregunta en la solicitud."}), 400
+            app.logger.error("Falta chatbot_id o o token o pregunta en la solicitud.")
+            return jsonify({"error": "Falta chatbot_id o pregunta en la solicitud."}), 400
 
         json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+        app.logger.info(f"Ruta del archivo JSON: {json_file_path}")
 
         if not os.path.exists(json_file_path):
             app.logger.error("Archivo de respuestas preestablecidas no encontrado.")
@@ -480,16 +483,18 @@ def ask():
         with open(json_file_path, 'r', encoding='utf-8') as json_file:
             preguntas_respuestas = json.load(json_file)
 
+        app.logger.info("Archivo JSON cargado correctamente")
         respuesta = None
-        max_similarity = 0.7
+        max_similarity = 0.0
         for entry in preguntas_respuestas.values():
             palabras_clave = ' '.join(entry["palabras_clave"])
             similarity = difflib.SequenceMatcher(None, pregunta, palabras_clave).ratio()
             if similarity > max_similarity:
                 max_similarity = similarity
                 respuesta = entry["respuesta"]
+                app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
 
-        if not respuesta:
+        if max_similarity <= 0.5:
             app.logger.info("No se encontró una coincidencia adecuada, llamando a /ask_general")
             try:
                 contenido_general = {
@@ -497,10 +502,14 @@ def ask():
                     'chatbot_id': chatbot_id,
                     'token': token,  
                 }
+
+                # Llamando a /ask_general internamente
                 respuesta_general = ask_general(contenido_general)
                 return respuesta_general
+
             except Exception as e:
                 app.logger.error(f"Error al llamar a /ask_general: {e}")
+                # Si hay un error, devolver la respuesta generada por OpenAI
                 return jsonify({'respuesta': respuesta})
 
         # Intentar mejorar la respuesta con OpenAI
@@ -511,12 +520,12 @@ def ask():
                 return jsonify({'respuesta': respuesta_mejorada})
         except Exception as e:
             app.logger.error(f"Error al mejorar respuesta con OpenAI: {e}")
+            # Devolver la respuesta original en caso de error
             return jsonify({'respuesta': respuesta})
 
     except Exception as e:
         app.logger.error(f"Error inesperado en /ask: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 @app.route('/pre_established_answers', methods=['POST'])
