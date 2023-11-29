@@ -304,7 +304,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     # Construyendo el prompt para un modelo de chat
-    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE"
+    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 40 palabras"
 
     try:
         response = openai.ChatCompletion.create(
