@@ -134,7 +134,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Estás aquí para ayudar a mejorar las respuestas a las preguntas."},
+                {"role": "system", "content": "Mejora las respuestas"},
                 {"role": "user", "content": prompt}
             ]
         )
@@ -146,11 +146,13 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
 def mejorar_respuesta_generales_con_openai(respuesta_original):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
+    prompt = f"La respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 50 palabras, limpia la respuesta de saltos de linea y de caracteres raros"
+
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": """Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta, y di las cosas en forma de listado para que se vea más claro que hacer por días.SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta.Si te piden cualquier cosa de programación, recomendaciones turísticas o algo que no esté relacionado con Sevilla diles lo siento que solo puedes responder con información de la página webSolo puedes dar recomendaciones turísticas de Sevilla si te preguntan por otra ciudad diles que acceden a https://ciceroneai.com/ para ver qué ciudades están disponiblesCuando respondas a una pregunta al final de la respuesta quiero que le digas que "si quieres más información hazte tu ruta con Cicerone o mira las rutas de los expertos locales para guiarte"Solo responde a preguntas cuyo contenido es de sevilla No respondas a nada que no esté relacionado con turismo y planes de la ciudad de Sevilla, si te preguntan por otra ciudad  diles "Si quieres más información de otras ciudades mira en nuestra web las ciudades disponibles"Siempre tienes que responder en el mismo idioma que la pregunta del usuario, si pregunta en inglés responde en inglés, si preguntan en valenciano responde en valenciano, si preguntan en castellano respondes en castellano.Si no tienes la información, nunca empieces la respuesta con la frase "Lo siento, no puedo darte información específica", y di que mejor hagan su ruta con Cicerone para vivir una experiencia personalizadaSi tienen cualquier duda déjales el contacto para resolver dudas info@iurban.es"""},
+                {"role": "system", "content": "Mejora las respuestas"}
                 {"role": "user", "content": respuesta_original}
             ]
         )
@@ -270,7 +272,7 @@ def ask_general():
 
     # Intentar mejorar la respuesta con OpenAI
     try:
-        respuesta_mejorada = mejorar_respuesta_con_openai(respuesta_original)
+        respuesta_mejorada = mejorar_respuesta_generales_con_openai(respuesta_original)
         if respuesta_mejorada:
             return jsonify({'respuesta': respuesta_mejorada})
     except Exception as e:
