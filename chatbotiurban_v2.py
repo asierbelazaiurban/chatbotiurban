@@ -153,56 +153,7 @@ def convertir_a_texto(dato):
         # Convertir cualquier otro tipo de dato a string
         return str(dato)
 
-def encontrar_respuesta(pregunta, datos):
-    try:
-        # Obtener stopwords una sola vez
-        spanish_stopwords = stopwords.words('spanish')
-        app.logger.info("Stopwords cargadas correctamente.")
 
-        # Tokenizar y limpiar la pregunta
-        palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords]
-        app.logger.info("Pregunta tokenizada y limpiada.")
-
-        # Preparar documentos para TF-IDF
-        documentos = [pregunta] + [convertir_a_texto(item) for item in datos]
-        app.logger.info("Documentos preparados para TF-IDF.")
-
-        # Convertir los documentos en vectores TF-IDF
-        vectorizer = TfidfVectorizer()
-        vectores = vectorizer.fit_transform(documentos)
-        app.logger.info("Vectores TF-IDF creados.")
-
-        # Calcular la similitud coseno
-        similitudes = cosine_similarity(vectores[0:1], vectores[1:])
-        app.logger.info("Similitud coseno calculada.")
-
-        # Encontrar el índice del documento más similar
-        indice_maximo = similitudes.argsort()[0][-1]
-        app.logger.info(f"Índice del documento más similar encontrado: {indice_maximo}")
-
-        # Devolver la respuesta asociada
-        return datos[indice_maximo]
-
-    except Exception as e:
-        app.logger.error(f"Error en encontrar_respuesta: {e}")
-        raise e
-
-
-def cargar_dataset(chatbot_id, base_dataset_dir):
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    app.logger.info(f"Dataset cin ruta {dataset_file_path}")
-
-    try:
-        with open(dataset_file_path, 'r') as file:
-            data = json.load(file)
-            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
-            return data
-    except FileNotFoundError:
-        app.logger.error(f"Archivo no encontrado: {dataset_file_path}")
-    except json.JSONDecodeError:
-        app.logger.error(f"Error al decodificar JSON en el archivo: {dataset_file_path}")
-    except Exception as e:
-        app.logger.error(f"Error al cargar el dataset: {e}")
 
     return None  # o puedes devolver un valor predeterminado o lanzar una excepción
 
@@ -225,6 +176,51 @@ def extraer_palabras_clave(pregunta):
  ######## Inicio Endpoints ########
 
 
+def encontrar_respuesta(pregunta, datos):
+    try:
+        # Obtener stopwords una sola vez
+        spanish_stopwords = stopwords.words('spanish')
+        app.logger.info("Stopwords cargadas correctamente.")
+
+        # Tokenizar y limpiar la pregunta
+        palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords]
+        app.logger.info("Pregunta tokenizada y limpiada.")
+
+        for item in datos:
+            texto = convertir_a_texto(item).split()  # Asumiendo que convertir_a_texto devuelve un string
+            for idx, palabra in enumerate(texto):
+                if palabra in palabras_clave_pregunta:
+                    # Encontrar las 5 palabras anteriores y las 5 palabras siguientes
+                    inicio = max(idx - 5, 0)
+                    fin = min(idx + 6, len(texto))
+                    fragmento = ' '.join(texto[inicio:fin])
+                    return fragmento
+
+        app.logger.info("No se encontró ninguna coincidencia.")
+        return None  # Devolver None si no se encuentra ninguna coincidencia
+
+    except Exception as e:
+        app.logger.error(f"Error en encontrar_respuesta: {e}")
+        raise e
+
+
+
+def cargar_dataset(chatbot_id, base_dataset_dir):
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+    app.logger.info(f"Dataset cin ruta {dataset_file_path}")
+
+    try:
+        with open(dataset_file_path, 'r') as file:
+            data = json.load(file)
+            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
+            return data
+    except FileNotFoundError:
+        app.logger.error(f"Archivo no encontrado: {dataset_file_path}")
+    except json.JSONDecodeError:
+        app.logger.error(f"Error al decodificar JSON en el archivo: {dataset_file_path}")
+    except Exception as e:
+        app.logger.error(f"Error al cargar el dataset: {e}")
+        
 @app.route('/ask_general', methods=['POST'])
 def ask_general():
     contenido = request.json
