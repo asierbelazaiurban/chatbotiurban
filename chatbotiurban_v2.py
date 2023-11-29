@@ -185,7 +185,6 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
     return data
 
 
-
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
     palabras = word_tokenize(pregunta)
