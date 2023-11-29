@@ -180,9 +180,22 @@ def encontrar_respuesta(pregunta, datos):
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
-    with open(dataset_file_path, 'r') as file:
-        data = json.load(file)
-    return data
+
+    try:
+        with open(dataset_file_path, 'r') as file:
+            data = json.load(file)
+            logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
+            return data
+    except FileNotFoundError:
+        logger.error(f"Archivo no encontrado: {dataset_file_path}")
+    except json.JSONDecodeError:
+        logger.error(f"Error al decodificar JSON en el archivo: {dataset_file_path}")
+    except Exception as e:
+        logger.error(f"Error al cargar el dataset: {e}")
+
+    return None  # o puedes devolver un valor predeterminado o lanzar una excepción
+
+# Recuerda llamar a la función con los parámetros adecuados
 
 
 def extraer_palabras_clave(pregunta):
