@@ -10,7 +10,6 @@ from logging import FileHandler
 import os
 import openai
 import requests
-from requests.exceptions import RequestException
 from bs4 import BeautifulSoup
 import json
 import time
@@ -21,11 +20,10 @@ import traceback
 import gensim.downloader as api
 from gensim.models import Word2Vec
 import nltk
-nltk.download('punkt')
-nltk.download('stopwords')
-from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from requests.exceptions import RequestException
+from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, GenerationConfig
 from datasets import load_dataset
 from peft import PeftModel, PeftConfig, LoraConfig, TaskType
@@ -36,13 +34,13 @@ import torch
 import evaluate
 import pandas as pd
 from tqdm import tqdm
-from transformers import AutoTokenizer
 from datasets import Dataset
 import subprocess
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
 import difflib
 
+
+nltk.download('punkt')
+nltk.download('stopwords')
 
 tqdm.pandas()
 
@@ -142,12 +140,25 @@ def mejorar_respuesta_generales_con_openai(respuesta_original):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
+def convertir_a_texto(dato):
+    if isinstance(dato, dict):
+        # Suponiendo que 'texto' es la clave deseada
+        return dato.get('texto', '')
+    elif isinstance(dato, list):
+        # Concatenar elementos de la lista
+        return ' '.join(map(str, dato))
+    elif isinstance(dato, str):
+        return dato
+    else:
+        # Convertir cualquier otro tipo de dato a string
+        return str(dato)
+
 def encontrar_respuesta(pregunta, datos):
     # Tokenizar y limpiar la pregunta
     palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in stopwords.words('spanish')]
 
     # Preparar documentos para TF-IDF (la pregunta y los textos del dataset)
-    documentos = [pregunta] + [item['texto'] for item in datos]
+    documentos = [pregunta] + [convertir_a_texto(item) for item in datos]
 
     # Convertir los documentos en vectores TF-IDF
     vectorizer = TfidfVectorizer()
@@ -160,7 +171,8 @@ def encontrar_respuesta(pregunta, datos):
     indice_maximo = similitudes.argsort()[0][-1]
 
     # Devolver la respuesta asociada con el documento más similar
-    return datos[indice_maximo]['respuesta']
+    # Aquí podrías necesitar lógica adicional dependiendo de la estructura de tus datos
+    return datos[indice_maximo]
 
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
@@ -168,6 +180,21 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
     with open(dataset_file_path, 'r') as file:
         data = json.load(file)
     return data
+
+
+
+def extraer_palabras_clave(pregunta):
+    # Tokenizar la pregunta
+    palabras = word_tokenize(pregunta)
+
+    # Filtrar las palabras de parada (stop words) y los signos de puntuación
+    palabras_filtradas = [palabra for palabra in palabras if palabra.isalnum()]
+
+    # Filtrar palabras comunes (stop words)
+    stop_words = set(stopwords.words('spanish'))
+    palabras_clave = [palabra for palabra in palabras_filtradas if palabra not in stop_words]
+
+    return palabras_clave
 
  ######## Inicio Endpoints ########
 
@@ -370,8 +397,6 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-
-
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Inicio de la función /ask")
@@ -444,19 +469,6 @@ def ask():
         app.logger.error(f"Error inesperado en /ask: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-def extraer_palabras_clave(pregunta):
-    # Tokenizar la pregunta
-    palabras = word_tokenize(pregunta)
-
-    # Filtrar las palabras de parada (stop words) y los signos de puntuación
-    palabras_filtradas = [palabra for palabra in palabras if palabra.isalnum()]
-
-    # Filtrar palabras comunes (stop words)
-    stop_words = set(stopwords.words('spanish'))
-    palabras_clave = [palabra for palabra in palabras_filtradas if palabra not in stop_words]
-
-    return palabras_clave
 
 @app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
