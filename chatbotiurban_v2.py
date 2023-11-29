@@ -204,7 +204,6 @@ def encontrar_respuesta(pregunta, datos):
         raise e
 
 
-
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     app.logger.info(f"Dataset cin ruta {dataset_file_path}")
@@ -220,7 +219,7 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         app.logger.error(f"Error al decodificar JSON en el archivo: {dataset_file_path}")
     except Exception as e:
         app.logger.error(f"Error al cargar el dataset: {e}")
-        
+
 @app.route('/ask_general', methods=['POST'])
 def ask_general():
     contenido = request.json
