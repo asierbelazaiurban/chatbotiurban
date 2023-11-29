@@ -364,7 +364,7 @@ def ask():
         # Intentar mejorar la respuesta con OpenAI
         try:
             app.logger.info("Intentando mejorar respuesta con OpenAI")
-            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta)
+            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta, pregunta)
             if respuesta_mejorada:
                 return jsonify({'respuesta': respuesta_mejorada})
         except Exception as e:
