@@ -154,8 +154,11 @@ def convertir_a_texto(dato):
         return str(dato)
 
 def encontrar_respuesta(pregunta, datos):
+    # Obtener stopwords una sola vez
+    spanish_stopwords = stopwords.words('spanish')
+
     # Tokenizar y limpiar la pregunta
-    palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in stopwords.words('spanish')]
+    palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords]
 
     # Preparar documentos para TF-IDF (la pregunta y los textos del dataset)
     documentos = [pregunta] + [convertir_a_texto(item) for item in datos]
