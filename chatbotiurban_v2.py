@@ -303,7 +303,7 @@ def mejorar_respuesta_con_openai(respuesta_original):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     
     # Construyendo el prompt
-    prompt = f"Mejora la respuesta: {respuesta_original}"
+    prompt = f"Mejora la respuesta: {respuesta_original} a la pregunta  {pregunta}"
     
     try:
         response = openai.Completion.create(
@@ -339,6 +339,7 @@ def ask():
             preguntas_palabras_clave = json.load(json_file)
 
         respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
+        respuesta = mejorar_respuesta_con_openai(respuesta, pregunta)
 
         if respuesta:
             return jsonify({'respuesta': respuesta})
