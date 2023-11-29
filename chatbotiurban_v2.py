@@ -179,7 +179,7 @@ def encontrar_respuesta(pregunta, datos):
 
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
-    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
     try:
         with open(dataset_file_path, 'r') as file:
