@@ -498,7 +498,6 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
 
-
 def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
     stopwords_ = set(stopwords.words('spanish'))
