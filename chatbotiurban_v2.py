@@ -39,6 +39,8 @@ import subprocess
 import difflib
 
 
+
+
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -140,23 +142,6 @@ def mejorar_respuesta_generales_con_openai(respuesta_original):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def convertir_a_texto(dato):
-    if isinstance(dato, dict):
-        # Suponiendo que 'texto' es la clave deseada
-        return dato.get('texto', '')
-    elif isinstance(dato, list):
-        # Concatenar elementos de la lista
-        return ' '.join(map(str, dato))
-    elif isinstance(dato, str):
-        return dato
-    else:
-        # Convertir cualquier otro tipo de dato a string
-        return str(dato)
-
-
-
-    return None  # o puedes devolver un valor predeterminado o lanzar una excepción
-
 # Recuerda llamar a la función con los parámetros adecuados
 
 
@@ -176,38 +161,71 @@ def extraer_palabras_clave(pregunta):
  ######## Inicio Endpoints ########
 
 
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+####### Utils busqueda en Json #######
+
+# Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
+def convertir_a_texto(item):
+    """
+    Convierte un elemento de dataset en una cadena de texto.
+    Esta función asume que el 'item' puede ser un diccionario, una lista, o un texto simple.
+    """
+    if isinstance(item, dict):
+        # Concatena los valores del diccionario si 'item' es un diccionario
+        return ' '.join(str(value) for value in item.values())
+    elif isinstance(item, list):
+        # Concatena los elementos de la lista si 'item' es una lista
+        return ' '.join(str(element) for element in item)
+    elif isinstance(item, str):
+        # Devuelve el string si 'item' ya es una cadena de texto
+        return item
+    else:
+        # Convierte el 'item' a cadena si es de otro tipo de dato
+        return str(item)
+
+
+def cargar_dataset(chatbot_id, base_dataset_dir):
+    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+    app.logger.info(f"Dataset con ruta {dataset_file_path}")
+
+    try:
+        with open(dataset_file_path, 'r') as file:
+            data = json.load(file)
+            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
+            return [convertir_a_texto(item) for item in data.values()]
+    except Exception as e:
+        app.logger.error(f"Error al cargar el dataset: {e}")
+        return []
+
+def encode_data(data):
+    vectorizer = TfidfVectorizer()
+    encoded_data = vectorizer.fit_transform(data)
+    return encoded_data, vectorizer
+
+def preprocess_query(query):
+    tokens = word_tokenize(query.lower())
+    processed_query = ' '.join(tokens)
+    return processed_query
 
 def encontrar_respuesta(pregunta, datos):
     try:
-        # Convertir la pregunta a minúsculas
-        pregunta = pregunta.lower()
+        # Convertir la pregunta a minúsculas y preprocesar
+        pregunta_procesada = preprocess_query(pregunta)
 
-        # Obtener stopwords una sola vez
-        spanish_stopwords = stopwords.words('spanish')
-        app.logger.info("Stopwords cargadas correctamente.")
+        # Codificar los datos
+        encoded_data, vectorizer = encode_data(datos)
 
-        mejor_coincidencia = ("", 0.0)  # Guardará el texto con la mayor similitud y el valor de similitud
+        # Codificar la pregunta
+        encoded_query = vectorizer.transform([pregunta_procesada])
 
-        for item in datos.values():
-            texto = convertir_a_texto(item).lower()
+        # Calcular la similitud
+        similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
 
-            # Crear un SequenceMatcher
-            matcher = difflib.SequenceMatcher(None, pregunta, texto)
+        # Encontrar el índice del documento más similar
+        indice_maximo = similarity_scores.argmax()
 
-            # Encontrar la coincidencia con la mayor similitud
-            bloque_match = max(matcher.get_matching_blocks(), key=lambda x: x.size)
-
-            if bloque_match.size > mejor_coincidencia[1]:
-                inicio = max(bloque_match.b - 5, 0)
-                fin = min(bloque_match.b + bloque_match.size + 5, len(texto))
-                fragmento = texto[inicio:fin]
-                mejor_coincidencia = (fragmento, bloque_match.size)
-
-        if mejor_coincidencia[1] > 0:
-            app.logger.info("Mejor coincidencia encontrada.")
-            return mejor_coincidencia[0]
+        if similarity_scores[indice_maximo] > 0:
+            app.logger.info("Respuesta encontrada.")
+            return datos[indice_maximo]
         else:
             app.logger.info("No se encontró ninguna coincidencia.")
             return "No se encontró ninguna coincidencia."
@@ -217,33 +235,18 @@ def encontrar_respuesta(pregunta, datos):
         raise e
 
 
-def cargar_dataset(chatbot_id, base_dataset_dir):
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    app.logger.info(f"Dataset cin ruta {dataset_file_path}")
-
-    try:
-        with open(dataset_file_path, 'r') as file:
-            data = json.load(file)
-            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
-            return data
-    except FileNotFoundError:
-        app.logger.error(f"Archivo no encontrado: {dataset_file_path}")
-    except json.JSONDecodeError:
-        app.logger.error(f"Error al decodificar JSON en el archivo: {dataset_file_path}")
-    except Exception as e:
-        app.logger.error(f"Error al cargar el dataset: {e}")
+####### FIN Utils busqueda en Json #######
 
 @app.route('/ask_general', methods=['POST'])
 def ask_general():
     contenido = request.json
     pregunta = contenido['pregunta']
     chatbot_id = contenido['chatbot_id']
-    token = contenido.get('token', None)  # Añadido el token como un parámetro opcional
-   
 
-    # Aquí podrías validar o utilizar el token, si es necesario
-
+    # Cargar datos
     datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
+
+    # Encontrar respuesta
     respuesta_original = encontrar_respuesta(pregunta, datos)
 
     # Intentar mejorar la respuesta con OpenAI
