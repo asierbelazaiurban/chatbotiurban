@@ -455,6 +455,7 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Inicio de la función /ask")
     try:
@@ -515,6 +516,7 @@ def ask():
     except Exception as e:
         app.logger.error(f"Error inesperado en /ask: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route('/pre_established_answers', methods=['POST'])
