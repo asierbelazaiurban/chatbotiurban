@@ -349,7 +349,7 @@ def ask():
         else:
             # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
             openai.api_key = os.environ.get('OPENAI_API_KEY')
-            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
+            response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": pregunta}])
             return jsonify({'respuesta': response_openai.choices[0].text.strip()})
 
     except Exception as e:
