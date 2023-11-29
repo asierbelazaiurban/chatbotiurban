@@ -314,12 +314,13 @@ def mejorar_respuesta_con_openai(respuesta_original):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-        
-
 @app.route('/ask', methods=['POST'])
 def ask():
     try:
-        data = request.get_json(force=True)  # Cambio realizado aquí
+        # Tratando de obtener el JSON de la solicitud
+        data = request.get_json()
+        if not data:
+            raise ValueError("No se recibieron datos JSON válidos.")
 
         chatbot_id = data.get('chatbot_id')
         pregunta = data.get('pregunta')
@@ -346,7 +347,8 @@ def ask():
 
     except Exception as e:
         app.logger.error(f"Unexpected error in /ask: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), 500       
+
 
 @app.route('/ask_pruebas', methods=['POST'])
 def ask_pruebas():
