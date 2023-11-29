@@ -398,7 +398,7 @@ def ask_pruebas():
 
 
         openai.api_key = os.environ.get('OPENAI_API_KEY')
-        response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "prompt": generar_prompt(dataset_folder, pregunta)}])
+        response_openai = openai.ChatCompletion.create(model="gpt-4-1106-preview", messages=[{"role": "user", "prompt": generar_prompt(dataset_folder, pregunta)}])
 
 
         # Devolver solo el texto de la respuesta
