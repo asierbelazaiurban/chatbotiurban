@@ -22,6 +22,8 @@ import gensim.downloader as api
 from gensim.models import Word2Vec
 import nltk
 nltk.download('punkt')
+nltk.download('stopwords')
+from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from requests.exceptions import RequestException
 from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, GenerationConfig
