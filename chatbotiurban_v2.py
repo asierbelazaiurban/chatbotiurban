@@ -341,7 +341,7 @@ def ask():
         respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
         
         if respuesta:
-            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta, pregunta)
+            respuesta_mejorada = respuesta
             if respuesta_mejorada:
                 return jsonify({'respuesta': respuesta_mejorada})
             else:
