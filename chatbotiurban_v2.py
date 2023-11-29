@@ -41,6 +41,7 @@ from datasets import Dataset
 import subprocess
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
+import difflib
 
 
 tqdm.pandas()
@@ -318,42 +319,53 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    app.logger.info("Inicio de la función /ask")
     try:
-        # Tratando de obtener el JSON de la solicitud
+        app.logger.info("Intentando obtener datos JSON de la solicitud")
         data = request.get_json()
         if not data:
             raise ValueError("No se recibieron datos JSON válidos.")
 
+        app.logger.info(f"Datos recibidos: {data}")
         chatbot_id = data.get('chatbot_id')
         pregunta = data.get('pregunta')
 
         if not pregunta or not chatbot_id:
+            app.logger.error("Falta chatbot_id o pregunta en la solicitud.")
             return jsonify({"error": "Falta chatbot_id o pregunta en la solicitud."}), 400
 
         json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+        app.logger.info(f"Ruta del archivo JSON: {json_file_path}")
 
         if not os.path.exists(json_file_path):
+            app.logger.error("Archivo de respuestas preestablecidas no encontrado.")
             return jsonify({'error': 'Archivo de respuestas preestablecidas no encontrado.'}), 404
 
         with open(json_file_path, 'r', encoding='utf-8') as json_file:
-            preguntas_palabras_clave = json.load(json_file)
+            preguntas_respuestas = json.load(json_file)
 
-        respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
-        
-        if respuesta:
-            respuesta_mejorada = respuesta
-            if respuesta_mejorada:
-                return jsonify({'respuesta': respuesta_mejorada})
-            else:
-                return jsonify({'respuesta': respuesta})  # Devolver la respuesta original si no se pudo mejorar
+        app.logger.info("Archivo JSON cargado correctamente")
+        respuesta = None
+        max_similarity = 0.0
+        for entry in preguntas_respuestas.values():
+            palabras_clave = ' '.join(entry["palabras_clave"])
+            similarity = difflib.SequenceMatcher(None, pregunta, palabras_clave).ratio()
+            if similarity > max_similarity:
+                max_similarity = similarity
+                respuesta = entry["respuesta"]
+                app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
+
+        if max_similarity > 0.5:
+            app.logger.info("Respuesta encontrada en el archivo JSON")
+            return jsonify({'respuesta': respuesta})
         else:
-            # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
+            app.logger.info("No se encontró una coincidencia adecuada, generando respuesta con OpenAI")
             openai.api_key = os.environ.get('OPENAI_API_KEY')
-            response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "content": pregunta}])
+            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
             return jsonify({'respuesta': response_openai.choices[0].text.strip()})
 
     except Exception as e:
-        app.logger.error(f"Unexpected error in /ask: {e}")
+        app.logger.error(f"Error inesperado en /ask: {e}")
         return jsonify({"error": str(e)}), 500
 
 
