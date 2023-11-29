@@ -355,14 +355,22 @@ def ask():
                 respuesta = entry["respuesta"]
                 app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
 
-        if max_similarity > 0.5:
-            app.logger.info("Respuesta encontrada en el archivo JSON")
-            return jsonify({'respuesta': respuesta})
-        else:
+        if max_similarity <= 0.5:
             app.logger.info("No se encontró una coincidencia adecuada, generando respuesta con OpenAI")
             openai.api_key = os.environ.get('OPENAI_API_KEY')
             response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
-            return jsonify({'respuesta': response_openai.choices[0].text.strip()})
+            respuesta = response_openai.choices[0].text.strip()
+
+        # Intentar mejorar la respuesta con OpenAI
+        try:
+            app.logger.info("Intentando mejorar respuesta con OpenAI")
+            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta)
+            if respuesta_mejorada:
+                return jsonify({'respuesta': respuesta_mejorada})
+        except Exception as e:
+            app.logger.error(f"Error al mejorar respuesta con OpenAI: {e}")
+            # Devolver la respuesta original en caso de error
+            return jsonify({'respuesta': respuesta})
 
     except Exception as e:
         app.logger.error(f"Error inesperado en /ask: {e}")
