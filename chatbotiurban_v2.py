@@ -494,7 +494,7 @@ def ask():
                 respuesta = entry["respuesta"]
                 app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
 
-        if max_similarity <= 0.7:
+        if max_similarity <= 0.8:
             app.logger.info("No se encontró una coincidencia adecuada, llamando a /ask_general")
             try:
                 contenido_general = {
