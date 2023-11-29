@@ -314,7 +314,6 @@ def mejorar_respuesta_con_openai(respuesta_original):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-
         
 @app.route('/ask', methods=['POST'])
 def ask():
