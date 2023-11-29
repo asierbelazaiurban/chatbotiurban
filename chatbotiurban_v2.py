@@ -318,7 +318,7 @@ def ask():
 
         # [El mismo código para cargar el archivo JSON]
 
-        respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
+        respuesta = procesar_pregunta(pregunta)
 
         # Mejorar la respuesta con OpenAI si se encontró una coincidencia
         if respuesta:
@@ -423,7 +423,7 @@ def leer_o_crear_json(file_path):
     else:
         return {} 
 
-def procesar_pregunta(pregunta, respuesta_default):
+def procesar_pregunta(pregunta):
     # Tokenizar y eliminar stopwords de la pregunta
     palabras_pregunta = set(word_tokenize(pregunta.lower()))
     stopwords_ = set(stopwords.words('spanish'))
@@ -432,7 +432,7 @@ def procesar_pregunta(pregunta, respuesta_default):
     # Verificar si alguna palabra de la pregunta coincide con las claves del diccionario
     for fragmento_pregunta, palabras_clave in preguntas_palabras_clave.items():
         if fragmento_pregunta in palabras_relevantes_pregunta and palabras_relevantes_pregunta.intersection(palabras_clave):
-            return respuesta_default
+            return "Lo siento, no sé a qué te refieres."
 
     return "Lo siento, no sé a qué te refieres."
 
