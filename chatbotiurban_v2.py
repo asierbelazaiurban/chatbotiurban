@@ -152,7 +152,7 @@ def mejorar_respuesta_generales_con_openai(respuesta_original):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Mejora las respuestas"}
+                {"role": "system", "content": "Mejora las respuestas"},
                 {"role": "user", "content": respuesta_original}
             ]
         )
