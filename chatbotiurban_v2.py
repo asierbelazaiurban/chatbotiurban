@@ -402,13 +402,16 @@ def ask_pruebas():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/pre_established_answers', methods=['POST'])
+ @app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
     data = request.json
     chatbot_id = data.get('chatbot_id')
     pregunta = data.get('pregunta')
     palabras_clave = data.get('palabras_clave', [])  # Asumiendo que también se envían
     respuesta = data.get('respuesta')
+
+    if not (chatbot_id and pregunta and respuesta):
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, pregunta, respuesta)."}), 400
 
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
@@ -455,6 +458,7 @@ def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
             respuesta_mas_adeacuada = datos['respuesta']
 
     return respuesta_mas_adeacuada
+
 
 
  ######## Fin Endpoints ########
