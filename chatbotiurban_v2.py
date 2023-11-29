@@ -402,7 +402,7 @@ def ask_pruebas():
         return jsonify({"error": str(e)}), 500
 
 
- @app.route('/pre_established_answers', methods=['POST'])
+@app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
     data = request.json
     chatbot_id = data.get('chatbot_id')
