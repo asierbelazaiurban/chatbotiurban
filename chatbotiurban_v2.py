@@ -176,6 +176,9 @@ def extraer_palabras_clave(pregunta):
  ######## Inicio Endpoints ########
 
 
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+
 def encontrar_respuesta(pregunta, datos):
     try:
         # Obtener stopwords una sola vez
@@ -186,7 +189,8 @@ def encontrar_respuesta(pregunta, datos):
         palabras_clave_pregunta = set([palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords])
         app.logger.info("Pregunta tokenizada y limpiada.")
 
-        for item in datos:
+        respuestas = []
+        for item in datos.values():
             # Convertir el item a texto y luego tokenizar y limpiar
             texto_tokenizado = [palabra for palabra in word_tokenize(convertir_a_texto(item).lower()) if palabra not in spanish_stopwords]
             for idx, palabra in enumerate(texto_tokenizado):
@@ -195,10 +199,14 @@ def encontrar_respuesta(pregunta, datos):
                     inicio = max(idx - 5, 0)
                     fin = min(idx + 6, len(texto_tokenizado))
                     fragmento = ' '.join(texto_tokenizado[inicio:fin])
-                    return fragmento
+                    respuestas.append(fragmento)
 
-        app.logger.info("No se encontró ninguna coincidencia.")
-        return "No se encontró ninguna coincidencia."
+        if respuestas:
+            app.logger.info("Coincidencias encontradas.")
+            return respuestas
+        else:
+            app.logger.info("No se encontró ninguna coincidencia.")
+            return "No se encontró ninguna coincidencia."
 
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta: {e}")
