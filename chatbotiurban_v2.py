@@ -143,10 +143,10 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(respuesta_original):
+def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    prompt = f"La respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 50 palabras, limpia la respuesta de saltos de linea y de caracteres raros"
+    prompt = f"La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 50 palabras, limpia la respuesta de saltos de linea y de caracteres raros"
 
     try:
         response = openai.ChatCompletion.create(
@@ -272,7 +272,7 @@ def ask_general():
 
     # Intentar mejorar la respuesta con OpenAI
     try:
-        respuesta_mejorada = mejorar_respuesta_generales_con_openai(respuesta_original)
+        respuesta_mejorada = mejorar_respuesta_generales_con_openai(respuesta_original, pregunta)
         if respuesta_mejorada:
             return jsonify({'respuesta': respuesta_mejorada})
     except Exception as e:
