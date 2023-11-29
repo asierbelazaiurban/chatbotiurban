@@ -297,8 +297,12 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-def mejorar_respuesta_con_openai(prompt):
+def mejorar_respuesta_con_openai(respuesta_original):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
+    
+    # Construyendo el prompt
+    prompt = f"Mejora la respuesta: {respuesta_original}"
+    
     try:
         response = openai.Completion.create(
             engine="gpt-3.5-turbo-1106",
@@ -309,6 +313,7 @@ def mejorar_respuesta_con_openai(prompt):
     except Exception as e:
         print(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
         
 @app.route('/ask', methods=['POST'])
