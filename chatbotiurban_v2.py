@@ -183,25 +183,27 @@ def encontrar_respuesta(pregunta, datos):
         app.logger.info("Stopwords cargadas correctamente.")
 
         # Tokenizar y limpiar la pregunta
-        palabras_clave_pregunta = [palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords]
+        palabras_clave_pregunta = set([palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords])
         app.logger.info("Pregunta tokenizada y limpiada.")
 
         for item in datos:
-            texto = convertir_a_texto(item).split()  # Asumiendo que convertir_a_texto devuelve un string
-            for idx, palabra in enumerate(texto):
+            # Convertir el item a texto y luego tokenizar y limpiar
+            texto_tokenizado = [palabra for palabra in word_tokenize(convertir_a_texto(item).lower()) if palabra not in spanish_stopwords]
+            for idx, palabra in enumerate(texto_tokenizado):
                 if palabra in palabras_clave_pregunta:
-                    # Encontrar las 5 palabras anteriores y las 5 palabras siguientes
+                    # Calcular los índices de inicio y fin para extraer el fragmento
                     inicio = max(idx - 5, 0)
-                    fin = min(idx + 6, len(texto))
-                    fragmento = ' '.join(texto[inicio:fin])
+                    fin = min(idx + 6, len(texto_tokenizado))
+                    fragmento = ' '.join(texto_tokenizado[inicio:fin])
                     return fragmento
 
         app.logger.info("No se encontró ninguna coincidencia.")
-        return "No se encontró ninguna coincidencia." # Devolver None si no se encuentra ninguna coincidencia
+        return "No se encontró ninguna coincidencia."
 
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta: {e}")
         raise e
+
 
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
