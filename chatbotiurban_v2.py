@@ -197,7 +197,7 @@ def encontrar_respuesta(pregunta, datos):
                     return fragmento
 
         app.logger.info("No se encontró ninguna coincidencia.")
-        return None  # Devolver None si no se encuentra ninguna coincidencia
+        return "No se encontró ninguna coincidencia." # Devolver None si no se encuentra ninguna coincidencia
 
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta: {e}")
