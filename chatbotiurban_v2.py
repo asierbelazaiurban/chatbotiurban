@@ -339,18 +339,22 @@ def ask():
             preguntas_palabras_clave = json.load(json_file)
 
         respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
-        respuesta = mejorar_respuesta_con_openai(respuesta, pregunta)
-
+        
         if respuesta:
-            return jsonify({'respuesta': respuesta})
+            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta, pregunta)
+            if respuesta_mejorada:
+                return jsonify({'respuesta': respuesta_mejorada})
+            else:
+                return jsonify({'respuesta': respuesta})  # Devolver la respuesta original si no se pudo mejorar
         else:
             # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
             openai.api_key = os.environ.get('OPENAI_API_KEY')
             response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
+            return jsonify({'respuesta': response_openai.choices[0].text.strip()})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in /ask: {e}")
-        return jsonify({"error": str(e)}), 500       
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/ask_pruebas', methods=['POST'])
