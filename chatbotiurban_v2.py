@@ -526,6 +526,7 @@ def ask():
     except Exception as e:
         app.logger.error(f"Error inesperado en /ask: {e}")
         return jsonify({"error": str(e)}), 500
+        
 
 
 @app.route('/pre_established_answers', methods=['POST'])
@@ -568,6 +569,6 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
  ######## Fin Endpoints ask
- 
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
