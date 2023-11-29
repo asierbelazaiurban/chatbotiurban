@@ -314,36 +314,41 @@ def mejorar_respuesta_con_openai(respuesta_original):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-@app.route('/ask', methods=['POST'])
 def ask():
     try:
-        data = request.json
+        data = request.data.decode('utf-8')  # Decodificar los datos recibidos
+
+        # Intentar parsear los datos como JSON
+        try:
+            data = json.loads(data)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Los datos recibidos no están en formato JSON válido."}), 400
+
         chatbot_id = data.get('chatbot_id')
         pregunta = data.get('pregunta')
 
+        if not pregunta or not chatbot_id:
+            return jsonify({"error": "Falta chatbot_id o pregunta en la solicitud."}), 400
+
         json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
-        # Asegurarse de que el archivo existe
         if not os.path.exists(json_file_path):
             return jsonify({'error': 'Archivo de respuestas preestablecidas no encontrado.'}), 404
 
-        # Leer el archivo JSON
         with open(json_file_path, 'r', encoding='utf-8') as json_file:
             preguntas_palabras_clave = json.load(json_file)
 
+        # Procesar la pregunta y encontrar la respuesta
         respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
 
         if respuesta:
             return jsonify({'respuesta': respuesta})
         else:
-            # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-            openai.api_key = os.environ.get('OPENAI_API_KEY')
-            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
+            return jsonify({'respuesta': "No tengo una respuesta para eso."})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in /ask: {e}")
         return jsonify({"error": str(e)}), 500
-        
 
 
 @app.route('/ask_pruebas', methods=['POST'])
