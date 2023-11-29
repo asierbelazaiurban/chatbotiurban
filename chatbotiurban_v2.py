@@ -97,47 +97,6 @@ def safe_request(url, max_retries=3):
     return None
 
 
-
-def build_dataset(model_name, chatbot_id, input_min_text_length, input_max_text_length):
-    """
-    Preprocess the dataset and split it into train and test parts.
-
-    Parameters:
-    - model_name (str): Tokenizer model name.
-    - chatbot_id (str): ID of the chatbot to identify the dataset.
-    - input_min_text_length (int): Minimum length of the dialogues.
-    - input_max_text_length (int): Maximum length of the dialogues.
-        
-    Returns:
-    - dataset_splits (datasets.dataset_dict.DatasetDict): Preprocessed dataset containing train and test parts.
-    """
-
-    # Path to the JSON file created by process_urls
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    
-    # Load dataset from JSON file
-    df = pd.read_json(dataset_file_path)
-    dataset = Dataset.from_pandas(df)
-
-    # Filter dialogues based on length
-    dataset = dataset.filter(lambda x: len(x["dialogue"]) > input_min_text_length and len(x["dialogue"]) <= input_max_text_length, batched=False)
-
-    # Preparación del tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(model_name, device_map="auto")
-
-    # Función para tokenizar el texto
-    def tokenize_function(examples):
-        return tokenizer(examples["dialogue"], padding="max_length", truncation=True)
-
-    # Aplicar la tokenización a todo el dataset
-    tokenized_dataset = dataset.map(tokenize_function, batched=True)
-
-    # Dividir el dataset en partes de entrenamiento y prueba
-    dataset_splits = tokenized_dataset.train_test_split(test_size=0.2)
-
-    return dataset_splits
-
-
 def generar_prompt(dataset_path, pregunta):
     # Construir la ruta completa al archivo dataset.json
     json_file_path = os.path.join(dataset_path, 'dataset.json')
@@ -335,22 +294,42 @@ def delete_urls():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+def mejorar_respuesta_con_openai(prompt):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+    try:
+        response = openai.Completion.create(
+            engine="gpt-3.5-turbo-1106",
+            prompt=prompt,
+            max_tokens=150  # Puedes ajustar el número de tokens según sea necesario
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error al interactuar con OpenAI: {e}")
+        return None
+
+        
 @app.route('/ask', methods=['POST'])
 def ask():
     try:
         data = request.json
-
+        chatbot_id = data.get('chatbot_id')
         pregunta = data.get('pregunta')
-    
 
-        # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
-        openai.api_key = os.environ.get('OPENAI_API_KEY')
-        response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
+        # [El mismo código para cargar el archivo JSON]
+
+        respuesta = procesar_pregunta(pregunta, preguntas_palabras_clave)
+
+        # Mejorar la respuesta con OpenAI si se encontró una coincidencia
+        if respuesta:
+            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta)
+            return jsonify({'respuesta': respuesta_mejorada or respuesta})
+        else:
+            # Si no hay coincidencia, generar una nueva respuesta usando OpenAI
+            openai.api_key = os.environ.get('OPENAI_API_KEY')
+            response_openai = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": pregunta}])
 
         nueva_respuesta = response_openai['choices'][0]['message']['content']
-       
-
-        return jsonify({'respuesta': nueva_respuesta})
 
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
@@ -417,19 +396,45 @@ def pre_established_answers():
     pregunta = data.get('pregunta')
     respuesta = data.get('respuesta')
 
-    # Procesar la pregunta y generar una respuesta
-    # Aquí puedes integrar un modelo de IA o cualquier lógica específica
-    # Para este ejemplo, voy a simular una respuesta
-   
-    # Devolver la respuesta procesada
-    return jsonify({'respuesta': respuesta})
+    # Ruta del archivo JSON
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
+    # Leer o crear el archivo JSON
+    preguntas_respuestas = leer_o_crear_json(json_file_path)
 
-@app.route('/list_chatbot_ids', methods=['GET'])
-def list_folders():
-    directory = 'data/uploads/scraping/'
-    folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
-    return jsonify(folders)
+    # Actualizar o añadir la nueva pregunta y respuesta
+    preguntas_respuestas[pregunta] = respuesta
+
+    # Guardar los cambios en el archivo JSON
+    with open(json_file_path, 'w') as json_file:
+        json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
+
+    # Devolver la respuesta
+    return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
+
+def leer_o_crear_json(file_path):
+    # Verificar si el directorio existe, si no, crearlo
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    # Intentar leer el archivo JSON existente
+    if os.path.isfile(file_path):
+        with open(file_path, 'r') as json_file:
+            return json.load(json_file)
+    else:
+        return {} 
+
+def procesar_pregunta(pregunta, respuesta_default):
+    # Tokenizar y eliminar stopwords de la pregunta
+    palabras_pregunta = set(word_tokenize(pregunta.lower()))
+    stopwords_ = set(stopwords.words('spanish'))
+    palabras_relevantes_pregunta = palabras_pregunta - stopwords_
+
+    # Verificar si alguna palabra de la pregunta coincide con las claves del diccionario
+    for fragmento_pregunta, palabras_clave in preguntas_palabras_clave.items():
+        if fragmento_pregunta in palabras_relevantes_pregunta and palabras_relevantes_pregunta.intersection(palabras_clave):
+            return respuesta_default
+
+    return "Lo siento, no sé a qué te refieres."
 
  ######## Fin Endpoints ########
 
