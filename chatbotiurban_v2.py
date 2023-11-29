@@ -302,17 +302,19 @@ def delete_urls():
 
 def mejorar_respuesta_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-    
-    # Construyendo el prompt
-    prompt = f"Mejora la respuesta: {respuesta_original} a la pregunta  {pregunta}"
-    
+
+    # Construyendo el prompt para un modelo de chat
+    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta."
+
     try:
-        response = openai.Completion.create(
-            engine="gpt-3.5-turbo-1106",
-            prompt=prompt,
-            max_tokens=150  # Puedes ajustar el número de tokens según sea necesario
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Estás aquí para ayudar a mejorar las respuestas a las preguntas."},
+                {"role": "user", "content": prompt}
+            ]
         )
-        return response.choices[0].text.strip()
+        return response.choices[0].message['content'].strip()
     except Exception as e:
         print(f"Error al interactuar con OpenAI: {e}")
         return None
