@@ -181,29 +181,33 @@ from nltk.corpus import stopwords
 
 def encontrar_respuesta(pregunta, datos):
     try:
+        # Convertir la pregunta a minúsculas
+        pregunta = pregunta.lower()
+
         # Obtener stopwords una sola vez
         spanish_stopwords = stopwords.words('spanish')
         app.logger.info("Stopwords cargadas correctamente.")
 
-        # Tokenizar y limpiar la pregunta
-        palabras_clave_pregunta = set([palabra for palabra in word_tokenize(pregunta.lower()) if palabra not in spanish_stopwords])
-        app.logger.info("Pregunta tokenizada y limpiada.")
+        mejor_coincidencia = ("", 0.0)  # Guardará el texto con la mayor similitud y el valor de similitud
 
-        respuestas = []
         for item in datos.values():
-            # Convertir el item a texto y luego tokenizar y limpiar
-            texto_tokenizado = [palabra for palabra in word_tokenize(convertir_a_texto(item).lower()) if palabra not in spanish_stopwords]
-            for idx, palabra in enumerate(texto_tokenizado):
-                if palabra in palabras_clave_pregunta:
-                    # Calcular los índices de inicio y fin para extraer el fragmento
-                    inicio = max(idx - 5, 0)
-                    fin = min(idx + 6, len(texto_tokenizado))
-                    fragmento = ' '.join(texto_tokenizado[inicio:fin])
-                    respuestas.append(fragmento)
+            texto = convertir_a_texto(item).lower()
 
-        if respuestas:
-            app.logger.info("Coincidencias encontradas.")
-            return respuestas
+            # Crear un SequenceMatcher
+            matcher = difflib.SequenceMatcher(None, pregunta, texto)
+
+            # Encontrar la coincidencia con la mayor similitud
+            bloque_match = max(matcher.get_matching_blocks(), key=lambda x: x.size)
+
+            if bloque_match.size > mejor_coincidencia[1]:
+                inicio = max(bloque_match.b - 5, 0)
+                fin = min(bloque_match.b + bloque_match.size + 5, len(texto))
+                fragmento = texto[inicio:fin]
+                mejor_coincidencia = (fragmento, bloque_match.size)
+
+        if mejor_coincidencia[1] > 0:
+            app.logger.info("Mejor coincidencia encontrada.")
+            return mejor_coincidencia[0]
         else:
             app.logger.info("No se encontró ninguna coincidencia.")
             return "No se encontró ninguna coincidencia."
@@ -211,7 +215,6 @@ def encontrar_respuesta(pregunta, datos):
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta: {e}")
         raise e
-
 
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
