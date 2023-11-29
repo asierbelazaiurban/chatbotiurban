@@ -101,6 +101,23 @@ def safe_request(url, max_retries=3):
             print(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
 
+def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
+    palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
+    stopwords_ = set(stopwords.words('spanish'))
+    palabras_relevantes_usuario = palabras_pregunta_usuario - stopwords_
+
+    respuesta_mas_adeacuada = None
+    max_coincidencias = 0
+
+    for pregunta, datos in preguntas_palabras_clave.items():
+        palabras_clave = set(datos['palabras_clave'])
+        coincidencias = palabras_relevantes_usuario.intersection(palabras_clave)
+
+        if len(coincidencias) > max_coincidencias:
+            max_coincidencias = len(coincidencias)
+            respuesta_mas_adeacuada = datos['respuesta']
+
+    return respuesta_mas_adeacuada
 
 def clean_and_transform_data(data):
     # Aquí puedes implementar tu lógica de limpieza y transformación
@@ -236,6 +253,8 @@ def encontrar_respuesta(pregunta, datos):
 
 
 ####### FIN Utils busqueda en Json #######
+
+####### Inicio Endpoints #######
 
 @app.route('/ask_general', methods=['POST'])
 def ask_general():
@@ -545,25 +564,6 @@ def pre_established_answers():
 
     # Devolver la respuesta
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
-
-
-def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
-    palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
-    stopwords_ = set(stopwords.words('spanish'))
-    palabras_relevantes_usuario = palabras_pregunta_usuario - stopwords_
-
-    respuesta_mas_adeacuada = None
-    max_coincidencias = 0
-
-    for pregunta, datos in preguntas_palabras_clave.items():
-        palabras_clave = set(datos['palabras_clave'])
-        coincidencias = palabras_relevantes_usuario.intersection(palabras_clave)
-
-        if len(coincidencias) > max_coincidencias:
-            max_coincidencias = len(coincidencias)
-            respuesta_mas_adeacuada = datos['respuesta']
-
-    return respuesta_mas_adeacuada
 
  ######## Fin Endpoints ########
 
