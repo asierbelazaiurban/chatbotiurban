@@ -396,7 +396,7 @@ def ask_pruebas():
         #    model="gpt-4",
         #)
 
-    
+
         openai.api_key = os.environ.get('OPENAI_API_KEY')
         response_openai = openai.ChatCompletion.create(model="gpt-4", messages=[{"role": "user", "prompt": generar_prompt(dataset_folder, pregunta)}])
 
@@ -407,6 +407,22 @@ def ask_pruebas():
     except Exception as e:
         app.logger.error(f"Unexpected error in ask function: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/pre_established_answers', methods=['POST'])
+def pre_established_answers():
+    # Obtener los datos del cuerpo de la solicitud POST
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    pregunta = data.get('pregunta')
+    respuesta = data.get('respuesta')
+
+    # Procesar la pregunta y generar una respuesta
+    # Aquí puedes integrar un modelo de IA o cualquier lógica específica
+    # Para este ejemplo, voy a simular una respuesta
+   
+    # Devolver la respuesta procesada
+    return jsonify({'respuesta': respuesta_procesada})
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
