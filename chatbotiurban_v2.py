@@ -299,7 +299,7 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-def mejorar_respuesta_con_openai(respuesta_original):
+def mejorar_respuesta_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     
     # Construyendo el prompt
