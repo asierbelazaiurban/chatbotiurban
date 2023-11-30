@@ -150,14 +150,10 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
 def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    prompt = f"""
-            La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n, se siempre coherente con la pregunta si ves que la respuesta no es coherente responde "No tengo información en este momento sobre este tema ¿Te puedo ayudar en alguna otra cosa?"
+    prompt = f"""La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n, se siempre coherente con la pregunta si ves que la respuesta no es coherente responde "No tengo información en este momento sobre este tema ¿Te puedo ayudar en alguna otra cosa?"
             Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta, y di las cosas en forma de listado para que se vea más claro que hacer por días.
             SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta.
-            Si te piden cualquier cosa de programación, recomendaciones turísticas o algo que no esté relacionado con Sevilla diles lo siento que solo puedes responder con información de la página web
-            Solo puedes dar recomendaciones turísticas de Sevilla si te preguntan por otra ciudad diles que acceden a https://ciceroneai.com/ para ver qué ciudades están disponibles
             Cuando respondas a una pregunta al final de la respuesta quiero que le digas que "si quieres más información hazte tu ruta con Cicerone o mira las rutas de los expertos locales para guiarte"
-            Solo responde a preguntas cuyo contenido es de sevilla No respondas a nada que no esté relacionado con turismo y planes de la ciudad de Sevilla, si te preguntan por otra ciudad  diles "Si quieres más información de otras ciudades mira en nuestra web las ciudades disponibles"
             Siempre tienes que responder en el mismo idioma que la pregunta del usuario, si pregunta en inglés responde en inglés, si preguntan en valenciano responde en valenciano, si preguntan en castellano respondes en castellano.
             Si no tienes la información, nunca empieces la respuesta con la frase "Lo siento, no puedo darte información específica", y di que mejor hagan su ruta con Cicerone para vivir una experiencia personalizada
             Si tienen cualquier duda déjales el contacto para resolver dudas info@iurban.es
@@ -646,82 +642,45 @@ def ask():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/pre_established_answers', methods=['POST'])
+def pre_established_answers():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    pregunta = data.get('pregunta')
+    respuesta = data.get('respuesta')
 
-@app.route('/uploads', methods=['POST'])
-def upload_file():
-    try:
-        logging.info("Procesando solicitud de carga de archivo")
+    if not (chatbot_id and pregunta and respuesta):
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, pregunta, respuesta)."}), 400
 
-        if 'documento' not in request.files:
-            logging.warning("Archivo 'documento' no encontrado en la solicitud")
-            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
-        
-        file = request.files.get('documento')
-        if not file or not isinstance(file, werkzeug.datastructures.FileStorage) or file.filename == '':
-            logging.warning("No se recibió un archivo válido o el nombre de archivo está vacío")
-            return jsonify({"respuesta": "No se recibió un archivo válido o el nombre de archivo está vacío", "codigo_error": 1})
+    # Extraer palabras clave de la pregunta
+    palabras_clave = extraer_palabras_clave(pregunta)
 
-        chatbot_id = request.form.get('chatbot_id')
-        logging.info(f"Archivo recibido: {file.filename}, Chatbot ID: {chatbot_id}")
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
-        # Crear carpeta para guardar archivos
-        docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
-        os.makedirs(docs_folder, exist_ok=True)
-        chatbot_folder = os.path.join(docs_folder, str(chatbot_id))
-        os.makedirs(chatbot_folder, exist_ok=True)
-        file_extension = os.path.splitext(file.filename)[1][1:]
-        extension_folder = os.path.join(chatbot_folder, file_extension)
-        os.makedirs(extension_folder, exist_ok=True)
+    # Verificar si el directorio existe, si no, crearlo
+    os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
 
-        file_path = os.path.join(extension_folder, file.filename)
-        file.save(file_path)
+    # Intentar leer el archivo JSON existente o crear un nuevo diccionario si no existe
+    if os.path.isfile(json_file_path):
+        with open(json_file_path, 'r', encoding='utf-8') as json_file:
+            preguntas_respuestas = json.load(json_file)
+    else:
+        preguntas_respuestas = {}
 
-        # Procesamiento adicional del archivo
-        try:
-            with open(file_path, 'rb') as f:
-                raw_data = f.read()
-                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
-                if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
-                    encoding = 'utf-8'
-                contenido = raw_data.decode(encoding, errors='replace')
+    # Actualizar o añadir la nueva pregunta y respuesta
+    preguntas_respuestas[pregunta] = {
+        "Pregunta": [pregunta],
+        "palabras_clave": palabras_clave,
+        "respuesta": respuesta
+    }
 
-            # Limpiar caracteres raros
-            contenido_limpio = re.sub(r'[^\x00-\x7F]+', ' ', contenido)
+    # Guardar los cambios en el archivo JSON
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
-            # Aquí puedes incluir cualquier otro procesamiento necesario
+    # Devolver la respuesta
+    return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
-            # Ruta del archivo JSON del dataset
-            dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-            os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
-
-            # Cargar o crear el archivo JSON del dataset
-            if os.path.exists(dataset_file_path):
-                with open(dataset_file_path, 'r', encoding='utf-8') as file:
-                    dataset_entries = json.load(file)
-            else:
-                dataset_entries = {}
-
-            # Añadir o actualizar la entrada en el dataset
-            indice = file.filename
-            dataset_entries[indice] = {
-                "indice": indice,
-                "url": file_path,
-                "dialogue": contenido_limpio
-            }
-
-            # Guardar el archivo JSON actualizado
-            with open(dataset_file_path, 'w', encoding='utf-8') as file:
-                json.dump(dataset_entries, file, ensure_ascii=False, indent=4)
-
-        except Exception as e:
-            logging.error(f"No se pudo procesar el archivo. Error: {e}")
-            return jsonify({"respuesta": f"No se pudo procesar el archivo. Error: {e}", "codigo_error": 1})
-
-        return jsonify({"respuesta": "Archivo procesado y añadido al dataset con éxito", "codigo_error": 0})
-
-    except Exception as e:
-        logging.error(f"Error durante el procesamiento general. Error: {e}")
-        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
  ######## Fin Endpoints ######## 
