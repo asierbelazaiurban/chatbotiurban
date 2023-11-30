@@ -321,7 +321,7 @@ def upload_file():
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         # Crear carpetas necesarias
-        docs_folder = os.path.join(BASE_DIR_DOCS, 'docs', str(chatbot_id))
+        docs_folder = os.path.join(BASE_DIR_DOCS, str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
         logging.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
 
@@ -556,7 +556,7 @@ def url_for_scraping_by_sitemap():
         logging.error(f"Error inesperado: {e}")
         return jsonify({'error': f'Error inesperado: {str(e)}'}), 500
 
-        
+
 
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
