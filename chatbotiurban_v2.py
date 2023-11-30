@@ -38,6 +38,7 @@ from datasets import Dataset
 import subprocess
 import difflib
 import re 
+from werkzeug.datastructures import FileStorage  
 
 
 
@@ -379,7 +380,7 @@ def upload_file():
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-        
+
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
