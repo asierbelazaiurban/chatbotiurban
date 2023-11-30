@@ -148,11 +148,10 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         return None
 
 def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta):
-    
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-    
-    prompt = 
-            "La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n," + """se siempre coherente con la pregunta si ves que la respuesta no es coherente responde "No tengo información en este momento sobre este tema ¿Te puedo ayudar en alguna otra cosa?"
+
+    prompt = f"""
+            La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n, se siempre coherente con la pregunta si ves que la respuesta no es coherente responde "No tengo información en este momento sobre este tema ¿Te puedo ayudar en alguna otra cosa?"
             Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta, y di las cosas en forma de listado para que se vea más claro que hacer por días.
             SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta.
             Si te piden cualquier cosa de programación, recomendaciones turísticas o algo que no esté relacionado con Sevilla diles lo siento que solo puedes responder con información de la página web
@@ -240,6 +239,10 @@ def preprocess_query(query):
     processed_query = ' '.join(tokens)
     return processed_query
 
+import nltk
+from nltk.tokenize import word_tokenize
+nltk.download('punkt')
+
 def encontrar_respuesta(pregunta, datos, longitud_minima=200):
     try:
         # Preprocesar la pregunta
@@ -274,6 +277,9 @@ def encontrar_respuesta(pregunta, datos, longitud_minima=200):
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
+
+# Uso de la función
+# respuesta_ampliada = encontrar_respuesta_amplia(la_pregunta, los_datos)
 
 
 ####### FIN Utils busqueda en Json #######
