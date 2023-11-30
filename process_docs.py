@@ -1,8 +1,3 @@
-import docx 
-from PyPDF2 import PdfReader
-import pandas as pd
-from pptx import Presentation
-
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
