@@ -305,71 +305,79 @@ def ask_general():
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
-        app.logger.info("Procesando solicitud de carga de archivo")
+        logging.info("Procesando solicitud de carga de archivo")
 
         if 'documento' not in request.files:
-            app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
+            logging.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
         uploaded_file = request.files['documento']
-        if not uploaded_file or not isinstance(uploaded_file, FileStorage) or uploaded_file.filename == '':
-            app.logger.warning("No se recibió un archivo válido o el nombre de archivo está vacío")
-            return jsonify({"respuesta": "No se recibió un archivo válido o el nombre de archivo está vacío", "codigo_error": 1})
-
         chatbot_id = request.form.get('chatbot_id')
-        app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
+        logging.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
-        # Crear carpeta para guardar archivos
+        if uploaded_file.filename == '':
+            logging.warning("Nombre de archivo vacío")
+            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+
+        # Crear carpeta 'docs' si no existe
         docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
         os.makedirs(docs_folder, exist_ok=True)
+        logging.info(f"Carpeta creada o ya existente: {docs_folder}")
+
+        # Crear carpeta del chatbot si no existe
         chatbot_folder = os.path.join(docs_folder, str(chatbot_id))
         os.makedirs(chatbot_folder, exist_ok=True)
+        logging.info(f"Carpeta del chatbot creada o ya existente: {chatbot_folder}")
+
         file_extension = os.path.splitext(uploaded_file.filename)[1][1:]
         extension_folder = os.path.join(chatbot_folder, file_extension)
         os.makedirs(extension_folder, exist_ok=True)
+        logging.info(f"Carpeta de extensión creada o ya existente: {extension_folder}")
 
         file_path = os.path.join(extension_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
-        app.logger.info(f"Archivo guardado en {file_path}")
+        logging.info(f"Archivo guardado en: {file_path}")
 
-        # Procesamiento adicional del archivo
-        with open(file_path, 'rb') as file_to_process:
-            raw_data = file_to_process.read()
+        with open(file_path, 'rb') as file_to_read:
+            raw_data = file_to_read.read()
             encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
             if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
                 encoding = 'utf-8'
             contenido = raw_data.decode(encoding, errors='replace')
+            logging.info("Archivo leído y decodificado correctamente")
 
         # Limpiar caracteres raros
         contenido_limpio = re.sub(r'[^\x00-\x7F]+', ' ', contenido)
-        app.logger.info("Contenido del archivo limpiado")
+        logging.info("Contenido del archivo limpiado")
 
         # Ruta del archivo JSON del dataset
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
         # Cargar o crear el archivo JSON del dataset
+        dataset_entries = {}
         if os.path.exists(dataset_file_path):
-            with open(dataset_file_path, 'r', encoding='utf-8') as file:
-                dataset_entries = json.load(file)
-            app.logger.info("Archivo JSON del dataset existente cargado")
-        else:
-            dataset_entries = {}
-            app.logger.info("Nuevo archivo JSON del dataset creado")
+            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+                dataset_entries = json.load(json_file)
+                logging.info("Archivo JSON del dataset existente cargado")
 
         # Añadir o actualizar la entrada en el dataset
-        dataset_entries[file.filename] = {
-            "indice": file.filename,
+        indice = uploaded_file.filename
+        dataset_entries[indice] = {
+            "indice": indice,
             "url": file_path,
             "dialogue": contenido_limpio
         }
 
         # Guardar el archivo JSON actualizado
-        with open(dataset_file_path, 'w', encoding='utf-8') as file:
-            json.dump(dataset_entries, file, ensure_ascii=False, indent=4)
-        app.logger.info("Archivo JSON del dataset actualizado y guardado")
+        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+            logging.info("Archivo JSON del dataset actualizado y guardado")
 
-        return jsonify({"respuesta": "Archivo procesado y añadido al dataset con éxito", "codigo_error": 0})
+        return jsonify({
+            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "codigo_error": 0
+        })
 
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
