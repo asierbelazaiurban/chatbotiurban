@@ -311,30 +311,30 @@ def upload_file():
             app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
-        file = request.files['documento']
-        if not file or not isinstance(file, FileStorage) or file.filename == '':
+        uploaded_file = request.files['documento']
+        if not uploaded_file or not isinstance(uploaded_file, FileStorage) or uploaded_file.filename == '':
             app.logger.warning("No se recibió un archivo válido o el nombre de archivo está vacío")
             return jsonify({"respuesta": "No se recibió un archivo válido o el nombre de archivo está vacío", "codigo_error": 1})
 
         chatbot_id = request.form.get('chatbot_id')
-        app.logger.info(f"Archivo recibido: {file.filename}, Chatbot ID: {chatbot_id}")
+        app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         # Crear carpeta para guardar archivos
         docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
         os.makedirs(docs_folder, exist_ok=True)
         chatbot_folder = os.path.join(docs_folder, str(chatbot_id))
         os.makedirs(chatbot_folder, exist_ok=True)
-        file_extension = os.path.splitext(file.filename)[1][1:]
+        file_extension = os.path.splitext(uploaded_file.filename)[1][1:]
         extension_folder = os.path.join(chatbot_folder, file_extension)
         os.makedirs(extension_folder, exist_ok=True)
 
-        file_path = os.path.join(extension_folder, file.filename)
-        file.save(file_path)
+        file_path = os.path.join(extension_folder, uploaded_file.filename)
+        uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en {file_path}")
 
         # Procesamiento adicional del archivo
-        with open(file_path, 'rb') as f:
-            raw_data = f.read()
+        with open(file_path, 'rb') as file_to_process:
+            raw_data = file_to_process.read()
             encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
             if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
                 encoding = 'utf-8'
