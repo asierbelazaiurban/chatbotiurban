@@ -148,15 +148,26 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         return None
 
 def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta):
+    
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    prompt = f"La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 50 palabras, limpia la respuesta de saltos de linea y de caracteres raros"
-
+    
+    prompt = 
+            "La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n," + """se siempre coherente con la pregunta si ves que la respuesta no es coherente responde "No tengo información en este momento sobre este tema ¿Te puedo ayudar en alguna otra cosa?"
+            Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta, y di las cosas en forma de listado para que se vea más claro que hacer por días.
+            SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta.
+            Si te piden cualquier cosa de programación, recomendaciones turísticas o algo que no esté relacionado con Sevilla diles lo siento que solo puedes responder con información de la página web
+            Solo puedes dar recomendaciones turísticas de Sevilla si te preguntan por otra ciudad diles que acceden a https://ciceroneai.com/ para ver qué ciudades están disponibles
+            Cuando respondas a una pregunta al final de la respuesta quiero que le digas que "si quieres más información hazte tu ruta con Cicerone o mira las rutas de los expertos locales para guiarte"
+            Solo responde a preguntas cuyo contenido es de sevilla No respondas a nada que no esté relacionado con turismo y planes de la ciudad de Sevilla, si te preguntan por otra ciudad  diles "Si quieres más información de otras ciudades mira en nuestra web las ciudades disponibles"
+            Siempre tienes que responder en el mismo idioma que la pregunta del usuario, si pregunta en inglés responde en inglés, si preguntan en valenciano responde en valenciano, si preguntan en castellano respondes en castellano.
+            Si no tienes la información, nunca empieces la respuesta con la frase "Lo siento, no puedo darte información específica", y di que mejor hagan su ruta con Cicerone para vivir una experiencia personalizada
+            Si tienen cualquier duda déjales el contacto para resolver dudas info@iurban.es
+        """
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Mejora las respuestas"},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": respuesta_original}
             ]
         )
@@ -229,9 +240,9 @@ def preprocess_query(query):
     processed_query = ' '.join(tokens)
     return processed_query
 
-def encontrar_respuesta(pregunta, datos):
+def encontrar_respuesta(pregunta, datos, longitud_minima=200):
     try:
-        # Convertir la pregunta a minúsculas y preprocesar
+        # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
 
         # Codificar los datos
@@ -243,18 +254,25 @@ def encontrar_respuesta(pregunta, datos):
         # Calcular la similitud
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
 
-        # Encontrar el índice del documento más similar
-        indice_maximo = similarity_scores.argmax()
+        # Ordenar los índices de los documentos por similitud
+        indices_ordenados = similarity_scores.argsort()[::-1]
 
-        if similarity_scores[indice_maximo] > 0:
-            app.logger.info("Respuesta encontrada.")
-            return datos[indice_maximo]
+        respuesta_amplia = ""
+        for indice in indices_ordenados:
+            if similarity_scores[indice] > 0:
+                respuesta_amplia += " " + datos[indice]
+                if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
+                    break
+
+        if len(respuesta_amplia) > 0:
+            app.logger.info("Respuesta ampliada encontrada.")
+            return respuesta_amplia.strip()
         else:
             app.logger.info("No se encontró ninguna coincidencia.")
             return "No se encontró ninguna coincidencia."
 
     except Exception as e:
-        app.logger.error(f"Error en encontrar_respuesta: {e}")
+        app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
 
 
