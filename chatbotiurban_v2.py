@@ -37,6 +37,7 @@ from tqdm import tqdm
 from datasets import Dataset
 import subprocess
 import difflib
+import re 
 
 
 
@@ -372,6 +373,8 @@ def upload_file():
     except Exception as e:
         logging.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
+
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     start_time = time.time()
