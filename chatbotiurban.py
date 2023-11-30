@@ -734,8 +734,6 @@ def ask_pruebas_asier():
         return jsonify({"error": str(e)}), 500
 
 
-
-
 # Método externo para generar respuestas con OpenAI
 def generate_response_with_openai(info, model="text-embedding-ada-002", max_tokens=150, temperature=0.7, top_p=1, frequency_penalty=0, presence_penalty=0, language="es"):
     response = openai.Completion.create(

@@ -775,6 +775,12 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
 
+@app.route('/list_chatbot_ids', methods=['GET'])
+def list_folders():
+    directory = 'data/uploads/scraping/'
+    folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
+    return jsonify(folders)
+
  ######## Fin Endpoints ######## 
 
 if __name__ == "__main__":
