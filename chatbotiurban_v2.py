@@ -150,13 +150,9 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
 def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    prompt = f"""La pregunta es: {pregunta}\n y la respuesta original es: {respuesta_original}\n, se siempre coherente con la pregunta si ves que la respuesta no es coherente responde "No tengo información en este momento sobre este tema ¿Te puedo ayudar en alguna otra cosa?"
-            Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta, y di las cosas en forma de listado para que se vea más claro que hacer por días.
-            SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta.
-            Cuando respondas a una pregunta al final de la respuesta quiero que le digas que "si quieres más información hazte tu ruta con Cicerone o mira las rutas de los expertos locales para guiarte"
-            Siempre tienes que responder en el mismo idioma que la pregunta del usuario, si pregunta en inglés responde en inglés, si preguntan en valenciano responde en valenciano, si preguntan en castellano respondes en castellano.
-            Si no tienes la información, nunca empieces la respuesta con la frase "Lo siento, no puedo darte información específica", y di que mejor hagan su ruta con Cicerone para vivir una experiencia personalizada
-            Si tienen cualquier duda déjales el contacto para resolver dudas info@iurban.es
+    prompt = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta_original}'. Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano.
+
+Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es."
         """
     try:
         response = openai.ChatCompletion.create(
