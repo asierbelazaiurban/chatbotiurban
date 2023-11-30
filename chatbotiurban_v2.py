@@ -364,7 +364,7 @@ def upload_file():
                 "url": file_path,
                 "dialogue": contenido_limpio
             }
-            
+
             # Guardar el archivo JSON actualizado
             with open(dataset_file_path, 'w', encoding='utf-8') as file:
                 json.dump(dataset_entries, file, ensure_ascii=False, indent=4)
@@ -374,7 +374,13 @@ def upload_file():
             app.logger.error(f"No se pudo procesar el archivo. Error: {e}")
             return jsonify({"respuesta": f"No se pudo procesar el archivo. Error: {e}", "codigo_error": 1})
 
+        return jsonify({"respuesta": "Archivo procesado y añadido al dataset con éxito", "codigo_error": 0})
+
+    except Exception as e:
+        app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
+
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
