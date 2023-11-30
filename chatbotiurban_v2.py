@@ -375,9 +375,10 @@ def save_text():
     try:
         logging.info("Procesando solicitud para guardar texto")
 
-        # Obtener el texto y el chatbot_id de la solicitud
-        text = request.form.get('texto')
-        chatbot_id = request.form.get('chatbot_id')
+        # Obtener el JSON de la solicitud
+        data = request.get_json()
+        text = data.get('texto')
+        chatbot_id = data.get('chatbot_id')
 
         if not text or not chatbot_id:
             return jsonify({"respuesta": "Falta texto o chatbot_id", "codigo_error": 1})
