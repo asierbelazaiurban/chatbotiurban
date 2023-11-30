@@ -472,8 +472,6 @@ def process_urls():
             error_message = str(e)
             break
 
-        time.sleep(0.2)
-
     if all_processed:
         # Construye la ruta del archivo donde se guardará el dataset
         dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
