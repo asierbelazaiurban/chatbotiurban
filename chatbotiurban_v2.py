@@ -369,6 +369,70 @@ def upload_file():
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
+@app.route('/save_text', methods=['POST'])
+def save_text():
+    try:
+        logging.info("Procesando solicitud para guardar texto")
+
+        # Obtener el texto y el chatbot_id de la solicitud
+        text = request.form.get('text')
+        chatbot_id = request.form.get('chatbot_id')
+
+        if not text or not chatbot_id:
+            return jsonify({"respuesta": "Falta texto o chatbot_id", "codigo_error": 1})
+
+        # Contar palabras en el texto
+        word_count = len(text.split())
+
+        # Definir la ruta del dataset
+        dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
+        os.makedirs(dataset_folder, exist_ok=True)
+        dataset_file_path = os.path.join(dataset_folder, 'dataset.json')
+
+        # Cargar o crear el archivo del dataset
+        dataset_entries = {}
+        if os.path.exists(dataset_file_path):
+            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+                dataset_entries = json.load(json_file)
+
+        # Verificar si el texto ya existe en el dataset
+        existing_entry = None
+        for entry in dataset_entries.values():
+            if entry.get("dialogue") == text:
+                existing_entry = entry
+                break
+
+        # Si el texto ya existe, no añadirlo
+        if existing_entry:
+            return jsonify({
+                "respuesta": "El texto ya existe en el dataset.",
+                "word_count": word_count,
+                "codigo_error": 0
+            })
+
+        # Agregar nueva entrada al dataset
+        new_index = len(dataset_entries) + 1
+        dataset_entries[new_index] = {
+            "indice": new_index,
+            "url": "",
+            "dialogue": text
+        }
+
+        # Guardar el archivo del dataset actualizado
+        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+
+        return jsonify({
+            "respuesta": "Texto guardado con éxito en el dataset.",
+            "word_count": word_count,
+            "codigo_error": 0
+        })
+
+    except Exception as e:
+        logging.error(f"Error durante el procesamiento. Error: {e}")
+        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
+
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
