@@ -376,7 +376,7 @@ def save_text():
         logging.info("Procesando solicitud para guardar texto")
 
         # Obtener el texto y el chatbot_id de la solicitud
-        text = request.form.get('text')
+        text = request.form.get('texto')
         chatbot_id = request.form.get('chatbot_id')
 
         if not text or not chatbot_id:
