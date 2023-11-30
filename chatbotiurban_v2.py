@@ -49,6 +49,8 @@ tqdm.pandas()
 app = Flask(__name__)
 
 
+####### Configuración logs #######
+
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
@@ -63,12 +65,14 @@ app.logger.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consisten
 
 app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
-model_name="google/flan-t5-base"
+
+#######  #######
 
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
+BASE_DIR_DOCS = "data/uploads/docs/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -281,6 +285,76 @@ def ask_general():
         return jsonify({'respuesta': respuesta_original})
 
 
+@app.route('/uploads', methods=['POST'])
+def upload_file():
+    try:
+        if 'documento' not in request.files:
+            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
+        
+        file = request.files['documento']
+        chatbot_id = request.form.get('chatbot_id')
+
+        if file.filename == '':
+            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+
+        # Crear la carpeta 'docs' dentro de BASE_DIR_DOCS si no existe
+        docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
+        os.makedirs(docs_folder, exist_ok=True)
+
+        # Crear la carpeta del chatbot si no existe
+        chatbot_folder = os.path.join(docs_folder, str(chatbot_id))
+        os.makedirs(chatbot_folder, exist_ok=True)
+
+        file_extension = os.path.splitext(file.filename)[1][1:]
+        extension_folder = os.path.join(chatbot_folder, file_extension)
+        os.makedirs(extension_folder, exist_ok=True)
+
+        file_path = os.path.join(extension_folder, file.filename)
+        file.save(file_path)
+
+        try:
+            with open(file_path, 'rb') as f:
+                raw_data = f.read()
+                encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
+                if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
+                    encoding = 'utf-8'
+            contenido = raw_data.decode(encoding, errors='replace')
+
+            # Limpiar caracteres raros
+            contenido_limpio = re.sub(r'[^\x00-\x7F]+', ' ', contenido)
+
+            # Ruta del archivo JSON del dataset
+            dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
+            os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
+
+            # Cargar o crear el archivo JSON del dataset
+            if os.path.exists(dataset_file_path):
+                with open(dataset_file_path, 'r', encoding='utf-8') as file:
+                    dataset_entries = json.load(file)
+            else:
+                dataset_entries = {}
+
+            # Añadir o actualizar la entrada en el dataset
+            indice = file.filename
+            dataset_entries[indice] = {
+                "indice": indice,
+                "url": file_path,  # o cualquier otra URL que necesites
+                "dialogue": contenido_limpio
+            }
+
+            # Guardar el archivo JSON actualizado
+            with open(dataset_file_path, 'w', encoding='utf-8') as file:
+                json.dump(dataset_entries, file, ensure_ascii=False, indent=4)
+
+        except Exception as e:
+            return jsonify({"respuesta": f"No se pudo procesar el archivo. Error: {e}", "codigo_error": 1})
+
+        return jsonify({
+            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "codigo_error": 0
+        })
+    except Exception as e:
+        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
@@ -361,6 +435,7 @@ def save_urls():
             file.write(url + '\n')
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
+
 
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
