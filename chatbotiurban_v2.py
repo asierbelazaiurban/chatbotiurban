@@ -40,7 +40,6 @@ import difflib
 
 
 
-
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -260,6 +259,8 @@ def encontrar_respuesta(pregunta, datos):
 
 ####### FIN Utils busqueda en Json #######
 
+
+
 ####### Inicio Endpoints #######
 
 @app.route('/ask_general', methods=['POST'])
@@ -288,29 +289,38 @@ def ask_general():
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
+        logging.info("Procesando solicitud de carga de archivo")
+
         if 'documento' not in request.files:
+            logging.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
         file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
+        logging.info(f"Archivo recibido: {file.filename}, Chatbot ID: {chatbot_id}")
 
         if file.filename == '':
+            logging.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Crear la carpeta 'docs' dentro de BASE_DIR_DOCS si no existe
+        # Crear carpeta 'docs' si no existe
         docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
         os.makedirs(docs_folder, exist_ok=True)
+        logging.info(f"Carpeta creada o ya existente: {docs_folder}")
 
-        # Crear la carpeta del chatbot si no existe
+        # Crear carpeta del chatbot si no existe
         chatbot_folder = os.path.join(docs_folder, str(chatbot_id))
         os.makedirs(chatbot_folder, exist_ok=True)
+        logging.info(f"Carpeta del chatbot creada o ya existente: {chatbot_folder}")
 
         file_extension = os.path.splitext(file.filename)[1][1:]
         extension_folder = os.path.join(chatbot_folder, file_extension)
         os.makedirs(extension_folder, exist_ok=True)
+        logging.info(f"Carpeta de extensión creada o ya existente: {extension_folder}")
 
         file_path = os.path.join(extension_folder, file.filename)
         file.save(file_path)
+        logging.info(f"Archivo guardado en: {file_path}")
 
         try:
             with open(file_path, 'rb') as f:
@@ -318,10 +328,12 @@ def upload_file():
                 encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
                 if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
                     encoding = 'utf-8'
-            contenido = raw_data.decode(encoding, errors='replace')
+                contenido = raw_data.decode(encoding, errors='replace')
+                logging.info("Archivo leído y decodificado correctamente")
 
             # Limpiar caracteres raros
             contenido_limpio = re.sub(r'[^\x00-\x7F]+', ' ', contenido)
+            logging.info("Contenido limpiado de caracteres raros")
 
             # Ruta del archivo JSON del dataset
             dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
@@ -331,22 +343,26 @@ def upload_file():
             if os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r', encoding='utf-8') as file:
                     dataset_entries = json.load(file)
+                logging.info("Archivo JSON del dataset cargado existente")
             else:
                 dataset_entries = {}
+                logging.info("Nuevo archivo JSON del dataset creado")
 
             # Añadir o actualizar la entrada en el dataset
             indice = file.filename
             dataset_entries[indice] = {
                 "indice": indice,
-                "url": file_path,  # o cualquier otra URL que necesites
+                "url": file_path,
                 "dialogue": contenido_limpio
             }
 
             # Guardar el archivo JSON actualizado
             with open(dataset_file_path, 'w', encoding='utf-8') as file:
                 json.dump(dataset_entries, file, ensure_ascii=False, indent=4)
+            logging.info("Archivo JSON del dataset actualizado y guardado")
 
         except Exception as e:
+            logging.error(f"No se pudo procesar el archivo. Error: {e}")
             return jsonify({"respuesta": f"No se pudo procesar el archivo. Error: {e}", "codigo_error": 1})
 
         return jsonify({
@@ -354,8 +370,8 @@ def upload_file():
             "codigo_error": 0
         })
     except Exception as e:
+        logging.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     start_time = time.time()
