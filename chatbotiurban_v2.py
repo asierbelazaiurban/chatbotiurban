@@ -504,6 +504,60 @@ def url_for_scraping():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
+@app.route('/url_for_scraping_by_sitemap', methods=['POST'])
+def url_for_scraping_by_sitemap():
+    try:
+        data = request.get_json()
+        sitemap_url = data.get('url')
+        chatbot_id = data.get('chatbot_id')
+
+        logging.info(f"Recibida solicitud para chatbot_id: {chatbot_id}, URL del sitemap: {sitemap_url}")
+
+        if not sitemap_url:
+            logging.error("No se proporcionó URL del sitemap")
+            return jsonify({'error': 'No se proporcionó URL del sitemap'}), 400
+
+        # Crear el directorio para guardar los datos
+        save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
+        os.makedirs(save_dir, exist_ok=True)
+        file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
+
+        logging.info(f"Directorio creado: {save_dir}")
+
+        # Función para solicitar el sitemap
+        def request_sitemap(url):
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                return response.text
+            except requests.RequestException as e:
+                logging.error(f"Error al descargar el sitemap: {e}")
+                return None
+
+        # Obtener y procesar el sitemap
+        sitemap_content = request_sitemap(sitemap_url)
+        if not sitemap_content:
+            return jsonify({'error': 'Error al descargar el sitemap'}), 500
+
+        soup = BeautifulSoup(sitemap_content, 'xml')
+        urls = [loc.text for loc in soup.find_all('loc')]
+
+        logging.info(f"URLs encontradas en el sitemap: {len(urls)}")
+
+        # Guardar las URLs en un archivo
+        with open(file_path, 'w') as file:
+            for url in urls:
+                file.write(url + '\n')
+
+        logging.info(f"URLs guardadas en {file_path}")
+
+        return jsonify({'message': 'Sitemap procesado correctamente', 'urls_count': len(urls)})
+    except Exception as e:
+        logging.error(f"Error inesperado: {e}")
+        return jsonify({'error': f'Error inesperado: {str(e)}'}), 500
+
+        
+
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
@@ -661,4 +715,4 @@ def pre_established_answers():
  ######## Fin Endpoints ######## 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=4000, debug=True)

@@ -1,3 +1,4 @@
 # Excluir la carpeta 'data'
 data/
 .DS_Store
+__pycache__/process_docs.cpython-310.pyc
