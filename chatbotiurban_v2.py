@@ -39,6 +39,7 @@ import subprocess
 import difflib
 import re 
 from werkzeug.datastructures import FileStorage  
+from process_docs import process_file
 
 
 
@@ -75,7 +76,6 @@ BASE_DATASET_DIR = "data/uploads/datasets/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 def allowed_file(filename, chatbot_id):
@@ -319,36 +319,21 @@ def upload_file():
             logging.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Crear carpeta 'docs' si no existe
-        docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
+        # Crear carpetas necesarias
+        docs_folder = os.path.join(BASE_DIR_DOCS, 'docs', str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
-        logging.info(f"Carpeta creada o ya existente: {docs_folder}")
+        logging.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
 
-        # Crear carpeta del chatbot si no existe
-        chatbot_folder = os.path.join(docs_folder, str(chatbot_id))
-        os.makedirs(chatbot_folder, exist_ok=True)
-        logging.info(f"Carpeta del chatbot creada o ya existente: {chatbot_folder}")
-
-        file_extension = os.path.splitext(uploaded_file.filename)[1][1:]
-        extension_folder = os.path.join(chatbot_folder, file_extension)
-        os.makedirs(extension_folder, exist_ok=True)
-        logging.info(f"Carpeta de extensión creada o ya existente: {extension_folder}")
-
-        file_path = os.path.join(extension_folder, uploaded_file.filename)
+        file_extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
+        file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
         logging.info(f"Archivo guardado en: {file_path}")
 
-        with open(file_path, 'rb') as file_to_read:
-            raw_data = file_to_read.read()
-            encoding = chardet.detect(raw_data)['encoding'] or 'utf-8'
-            if not encoding or chardet.detect(raw_data)['confidence'] < 0.7:
-                encoding = 'utf-8'
-            contenido = raw_data.decode(encoding, errors='replace')
-            logging.info("Archivo leído y decodificado correctamente")
-
-        # Limpiar caracteres raros
-        contenido_limpio = re.sub(r'[^\x00-\x7F]+', ' ', contenido)
-        logging.info("Contenido del archivo limpiado")
+        # Procesar archivo y obtener contenido legible
+        readable_content = process_file(file_path, file_extension)
+        if readable_content is None:
+            logging.error("No se pudo procesar el archivo")
+            return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
         # Ruta del archivo JSON del dataset
         dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
@@ -366,7 +351,7 @@ def upload_file():
         dataset_entries[indice] = {
             "indice": indice,
             "url": file_path,
-            "dialogue": contenido_limpio
+            "dialogue": readable_content
         }
 
         # Guardar el archivo JSON actualizado
@@ -382,7 +367,6 @@ def upload_file():
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
 
 
 
