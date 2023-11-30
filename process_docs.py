@@ -1,4 +1,9 @@
 
+import pandas as pd
+from PyPDF2 import PdfReader
+import docx  # Importar la biblioteca como 'docx'
+from pptx import Presentation
+
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 def read_txt(file_path):
@@ -17,7 +22,7 @@ def read_csv_or_xlsx(file_path, extension):
     return df.to_string()
 
 def read_docx(file_path):
-    doc = python_docx.Document(file_path)
+    doc = docx.Document(file_path)  # Usar 'docx.Document' aquí
     return "\n".join([para.text for para in doc.paragraphs])
 
 def read_pptx(file_path):

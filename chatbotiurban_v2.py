@@ -39,11 +39,8 @@ import subprocess
 import difflib
 import re 
 from werkzeug.datastructures import FileStorage 
-import docx 
-from PyPDF2 import PdfReader
-import pandas as pd
-from pptx import Presentation 
 from process_docs import process_file
+
 
 
 
