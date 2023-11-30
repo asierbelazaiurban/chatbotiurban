@@ -151,7 +151,7 @@ def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     prompt = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta_original}'. Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano.
-Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es."
+Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 100 palabras de respuesta"
         """
     try:
         response = openai.ChatCompletion.create(
