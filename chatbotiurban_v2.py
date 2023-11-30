@@ -304,19 +304,19 @@ def ask_general():
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
-        logging.info("Procesando solicitud de carga de archivo")
+        app.logger.info("Procesando solicitud de carga de archivo")
 
         if 'documento' not in request.files:
-            logging.warning("Archivo 'documento' no encontrado en la solicitud")
+            app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
         file = request.files.get('documento')
         if not file or not isinstance(file, FileStorage) or file.filename == '':
-            logging.warning("No se recibió un archivo válido o el nombre de archivo está vacío")
+            app.logger.warning("No se recibió un archivo válido o el nombre de archivo está vacío")
             return jsonify({"respuesta": "No se recibió un archivo válido o el nombre de archivo está vacío", "codigo_error": 1})
 
         chatbot_id = request.form.get('chatbot_id')
-        logging.info(f"Archivo recibido: {file.filename}, Chatbot ID: {chatbot_id}")
+        app.logger.info(f"Archivo recibido: {file.filename}, Chatbot ID: {chatbot_id}")
 
         # Crear carpeta para guardar archivos
         docs_folder = os.path.join(BASE_DIR_DOCS, 'docs')
@@ -329,6 +329,7 @@ def upload_file():
 
         file_path = os.path.join(extension_folder, file.filename)
         file.save(file_path)
+        app.logger.info(f"Archivo guardado en {file_path}")
 
         # Procesamiento adicional del archivo
         try:
@@ -341,6 +342,7 @@ def upload_file():
 
             # Limpiar caracteres raros
             contenido_limpio = re.sub(r'[^\x00-\x7F]+', ' ', contenido)
+            app.logger.info("Contenido del archivo limpiado")
 
             # Ruta del archivo JSON del dataset
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
@@ -350,8 +352,10 @@ def upload_file():
             if os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r', encoding='utf-8') as file:
                     dataset_entries = json.load(file)
+                app.logger.info("Archivo JSON del dataset existente cargado")
             else:
                 dataset_entries = {}
+                app.logger.info("Nuevo archivo JSON del dataset creado")
 
             # Añadir o actualizar la entrada en el dataset
             indice = file.filename
@@ -364,17 +368,18 @@ def upload_file():
             # Guardar el archivo JSON actualizado
             with open(dataset_file_path, 'w', encoding='utf-8') as file:
                 json.dump(dataset_entries, file, ensure_ascii=False, indent=4)
+            app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
         except Exception as e:
-            logging.error(f"No se pudo procesar el archivo. Error: {e}")
+            app.logger.error(f"No se pudo procesar el archivo. Error: {e}")
             return jsonify({"respuesta": f"No se pudo procesar el archivo. Error: {e}", "codigo_error": 1})
 
         return jsonify({"respuesta": "Archivo procesado y añadido al dataset con éxito", "codigo_error": 0})
 
     except Exception as e:
-        logging.error(f"Error durante el procesamiento general. Error: {e}")
+        app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
+        
 
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
