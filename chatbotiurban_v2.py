@@ -320,7 +320,6 @@ def upload_file():
             logging.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Crear carpetas necesarias
         docs_folder = os.path.join(BASE_DIR_DOCS, str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
         logging.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
@@ -330,38 +329,38 @@ def upload_file():
         uploaded_file.save(file_path)
         logging.info(f"Archivo guardado en: {file_path}")
 
-        # Procesar archivo y obtener contenido legible
         readable_content = process_file(file_path, file_extension)
         if readable_content is None:
             logging.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        # Ruta del archivo JSON del dataset
+        # Contar palabras en el contenido
+        word_count = len(readable_content.split())
+
         dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
-        # Cargar o crear el archivo JSON del dataset
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
                 logging.info("Archivo JSON del dataset existente cargado")
 
-        # Añadir o actualizar la entrada en el dataset
         indice = uploaded_file.filename
         dataset_entries[indice] = {
             "indice": indice,
             "url": file_path,
-            "dialogue": readable_content
+            "dialogue": readable_content,
+            "word_count": word_count  # Agregar recuento de palabras
         }
 
-        # Guardar el archivo JSON actualizado
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
             logging.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "word_count": word_count,  # Incluir el recuento de palabras en la respuesta
             "codigo_error": 0
         })
 
