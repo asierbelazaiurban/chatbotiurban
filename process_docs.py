@@ -1,3 +1,9 @@
+import docx 
+from PyPDF2 import PdfReader
+import pandas as 
+from pptx import Presentation
+
+
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 def read_txt(file_path):
