@@ -676,7 +676,6 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
 
-
  ######## Fin Endpoints ######## 
 
 if __name__ == "__main__":
