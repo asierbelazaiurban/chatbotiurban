@@ -1,6 +1,6 @@
 import docx 
 from PyPDF2 import PdfReader
-import pandas as 
+import pandas as pd
 from pptx import Presentation
 
 
