@@ -776,13 +776,13 @@ def pre_established_answers():
 def change_params():
     data = request.json
     new_prompt = data.get('new_prompt')
-    temperature = data.get('temperature', 'default_temperature')
+    temperature = data.get('temperature')
 
     if not new_prompt:
         return jsonify({"error": "El campo 'new_prompt' es requerido"}), 400
 
-    chatbot_id = data.get('chatbot_id', "default_chatbot_id")  # Este valor no se usa en la función actual, pero se puede incorporar según sea necesario
-    model_gpt = data.get('model_gpt', "gpt-3.5-turbo")
+    chatbot_id = data.get('chatbot_id')  # Este valor no se usa en la función actual, pero se puede incorporar según sea necesario
+    model_gpt = data.get('model_gpt')
 
     prompt_base = f"""Cuando recibas una pregunta, comienza con: '{temperature}'. Luego sigue con tu respuesta original: '{{new_prompt}}'."""
 
