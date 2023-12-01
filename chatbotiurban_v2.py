@@ -149,7 +149,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt="", temperature="", model_gpt="", chatbot_id=""):
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", temperature="", model_gpt="", chatbot_id=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     # Comprobación y carga del dataset basado en chatbot_id
@@ -177,7 +177,7 @@ def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt=
     # Intento de generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
