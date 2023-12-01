@@ -43,7 +43,6 @@ from process_docs import process_file
 
 
 
-
 nltk.download('punkt')
 nltk.download('stopwords')
 
