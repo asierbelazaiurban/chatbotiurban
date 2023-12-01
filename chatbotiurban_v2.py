@@ -773,8 +773,8 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
 
-@app.route('/mejorar_respuesta', methods=['POST'])
-def mejorar_respuesta():
+@app.route('/change_paramas_prompt_temperature_and_model', methods=['POST'])
+def change_paramas_prompt_temperature_and_model():
     data = request.json
     respuesta_original = data['respuesta_original']
     pregunta = data['pregunta']
