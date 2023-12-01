@@ -290,10 +290,10 @@ def ask_general():
     contenido = request.json
     pregunta = contenido['pregunta']
     chatbot_id = contenido['chatbot_id']
-    BASE_DATASET_DIR = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")  # Define la ruta a tu dataset
+    base_dataset_dir = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")  # Define la ruta a tu dataset
 
     # Cargar datos
-    datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
+    datos = cargar_dataset(chatbot_id, base_dataset_dir)
 
     # Encontrar respuesta
     respuesta_original = encontrar_respuesta(pregunta, datos)
