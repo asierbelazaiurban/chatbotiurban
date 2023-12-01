@@ -148,10 +148,10 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(new_prompt, temperature, model_gpt):
+def mejorar_respuesta_generales_con_openai(new_prompt = "", temperature = "", model_gpt = "", pregunta = "", respuesta = ""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     
-    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{temperature}'. Luego sigue con tu respuesta original: '{new_prompt}'. Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano. Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 75 palabras de respuesta, no metas la pregunta en la respuesta"""
+    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{repspuesta}'. Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano. Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 75 palabras de respuesta, no metas la pregunta en la respuesta"""
 
     try:
         response = openai.ChatCompletion.create(
@@ -777,6 +777,7 @@ def change_params():
     data = request.json
     new_prompt = data.get('new_prompt')
     temperature = data.get('temperature')
+    pregunta = respuesta = ""
 
     if not new_prompt:
         return jsonify({"error": "El campo 'new_prompt' es requerido"}), 400
@@ -784,7 +785,7 @@ def change_params():
     chatbot_id = data.get('chatbot_id')  # Este valor no se usa en la función actual, pero se puede incorporar según sea necesario
     model_gpt = data.get('model_gpt')
 
-    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{temperature}'. Luego sigue con tu respuesta original: '{{new_prompt}}'."""
+    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}''{{new_prompt}}'."""
 
     if new_prompt == prompt_base:
         return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
