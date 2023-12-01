@@ -73,6 +73,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
+BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
@@ -150,8 +151,15 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", temperature="", model_gpt=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-    
-    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'. {new_prompt} Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano. Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 75 palabras de respuesta, no metas la pregunta en la respuesta"""
+
+    # Parte fija del prompt base
+    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'"""
+
+    # Añadir new_prompt si no está vacío
+    if new_prompt:
+        prompt_base += " " + new_prompt
+    else:
+        prompt_base += "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano. Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 75 palabras de respuesta, no metas la pregunta en la respuesta"
 
     try:
         response = openai.ChatCompletion.create(
@@ -159,7 +167,8 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", t
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
-            ]
+            ],
+            temperature=float(temperature) if temperature else 0.5
         )
         return response.choices[0].message['content'].strip()
     except Exception as e:
@@ -281,6 +290,7 @@ def ask_general():
     contenido = request.json
     pregunta = contenido['pregunta']
     chatbot_id = contenido['chatbot_id']
+    BASE_DATASET_DIR = "ruta/a/tu/dataset"  # Define la ruta a tu dataset
 
     # Cargar datos
     datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
@@ -290,7 +300,15 @@ def ask_general():
 
     # Intentar mejorar la respuesta con OpenAI
     try:
-        respuesta_mejorada = mejorar_respuesta_generales_con_openai(pregunta, respuesta_original)
+        prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.text"
+        if os.path.exists(prompt_file_path) and os.path.getsize(prompt_file_path) > 0:
+            with open(prompt_file_path, 'r') as file:
+                new_prompt = file.read()
+        else:
+            new_prompt = ""
+
+        # Llamada a la función para mejorar la respuesta
+        respuesta_mejorada = mejorar_respuesta_generales_con_openai(pregunta, respuesta_original, new_prompt, "", "")
         if respuesta_mejorada:
             return jsonify({'respuesta': respuesta_mejorada})
     except Exception as e:
@@ -772,27 +790,39 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
 
-@app.route('/change_paramas_prompt_temperature_and_model', methods=['POST'])
+@app.route('/change_params_prompt_temperature_and_model', methods=['POST'])
 def change_params():
     data = request.json
     new_prompt = data.get('new_prompt')
-    temperature = data.get('temperature', '')  # Se mantiene vacío si no se proporciona
-    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')  # Valor por defecto para model_gpt
+    chatbot_id = data.get('chatbot_id')
+    temperature = data.get('temperature', '')
+    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
 
-    if not new_prompt:
-        return jsonify({"error": "El campo 'new_prompt' es requerido"}), 400
+    if not new_prompt or not chatbot_id:
+        return jsonify({"error": "Los campos 'new_prompt' y 'chatbot_id' son requeridos"}), 400
+
+    # Guardar el nuevo prompt en un archivo
+    prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.text"
+    os.makedirs(os.path.dirname(prompt_file_path), exist_ok=True)
+
+    with open(prompt_file_path, 'w') as file:
+        file.write(new_prompt)
+
+    # Leer el contenido del nuevo prompt del archivo
+    with open(prompt_file_path, 'r') as file:
+        saved_prompt = file.read()
 
     pregunta = ""  # 'pregunta' está vacía porque no se utiliza en este contexto
     respuesta = ""  # 'respuesta' está vacía porque no se utiliza en este contexto
-
-    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'. {new_prompt}"""
+    prompt_base = f"Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'. {saved_prompt}"
 
     # Comprobación para ver si el nuevo prompt es igual al prompt base
     if new_prompt == prompt_base:
         return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
 
-    # Llamar a la función con los parámetros adecuados
-    mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt, temperature, model_gpt)
+    # Llamada a la función para actualizar la configuración del modelo
+    mejorar_respuesta_generales_con_openai(saved_prompt, temperature, model_gpt)
+
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
 
