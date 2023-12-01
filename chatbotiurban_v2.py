@@ -148,16 +148,16 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(new_prompt, pregunta, prompt, model_gpt):
+def mejorar_respuesta_generales_con_openai(new_prompt, temperature, model_gpt):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     
-    modified_prompt = prompt.format(pregunta=pregunta, new_prompt=new_prompt)
-    
+    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{temperature}'. Luego sigue con tu respuesta original: '{new_prompt}'. Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano. Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 75 palabras de respuesta, no metas la pregunta en la respuesta"""
+
     try:
         response = openai.ChatCompletion.create(
             model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": modified_prompt},
+                {"role": "system", "content": prompt_base},
                 {"role": "user", "content": new_prompt}
             ]
         )
@@ -166,7 +166,6 @@ def mejorar_respuesta_generales_con_openai(new_prompt, pregunta, prompt, model_g
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-# Recuerda llamar a la función con los parámetros adecuados
 
 
 def extraer_palabras_clave(pregunta):
@@ -777,18 +776,22 @@ def pre_established_answers():
 def change_params():
     data = request.json
     new_prompt = data.get('new_prompt')
-    pregunta = data['pregunta']
-    chatbot_id = data['chatbot_id']  # Este valor no se usa en la función actual, pero se puede incorporar según sea necesario
-    model_gpt = data.get('model_gpt', "gpt-3.5-turbo")
+    temperature = data.get('temperature', 'default_temperature')
 
     if not new_prompt:
         return jsonify({"error": "El campo 'new_prompt' es requerido"}), 400
 
-    prompt_base = """Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu nueva indicación: '{new_prompt}'. [...]"""
-    # Asegúrate de completar el prompt con el texto deseado y las reglas de formato.
+    chatbot_id = data.get('chatbot_id', "default_chatbot_id")  # Este valor no se usa en la función actual, pero se puede incorporar según sea necesario
+    model_gpt = data.get('model_gpt', "gpt-3.5-turbo")
 
-    result = mejorar_respuesta_generales_con_openai(new_prompt, pregunta, prompt_base, model_gpt)
+    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{temperature}'. Luego sigue con tu respuesta original: '{{new_prompt}}'."""
+
+    if new_prompt == prompt_base:
+        return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
+
+    result = mejorar_respuesta_generales_con_openai(new_prompt, temperature, model_gpt)
     return jsonify({"respuesta_mejorada": result})
+
 
 @app.route('/list_chatbot_ids', methods=['GET'])
 def list_folders():
