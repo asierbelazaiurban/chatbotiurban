@@ -290,7 +290,7 @@ def ask_general():
     contenido = request.json
     pregunta = contenido['pregunta']
     chatbot_id = contenido['chatbot_id']
-    BASE_DATASET_DIR = "ruta/a/tu/dataset"  # Define la ruta a tu dataset
+    BASE_DATASET_DIR = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")  # Define la ruta a tu dataset
 
     # Cargar datos
     datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
@@ -365,8 +365,7 @@ def upload_file():
         dataset_entries[indice] = {
             "indice": indice,
             "url": file_path,
-            "dialogue": readable_content,
-            "word_count": word_count  # Agregar recuento de palabras
+            "dialogue": readable_content
         }
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
