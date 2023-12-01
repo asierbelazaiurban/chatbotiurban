@@ -177,7 +177,7 @@ def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt=
     # Intento de generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-3.5-turbo",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
