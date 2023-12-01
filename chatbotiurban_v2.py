@@ -148,17 +148,17 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(respuesta_original, pregunta, prompt, model_gpt):
+def mejorar_respuesta_generales_con_openai(new_prompt, pregunta, prompt, model_gpt):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     
-    modified_prompt = prompt.format(pregunta=pregunta, respuesta_original=respuesta_original)
+    modified_prompt = prompt.format(pregunta=pregunta, new_prompt=new_prompt)
     
     try:
         response = openai.ChatCompletion.create(
             model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": modified_prompt},
-                {"role": "user", "content": respuesta_original}
+                {"role": "user", "content": new_prompt}
             ]
         )
         return response.choices[0].message['content'].strip()
@@ -774,20 +774,21 @@ def pre_established_answers():
 
 
 @app.route('/change_paramas_prompt_temperature_and_model', methods=['POST'])
-def change_paramas_prompt_temperature_and_model():
+def change_params():
     data = request.json
-    respuesta_original = data['respuesta_original']
+    new_prompt = data.get('new_prompt')
     pregunta = data['pregunta']
     chatbot_id = data['chatbot_id']  # Este valor no se usa en la función actual, pero se puede incorporar según sea necesario
     model_gpt = data.get('model_gpt', "gpt-3.5-turbo")
-    temperature = data.get('temperature', 0.7)  # Esta variable no se usa en la función actual, pero se puede incorporar según sea necesario
 
-    prompt_base = """Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta_original}'. [...]"""
+    if not new_prompt:
+        return jsonify({"error": "El campo 'new_prompt' es requerido"}), 400
+
+    prompt_base = """Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu nueva indicación: '{new_prompt}'. [...]"""
     # Asegúrate de completar el prompt con el texto deseado y las reglas de formato.
 
-    result = mejorar_respuesta_generales_con_openai(respuesta_original, pregunta, prompt_base, model_gpt)
+    result = mejorar_respuesta_generales_con_openai(new_prompt, pregunta, prompt_base, model_gpt)
     return jsonify({"respuesta_mejorada": result})
-
 
 @app.route('/list_chatbot_ids', methods=['GET'])
 def list_folders():
