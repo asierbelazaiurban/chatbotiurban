@@ -155,7 +155,7 @@ def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt=
     # Comprobación y carga del dataset basado en chatbot_id
     if chatbot_id:
         try:
-            dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+            dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
             with open(dataset_file_path, 'r') as file:
                 dataset_content = json.load(file)
             new_prompt = dataset_content
@@ -810,7 +810,7 @@ def change_params():
         return jsonify({"error": "Los campos 'new_prompt' y 'chatbot_id' son requeridos"}), 400
 
     # Guardar el nuevo prompt en un archivo
-    prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.text"
+    prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.txt"
     os.makedirs(os.path.dirname(prompt_file_path), exist_ok=True)
 
     with open(prompt_file_path, 'w') as file:
