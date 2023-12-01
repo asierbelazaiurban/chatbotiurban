@@ -290,35 +290,22 @@ def ask_general():
     contenido = request.json
     pregunta = contenido['pregunta']
     chatbot_id = contenido['chatbot_id']
-    # Definir la ruta del dataset
-    dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
-    dataset_file_path = os.path.join(dataset_folder, 'dataset.json')
-    app.logger.info(f"Dataset con ruta {dataset_file_path}")
 
     # Cargar datos
-    datos = cargar_dataset(chatbot_id, dataset_file_path)
+    datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
 
     # Encontrar respuesta
     respuesta_original = encontrar_respuesta(pregunta, datos)
 
     # Intentar mejorar la respuesta con OpenAI
     try:
-        prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.text"
-        if os.path.exists(prompt_file_path) and os.path.getsize(prompt_file_path) > 0:
-            with open(prompt_file_path, 'r') as file:
-                new_prompt = file.read()
-        else:
-            new_prompt = ""
-
-        # Llamada a la función para mejorar la respuesta
-        respuesta_mejorada = mejorar_respuesta_generales_con_openai(pregunta, respuesta_original, new_prompt, "", "")
+        respuesta_mejorada = mejorar_respuesta_generales_con_openai(respuesta_original, pregunta)
         if respuesta_mejorada:
             return jsonify({'respuesta': respuesta_mejorada})
     except Exception as e:
         print(f"Error al mejorar respuesta con OpenAI: {e}")
         # Devolver la respuesta original en caso de error
         return jsonify({'respuesta': respuesta_original})
-
 
 
 @app.route('/uploads', methods=['POST'])
