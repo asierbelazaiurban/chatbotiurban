@@ -290,7 +290,9 @@ def ask_general():
     contenido = request.json
     pregunta = contenido['pregunta']
     chatbot_id = contenido['chatbot_id']
-    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+    # Definir la ruta del dataset
+    dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
+    dataset_file_path = os.path.join(dataset_folder, 'dataset.json')
     app.logger.info(f"Dataset con ruta {dataset_file_path}")
 
     # Cargar datos
