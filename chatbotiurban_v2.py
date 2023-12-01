@@ -159,19 +159,19 @@ def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt=
             with open(dataset_file_path, 'r') as file:
                 dataset_content = json.load(file)
             new_prompt = dataset_content
-            app.logger.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
+            logging.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
         except Exception as e:
-            app.logger.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
+            logging.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
 
     # Construcción del prompt base
     prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'"""
 
     # Uso de new_prompt proporcionado si existe
     if new_prompt:
-        app.logger.info("Utilizando new_prompt proporcionado.")
+        logging.info("Utilizando new_prompt proporcionado.")
         prompt_base = f"{prompt_base} {new_prompt}"
     else:
-        app.logger.info("Utilizando extensión de prompt por defecto.")
+        logging.info("Utilizando extensión de prompt por defecto.")
         prompt_base += " Mantén la coherencia con la pregunta y si la respuesta no se alinea..."
 
     # Intento de generar la respuesta mejorada
@@ -185,10 +185,10 @@ def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt=
             temperature=float(temperature) if temperature else 0.5
         )
         improved_response = response.choices[0].message['content'].strip()
-        app.logger.info("Respuesta generada con éxito.")
+        logging.info("Respuesta generada con éxito.")
         return improved_response
     except Exception as e:
-        app.logger.info(f"Error al interactuar con OpenAI: {e}")
+        logging.info(f"Error al interactuar con OpenAI: {e}")
         return None
 
 
