@@ -149,18 +149,32 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", temperature="", model_gpt=""):
+def mejorar_respuesta_generales_con_openai(app, pregunta, respuesta, new_prompt="", temperature="", model_gpt="", chatbot_id=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Parte fija del prompt base
+    # Comprobación y carga del dataset basado en chatbot_id
+    if chatbot_id:
+        try:
+            dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+            with open(dataset_file_path, 'r') as file:
+                dataset_content = json.load(file)
+            new_prompt = dataset_content
+            app.logger.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
+        except Exception as e:
+            app.logger.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
+
+    # Construcción del prompt base
     prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'"""
 
-    # Añadir new_prompt si no está vacío
+    # Uso de new_prompt proporcionado si existe
     if new_prompt:
-        prompt_base += " " + new_prompt
+        app.logger.info("Utilizando new_prompt proporcionado.")
+        prompt_base = f"{prompt_base} {new_prompt}"
     else:
-        prompt_base += "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. Es crucial responder en el mismo idioma que la pregunta. Si te preguntan en inglés, responde en inglés; si es en valenciano, en valenciano; y si es en castellano, en castellano. Al finalizar tu respuesta, recuerda sugerir 'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, proporciona el contacto: info@iurban.es. interpreta cualquier '\n\n1, \n\n2, \n\n3 ...etc' como un salto de linea no lo muestres y no superes las 75 palabras de respuesta, no metas la pregunta en la respuesta"
+        app.logger.info("Utilizando extensión de prompt por defecto.")
+        prompt_base += " Mantén la coherencia con la pregunta y si la respuesta no se alinea..."
 
+    # Intento de generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
             model=model_gpt if model_gpt else "gpt-3.5-turbo",
@@ -170,10 +184,13 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", t
             ],
             temperature=float(temperature) if temperature else 0.5
         )
-        return response.choices[0].message['content'].strip()
+        improved_response = response.choices[0].message['content'].strip()
+        app.logger.info("Respuesta generada con éxito.")
+        return improved_response
     except Exception as e:
-        print(f"Error al interactuar con OpenAI: {e}")
+        app.logger.info(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 
 def extraer_palabras_clave(pregunta):
@@ -299,7 +316,9 @@ def ask_general():
 
     # Intentar mejorar la respuesta con OpenAI
     try:
-        respuesta_mejorada = mejorar_respuesta_generales_con_openai(respuesta_original, pregunta)
+        respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+            pregunta, respuesta_original, chatbot_id=chatbot_id
+        )
         if respuesta_mejorada:
             return jsonify({'respuesta': respuesta_mejorada})
     except Exception as e:
