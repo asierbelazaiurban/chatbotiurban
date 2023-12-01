@@ -782,9 +782,8 @@ def change_params():
     if not new_prompt:
         return jsonify({"error": "El campo 'new_prompt' es requerido"}), 400
 
-    # 'pregunta' y 'respuesta' están vacíos porque no se utilizan en este contexto
-    pregunta = ""
-    respuesta = ""
+    pregunta = ""  # 'pregunta' está vacía porque no se utiliza en este contexto
+    respuesta = ""  # 'respuesta' está vacía porque no se utiliza en este contexto
 
     prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'. {new_prompt}"""
 
@@ -793,8 +792,9 @@ def change_params():
         return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
 
     # Llamar a la función con los parámetros adecuados
-    result = mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt, temperature, model_gpt)
-    return jsonify({"respuesta_mejorada": result})
+    mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt, temperature, model_gpt)
+    return jsonify({"mensaje": "Parámetros cambiados con éxito"})
+
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
