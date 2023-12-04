@@ -379,34 +379,51 @@ def ask_general_context():
 
 @app.route('/ask_combined', methods=['POST'])
 def ask_combined():
-    data = request.get_json()
-    chatbot_id = data.get('chatbot_id')
+    logger.info("Solicitud recibida en /ask_combined")
 
-    if 'pares_pregunta_respuesta' in data:
-        pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-        contexto = ""
+    try:
+        data = request.get_json()
+        chatbot_id = data.get('chatbot_id')
+        logger.info(f"Datos recibidos: {data}")
 
-        # Construir contexto a partir de las preguntas y respuestas anteriores
-        for par in pares_pregunta_respuesta[:-1]:
-            contexto += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
+        if 'pares_pregunta_respuesta' in data:
+            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+            contexto = ""
 
-        # Procesar la última pregunta
-        ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-        ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+            for par in pares_pregunta_respuesta[:-1]:
+                contexto += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
 
-        if ultima_respuesta == "":
-            # Buscar en respuestas preestablecidas
-            respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-            if encontrada_en_json:
-                ultima_respuesta = respuesta_preestablecida
-                contexto += f"Pregunta: {ultima_pregunta} Respuesta: {ultima_respuesta} "
-            # Generar respuesta utilizando OpenAI con el contexto completo
-            ultima_respuesta = generar_respuesta_con_openai(ultima_pregunta, contexto, chatbot_id)
+            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
+            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
-        return jsonify({'respuesta': ultima_respuesta})
+            if ultima_respuesta == "":
+                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                if encontrada_en_json:
+                    ultima_respuesta = respuesta_preestablecida
+                    contexto += f"Pregunta: {ultima_pregunta} Respuesta: {ultima_respuesta} "
+                    fuente_respuesta = "preestablecida"
+                else:
+                    ultima_respuesta = generar_respuesta_con_openai(ultima_pregunta, contexto, chatbot_id)
+                    fuente_respuesta = "generada"
 
-    else:
-        return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+                if ultima_respuesta:
+                    logger.info("Respuesta generada con éxito")
+                    return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
+                else:
+                    logger.info("No se encontró una respuesta adecuada")
+                    return jsonify({'respuesta': 'No se encontró una respuesta adecuada.', 'fuente': 'ninguna'})
+            else:
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
+
+        else:
+            logger.error("Formato de solicitud incorrecto")
+            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+
+    except Exception as e:
+        logger.error(f"Error en /ask_combined: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 
 
 
