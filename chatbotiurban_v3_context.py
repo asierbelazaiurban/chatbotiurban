@@ -418,9 +418,9 @@ def ask_combined():
                     contexto += f"Pregunta: {ultima_pregunta} Respuesta: {ultima_respuesta} "
                     fuente_respuesta = "preestablecida"
                 else:
-                    ultima_respuesta = generar_respuesta_con_openai(ultima_pregunta, contexto, chatbot_id)
-                    fuente_respuesta = "generada"
+                    # Mejorar la respuesta con OpenAI
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(ultima_pregunta, ultima_respuesta, chatbot_id=chatbot_id)
+                    fuente_respuesta = "mejorada"
 
                 if ultima_respuesta:
                     logging.info("Respuesta generada con éxito")
@@ -438,8 +438,6 @@ def ask_combined():
     except Exception as e:
         logging.info(f"Error en /ask_combined: {e}")
         return jsonify({'error': str(e)}), 500
-
-
 
 
 
