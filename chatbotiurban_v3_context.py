@@ -40,6 +40,7 @@ import difflib
 import re 
 from werkzeug.datastructures import FileStorage 
 from process_docs import process_file
+from sentence_transformers import SentenceTransformer, util
 
 
 
@@ -150,10 +151,13 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         return None
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
+    # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Comprobación y carga del dataset basado en chatbot_id
-    if chatbot_id:
+    logging.info("Entrando en OpenAI")
+
+    # Carga del conjunto de datos si chatbot_id está presente y new_prompt no se ha proporcionado
+    if chatbot_id and not new_prompt:
         try:
             dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
             with open(dataset_file_path, 'r') as file:
@@ -163,10 +167,22 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         except Exception as e:
             logging.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
 
-    # Construcción del prompt base
-    prompt_base = f"{new_prompt} {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n"
+    # Usar un prompt predeterminado si no se ha proporcionado ninguno
+    if not new_prompt:
+        new_prompt = ("Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
+                      "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
+                      "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
+                      "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
+                      "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
+                      "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
+                      "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
+                      "proporciona el contacto: info@iurban.es.")
 
-    # Intento de generar la respuesta mejorada
+    # Construir el prompt base
+    prompt_base = f"{new_prompt} {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n"
+    logging.info(prompt_base)
+
+    # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
             model=model_gpt if model_gpt else "gpt-3.5-turbo",
@@ -302,6 +318,38 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
         raise e
 
 
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
+
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+
+    if not os.path.exists(json_file_path):
+        return None, False
+
+    with open(json_file_path, 'r', encoding='utf-8') as json_file:
+        preguntas_respuestas = json.load(json_file)
+
+    # Crear una lista de todas las palabras clave
+    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
+    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
+
+    # Calcular los embeddings para las palabras clave y la pregunta del usuario
+    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
+    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
+
+    # Calcular la similitud semántica
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
+
+    # Encontrar la mejor coincidencia si supera el umbral
+    mejor_coincidencia = similitudes.argmax()
+    max_similitud = similitudes[mejor_coincidencia].item()
+
+    if max_similitud >= umbral_similitud:
+        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        return respuesta_mejor_coincidencia, True
+    else:
+        return None, False
+
 ####### FIN Utils busqueda en Json #######
 
 
@@ -342,6 +390,57 @@ def ask_general_context():
 
     # Devolver la respuesta mejorada de la última pregunta
     return jsonify({'respuesta': respuesta_mejorada_final})
+
+
+@app.route('/ask_combined', methods=['POST'])
+def ask_combined():
+    logging.info("Solicitud recibida en /ask_combined")
+
+    try:
+        data = request.get_json()
+        chatbot_id = data.get('chatbot_id')
+        logging.info(f"Datos recibidos: {data}")
+
+        if 'pares_pregunta_respuesta' in data:
+            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+            contexto = ""
+
+            for par in pares_pregunta_respuesta[:-1]:
+                contexto += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
+
+            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
+            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+
+            if ultima_respuesta == "":
+                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                if encontrada_en_json:
+                    ultima_respuesta = respuesta_preestablecida
+                    contexto += f"Pregunta: {ultima_pregunta} Respuesta: {ultima_respuesta} "
+                    fuente_respuesta = "preestablecida"
+                else:
+                    ultima_respuesta = generar_respuesta_con_openai(ultima_pregunta, contexto, chatbot_id)
+                    fuente_respuesta = "generada"
+
+                if ultima_respuesta:
+                    logging.info("Respuesta generada con éxito")
+                    return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
+                else:
+                    logging.info("No se encontró una respuesta adecuada")
+                    return jsonify({'respuesta': 'No se encontró una respuesta adecuada.', 'fuente': 'ninguna'})
+            else:
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
+
+        else:
+            logging.info("Formato de solicitud incorrecto")
+            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+
+    except Exception as e:
+        logging.info(f"Error en /ask_combined: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+
+
 
 
 @app.route('/uploads', methods=['POST'])
