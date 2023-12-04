@@ -183,17 +183,18 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         logging.info(f"Error al interactuar con OpenAI: {e}")
         return None
 
-
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
-        response = openai.Completion.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
-            prompt=f"Resumen del historial de conversación:\n{historial}\n--\n",
-            max_tokens=100
+            messages=[
+                {"role": "system", "content": "Resumen del historial de conversación."},
+                {"role": "user", "content": historial}
+            ]
         )
-        return response.choices[0].text.strip()
+        return response.choices[0].message['content'].strip()
     except Exception as e:
         print(f"Error al generar contexto con OpenAI: {e}")
         return ""
