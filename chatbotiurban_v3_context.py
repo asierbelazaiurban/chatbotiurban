@@ -308,7 +308,7 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
 ####### Inicio Endpoints #######
 
 
-@app.route('/ask_general_context', methods=['POST'])
+@app.route('/ask_general', methods=['POST'])
 def ask_general_context():
     contenido = request.json
     pares_pregunta_respuesta = contenido['pares_pregunta_respuesta']
@@ -320,7 +320,7 @@ def ask_general_context():
     # Construir el historial de preguntas y respuestas
     historial = ""
     for par in pares_pregunta_respuesta:
-        historial += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta_usuario']} "
+        historial += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
 
     # Generar contexto utilizando OpenAI
     contexto = generar_contexto_con_openai(historial)
@@ -329,7 +329,7 @@ def ask_general_context():
 
     # Procesar la última pregunta si la respuesta del usuario está vacía
     ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-    if not pares_pregunta_respuesta[-1]['respuesta_usuario']:
+    if not pares_pregunta_respuesta[-1]['respuesta']:
         respuesta_original = encontrar_respuesta(ultima_pregunta, datos, contexto)
         try:
             respuesta_mejorada = mejorar_respuesta_generales_con_openai(
@@ -342,31 +342,6 @@ def ask_general_context():
 
     # Devolver la respuesta mejorada de la última pregunta
     return jsonify({'respuesta': respuesta_mejorada_final})
-
-
-@app.route('/ask_general', methods=['POST'])
-def ask_general():
-    contenido = request.json
-    pregunta = contenido['pregunta']
-    chatbot_id = contenido['chatbot_id']
-
-    # Cargar datos
-    datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
-
-    # Encontrar respuesta
-    respuesta_original = encontrar_respuesta(pregunta, datos)
-
-    # Intentar mejorar la respuesta con OpenAI
-    try:
-        respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-            pregunta, respuesta_original, chatbot_id=chatbot_id
-        )
-        if respuesta_mejorada:
-            return jsonify({'respuesta': respuesta_mejorada})
-    except Exception as e:
-        print(f"Error al mejorar respuesta con OpenAI: {e}")
-        # Devolver la respuesta original en caso de error
-        return jsonify({'respuesta': respuesta_original})
 
 
 @app.route('/uploads', methods=['POST'])
