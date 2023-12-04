@@ -184,6 +184,21 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         return None
 
 
+def generar_contexto_con_openai(historial):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    try:
+        response = openai.Completion.create(
+            model="gpt-3.5-turbo",
+            prompt=f"Resumen del historial de conversación:\n{historial}\n--\n",
+            max_tokens=100
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error al generar contexto con OpenAI: {e}")
+        return ""
+
+
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
     palabras = word_tokenize(pregunta)
