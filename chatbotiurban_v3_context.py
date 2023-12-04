@@ -149,18 +149,30 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, contexto="", temperature="", model_gpt="", chatbot_id=""):
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Construcción del prompt incluyendo el contexto
-    prompt = f"{contexto}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n"
+    # Comprobación y carga del dataset basado en chatbot_id
+    if chatbot_id:
+        try:
+            dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
+            with open(dataset_file_path, 'r') as file:
+                dataset_content = json.load(file)
+            new_prompt = dataset_content
+            logging.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
+        except Exception as e:
+            logging.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
+
+    # Construcción del prompt base
+    prompt_base = f"{new_prompt} {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n"
 
     # Intento de generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
             model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": prompt}
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": respuesta}
             ],
             temperature=float(temperature) if temperature else 0.5
         )
@@ -171,19 +183,6 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, contexto="", tem
         logging.info(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def generar_contexto_con_openai(historial):
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    try:
-        response = openai.Completion.create(
-            model="gpt-3.5-turbo",
-            prompt=f"Resumen del historial de conversación:\n{historial}\n--\n",
-            max_tokens=100
-        )
-        return response.choices[0].text.strip()
-    except Exception as e:
-        print(f"Error al generar contexto con OpenAI: {e}")
-        return ""
 
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
