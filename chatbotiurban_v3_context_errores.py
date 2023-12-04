@@ -152,7 +152,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-
+    logging.info("Entrando en Open OpenAI")
     # Comprobación y carga del dataset basado en chatbot_id
     if chatbot_id:
         try:
@@ -166,6 +166,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Construcción del prompt base
     prompt_base = f"{new_prompt} {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n"
+    logging.info(prompt_base)
 
     # Intento de generar la respuesta mejorada
     try:
