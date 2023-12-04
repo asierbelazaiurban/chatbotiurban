@@ -379,12 +379,12 @@ def ask_general_context():
 
 @app.route('/ask_combined', methods=['POST'])
 def ask_combined():
-    logger.info("Solicitud recibida en /ask_combined")
+    logging.info("Solicitud recibida en /ask_combined")
 
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id')
-        logger.info(f"Datos recibidos: {data}")
+        logging.info(f"Datos recibidos: {data}")
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -407,20 +407,20 @@ def ask_combined():
                     fuente_respuesta = "generada"
 
                 if ultima_respuesta:
-                    logger.info("Respuesta generada con éxito")
+                    logging.info("Respuesta generada con éxito")
                     return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
                 else:
-                    logger.info("No se encontró una respuesta adecuada")
+                    logging.info("No se encontró una respuesta adecuada")
                     return jsonify({'respuesta': 'No se encontró una respuesta adecuada.', 'fuente': 'ninguna'})
             else:
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
-            logger.error("Formato de solicitud incorrecto")
+            logging.info("Formato de solicitud incorrecto")
             return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
 
     except Exception as e:
-        logger.error(f"Error en /ask_combined: {e}")
+        logging.info(f"Error en /ask_combined: {e}")
         return jsonify({'error': str(e)}), 500
 
 
