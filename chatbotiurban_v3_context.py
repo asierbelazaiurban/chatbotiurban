@@ -815,6 +815,35 @@ def pre_established_answers():
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
 
+@app.route('/delete_pre_established_answers', methods=['POST'])
+def delete_pre_established_answers():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    preguntas_a_eliminar = data.get('preguntas')
+
+    if not chatbot_id or not preguntas_a_eliminar:
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, preguntas)."}), 400
+
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+
+    # Verificar si el archivo existe
+    if not os.path.isfile(json_file_path):
+        return jsonify({"error": "No se encontró el archivo de preguntas y respuestas."}), 404
+
+    with open(json_file_path, 'r', encoding='utf-8') as json_file:
+        preguntas_respuestas = json.load(json_file)
+
+    # Eliminar las preguntas proporcionadas
+    for pregunta in preguntas_a_eliminar:
+        preguntas_respuestas.pop(pregunta, None)
+
+    # Guardar los cambios en el archivo JSON
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
+
+    return jsonify({'mensaje': 'Preguntas eliminadas correctamente'})
+
+
 @app.route('/change_params_prompt_temperature_and_model', methods=['POST'])
 def change_params():
     data = request.json
@@ -861,4 +890,4 @@ def list_folders():
  ######## Fin Endpoints ######## 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=4000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
