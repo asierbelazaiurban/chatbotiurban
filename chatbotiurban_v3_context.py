@@ -40,6 +40,7 @@ import difflib
 import re 
 from werkzeug.datastructures import FileStorage 
 from process_docs import process_file
+from sentence_transformers import SentenceTransformer, util
 
 
 
@@ -302,6 +303,38 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
         raise e
 
 
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
+
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+
+    if not os.path.exists(json_file_path):
+        return None, False
+
+    with open(json_file_path, 'r', encoding='utf-8') as json_file:
+        preguntas_respuestas = json.load(json_file)
+
+    # Crear una lista de todas las palabras clave
+    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
+    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
+
+    # Calcular los embeddings para las palabras clave y la pregunta del usuario
+    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
+    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
+
+    # Calcular la similitud semántica
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
+
+    # Encontrar la mejor coincidencia si supera el umbral
+    mejor_coincidencia = similitudes.argmax()
+    max_similitud = similitudes[mejor_coincidencia].item()
+
+    if max_similitud >= umbral_similitud:
+        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        return respuesta_mejor_coincidencia, True
+    else:
+        return None, False
+
 ####### FIN Utils busqueda en Json #######
 
 
@@ -342,6 +375,39 @@ def ask_general_context():
 
     # Devolver la respuesta mejorada de la última pregunta
     return jsonify({'respuesta': respuesta_mejorada_final})
+
+
+@app.route('/ask_combined', methods=['POST'])
+def ask_combined():
+    data = request.get_json()
+    chatbot_id = data.get('chatbot_id')
+
+    if 'pares_pregunta_respuesta' in data:
+        pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+        contexto = ""
+
+        # Construir contexto a partir de las preguntas y respuestas anteriores
+        for par in pares_pregunta_respuesta[:-1]:
+            contexto += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
+
+        # Procesar la última pregunta
+        ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
+        ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+
+        if ultima_respuesta == "":
+            # Buscar en respuestas preestablecidas
+            respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+            if encontrada_en_json:
+                ultima_respuesta = respuesta_preestablecida
+                contexto += f"Pregunta: {ultima_pregunta} Respuesta: {ultima_respuesta} "
+            # Generar respuesta utilizando OpenAI con el contexto completo
+            ultima_respuesta = generar_respuesta_con_openai(ultima_pregunta, contexto, chatbot_id)
+
+        return jsonify({'respuesta': ultima_respuesta})
+
+    else:
+        return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+
 
 
 @app.route('/uploads', methods=['POST'])
