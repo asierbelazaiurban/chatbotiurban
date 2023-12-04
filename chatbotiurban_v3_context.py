@@ -356,44 +356,9 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 ####### Inicio Endpoints #######
 
 
-@app.route('/ask_general', methods=['POST'])
-def ask_general_context():
-    contenido = request.json
-    pares_pregunta_respuesta = contenido['pares_pregunta_respuesta']
-    chatbot_id = contenido['chatbot_id']
 
-    # Cargar datos
-    datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
-
-    # Construir el historial de preguntas y respuestas
-    historial = ""
-    for par in pares_pregunta_respuesta:
-        historial += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
-
-    # Generar contexto utilizando OpenAI
-    contexto = generar_contexto_con_openai(historial)
-
-    respuesta_mejorada_final = ""
-
-    # Procesar la última pregunta si la respuesta del usuario está vacía
-    ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-    if not pares_pregunta_respuesta[-1]['respuesta']:
-        respuesta_original = encontrar_respuesta(ultima_pregunta, datos, contexto)
-        try:
-            respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                ultima_pregunta, respuesta_original, new_prompt=contexto, chatbot_id=chatbot_id
-            )
-            respuesta_mejorada_final = respuesta_mejorada if respuesta_mejorada else respuesta_original
-        except Exception as e:
-            print(f"Error al mejorar respuesta con OpenAI: {e}")
-            respuesta_mejorada_final = respuesta_original
-
-    # Devolver la respuesta mejorada de la última pregunta
-    return jsonify({'respuesta': respuesta_mejorada_final})
-
-
-@app.route('/ask_combined', methods=['POST'])
-def ask_combined():
+@app.route('/ask', methods=['POST'])
+def ask():
     logging.info("Solicitud recibida en /ask_combined")
 
     try:
