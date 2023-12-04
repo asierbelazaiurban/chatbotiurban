@@ -848,8 +848,15 @@ def delete_pre_established_answers():
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
+    if len(preguntas_a_eliminar) == len(preguntas_no_encontradas):
+        mensaje = 'No se ha encontrado ninguna pregunta para borrar'
+    elif preguntas_no_encontradas:
+        mensaje = 'Proceso no completado del todo'
+    else:
+        mensaje = 'Proceso de eliminación completado'
+
     return jsonify({
-        'mensaje': 'Proceso de eliminación completado',
+        'mensaje': mensaje,
         'preguntas_eliminadas': preguntas_eliminadas,
         'preguntas_no_encontradas': preguntas_no_encontradas
     })
