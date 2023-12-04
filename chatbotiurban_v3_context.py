@@ -833,15 +833,27 @@ def delete_pre_established_answers():
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
 
-    # Eliminar las preguntas proporcionadas
+    preguntas_eliminadas = []
+    preguntas_no_encontradas = []
+
+    # Intentar eliminar las preguntas proporcionadas
     for pregunta in preguntas_a_eliminar:
-        preguntas_respuestas.pop(pregunta, None)
+        if pregunta in preguntas_respuestas:
+            del preguntas_respuestas[pregunta]
+            preguntas_eliminadas.append(pregunta)
+        else:
+            preguntas_no_encontradas.append(pregunta)
 
     # Guardar los cambios en el archivo JSON
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
-    return jsonify({'mensaje': 'Preguntas eliminadas correctamente'})
+    return jsonify({
+        'mensaje': 'Proceso de eliminación completado',
+        'preguntas_eliminadas': preguntas_eliminadas,
+        'preguntas_no_encontradas': preguntas_no_encontradas
+    })
+
 
 
 @app.route('/change_params_prompt_temperature_and_model', methods=['POST'])
