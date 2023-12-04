@@ -420,6 +420,7 @@ def ask_combined():
                 else:
                     ultima_respuesta = generar_respuesta_con_openai(ultima_pregunta, contexto, chatbot_id)
                     fuente_respuesta = "generada"
+                    ultima_respuesta = mejorar_respuesta_generales_con_openai(ultima_pregunta, ultima_respuesta, chatbot_id=chatbot_id)
 
                 if ultima_respuesta:
                     logging.info("Respuesta generada con éxito")
