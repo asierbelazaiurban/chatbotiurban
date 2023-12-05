@@ -947,8 +947,8 @@ def change_params():
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
-@app.route('/event', methods=['POST'])
-def event():
+@app.route('/events', methods=['POST'])
+def events():
     data = request.json
     chatbot_id = data.get('chatbot_id')
     event = data.get('event')
