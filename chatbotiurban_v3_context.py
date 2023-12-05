@@ -45,7 +45,8 @@ from werkzeug.datastructures import FileStorage
 import date_management
 from process_docs import process_file
 
-
+from flask import current_app as app
+import unidecode
 
 
 nltk.download('punkt')
@@ -297,11 +298,10 @@ def generar_contexto_con_openai(historial):
         app.logger.info(f"Error al generar contexto con OpenAI: {e}")
         return ""
 
-import openai
-from flask import current_app as app
-import unidecode
 
 def buscar_en_openai_relacion_con_eventos(frase, openai_api_key):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
     # Texto fijo a concatenar
     texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... "
 
@@ -331,17 +331,6 @@ def buscar_en_openai_relacion_con_eventos(frase, openai_api_key):
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return None
-
-# Uso de la función (ejemplo)
-# Nota: Reemplaza 'tu_clave_api_aquí' con tu clave API real de OpenAI
-api_key = "tu_clave_api_aquí"
-frase = "¿Qué eventos hay este fin de semana en Madrid?"
-resultado = esta_relacionado_con_eventos(frase, api_key)
-
-if resultado is not None:
-    app.logger.info("Sí" if resultado else "No")
-else:
-    app.logger.error("Hubo un error al procesar la solicitud.")
 
 
 def extraer_palabras_clave(pregunta):
