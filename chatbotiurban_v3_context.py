@@ -499,62 +499,57 @@ def ask():
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
+            if len(pares_pregunta_respuesta) > 1:
+                contexto_generado = generar_contexto_con_openai(contexto)
+            else:
+                contexto_generado = contexto
+
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
                 if encontrada_en_json:
-                    # Mejorar la respuesta preestablecida con OpenAI
-                    contexto_adicional = generar_contexto_con_openai(contexto)
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
                         respuesta=respuesta_preestablecida,
-                        new_prompt="",  # Ajusta según sea necesario
-                        contexto_adicional=contexto_adicional,
-                        temperature="",  # Ajusta según sea necesario
-                        model_gpt="",  # Ajusta según sea necesario
+                        new_prompt="",
+                        contexto_adicional=contexto_generado,
+                        temperature=0.7,
+                        model_gpt="gpt-3.5-turbo",
                         chatbot_id=chatbot_id
                     )
                     fuente_respuesta = "preestablecida_mejorada"
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    # Llamar al servicio externo para obtener eventos
-                    contexto_adicional = generar_contexto_con_openai(contexto)
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id) # Esta función debe ser definida
+                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
-                        respuesta=ultima_respuesta,  # O una respuesta inicial si es necesario
-                        new_prompt="",  # Ajusta según sea necesario
-                        contexto_adicional=contexto_adicional,
-                        temperature="",  # Ajusta según sea necesario
-                        model_gpt="",  # Ajusta según sea necesario
+                        respuesta=ultima_respuesta,
+                        new_prompt="",
+                        contexto_adicional=contexto_generado,
+                        temperature=0.7,
+                        model_gpt="gpt-3.5-turbo",
                         chatbot_id=chatbot_id
                     )
                     fuente_respuesta = "eventos_mejorados"
                 else:
-                    # Cargar el dataset
                     base_dataset_dir = BASE_DATASET_DIR
                     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
 
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
 
-                    # Generar contexto con OpenAI
-                    contexto_generado = generar_contexto_con_openai(contexto)
-
-                    # Buscar en el dataset
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
 
                     if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
                     else:
-                        # Mejorar respuesta con OpenAI
                         ultima_respuesta = mejorar_respuesta_generales_con_openai(
                             pregunta=ultima_pregunta,
-                            respuesta=ultima_respuesta,  # O una respuesta inicial si es necesario
-                            new_prompt="",  # Ajusta según sea necesario
+                            respuesta=ultima_respuesta,
+                            new_prompt="",
                             contexto_adicional=contexto_generado,
-                            temperature="",  # Ajusta según sea necesario
-                            model_gpt="",  # Ajusta según sea necesario
+                            temperature=0.7,
+                            model_gpt="gpt-3.5-turbo",
                             chatbot_id=chatbot_id
                         )
                         fuente_respuesta = "dataset_mejorada"
