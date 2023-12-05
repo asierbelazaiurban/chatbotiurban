@@ -106,6 +106,30 @@ def safe_request(url, max_retries=3):
             logging.error(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
 
+def obtener_eventos(pregunta, chatbot_id):
+    url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        'pregunta': pregunta,
+        'chatbot_id': chatbot_id
+    }
+
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+        eventos_data = response.json()
+
+        # Aquí procesarías la respuesta para extraer los eventos
+        # Suponiendo que la respuesta contiene una lista de eventos en un campo 'eventos'
+        eventos = eventos_data.get('eventos', [])
+        eventos_concatenados = ' '.join(eventos)  # Concatena los eventos en una sola cadena
+
+        return eventos_concatenados
+
+    except requests.exceptions.RequestException as e:
+        # Manejo de errores de la solicitud
+        print(f"Error en la solicitud HTTP: {e}")
+        return None
 
 def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
@@ -163,7 +187,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     )
 
     # Construir el prompt base
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}"
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
 
     # Intentar generar la respuesta mejorada
     try:
@@ -232,7 +256,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}"
+    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -260,7 +284,7 @@ def generar_contexto_con_openai(historial):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Resumen del historial de conversación."},
+                {"role": "system", "content": "Resumen del historial de conversación. Siempre en el idioma del historial"},
                 {"role": "user", "content": historial}
             ]
         )
@@ -268,6 +292,52 @@ def generar_contexto_con_openai(historial):
     except Exception as e:
         app.logger.info(f"Error al generar contexto con OpenAI: {e}")
         return ""
+
+import openai
+from flask import current_app as app
+import unidecode
+
+def buscar_en_openai_relacion_con_eventos(frase, openai_api_key):
+    # Texto fijo a concatenar
+    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... "
+
+    # Concatenar el texto fijo con la frase
+    frase_combinada = texto_fijo + frase
+
+    # Establecer la clave de API de OpenAI
+    openai.api_key = openai_api_key
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Ajusta el modelo según lo necesario
+            messages=[
+                {"role": "system", "content": "A continuación una conversación en cualquier idioma pero con respuesta solo Sí o No en Español."},
+                {"role": "user", "content": frase_combinada}
+            ]
+        )
+
+        # Interpretar la respuesta y normalizarla
+        respuesta = response.choices[0].message['content'].strip().lower()
+        respuesta = unidecode.unidecode(respuesta).replace(".", "")
+
+        if respuesta == "si":
+            return True
+        elif respuesta == "no":
+            return False
+    except Exception as e:
+        app.logger.error(f"Error al procesar la solicitud: {e}")
+        return None
+
+# Uso de la función (ejemplo)
+# Nota: Reemplaza 'tu_clave_api_aquí' con tu clave API real de OpenAI
+api_key = "tu_clave_api_aquí"
+frase = "¿Qué eventos hay este fin de semana en Madrid?"
+resultado = esta_relacionado_con_eventos(frase, api_key)
+
+if resultado is not None:
+    app.logger.info("Sí" if resultado else "No")
+else:
+    app.logger.error("Hubo un error al procesar la solicitud.")
 
 
 def extraer_palabras_clave(pregunta):
@@ -416,11 +486,12 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    app.logger.info("Solicitud recibida en /ask")
+    app.logger.info("Solicitud recibida en /ask_eventos")
 
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id')
+        openai_api_key = data.get('openai_api_key')  # Asegúrate de recibir la clave API de OpenAI en la solicitud
         app.logger.info(f"Datos recibidos: {data}")
 
         if 'pares_pregunta_respuesta' in data:
@@ -435,6 +506,7 @@ def ask():
 
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+
                 if encontrada_en_json:
                     # Mejorar la respuesta preestablecida con OpenAI
                     contexto_adicional = generar_contexto_con_openai(contexto)
@@ -448,10 +520,25 @@ def ask():
                         chatbot_id=chatbot_id
                     )
                     fuente_respuesta = "preestablecida_mejorada"
+                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta, openai_api_key):
+                    # Llamar al servicio externo para obtener eventos
+                    contexto_adicional = generar_contexto_con_openai(contexto)
+                    ultima_respuesta = obtener_eventos(ultima_pregunta)  # Esta función debe ser definida
+                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
+                        pregunta=ultima_pregunta,
+                        respuesta=ultima_respuesta,  # O una respuesta inicial si es necesario
+                        new_prompt="",  # Ajusta según sea necesario
+                        contexto_adicional=contexto_generado,
+                        temperature="",  # Ajusta según sea necesario
+                        model_gpt="",  # Ajusta según sea necesario
+                        chatbot_id=chatbot_id
+                    )
+                    fuente_respuesta = "eventos_mejorados"
                 else:
                     # Cargar el dataset
                     base_dataset_dir = BASE_DATASET_DIR
                     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
 
@@ -460,6 +547,7 @@ def ask():
 
                     # Buscar en el dataset
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
+
                     if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
@@ -467,14 +555,14 @@ def ask():
                         # Mejorar respuesta con OpenAI
                         ultima_respuesta = mejorar_respuesta_generales_con_openai(
                             pregunta=ultima_pregunta,
-                            respuesta="",  # O una respuesta inicial si es necesario
+                            respuesta=ultima_respuesta,  # O una respuesta inicial si es necesario
                             new_prompt="",  # Ajusta según sea necesario
                             contexto_adicional=contexto_generado,
                             temperature="",  # Ajusta según sea necesario
                             model_gpt="",  # Ajusta según sea necesario
                             chatbot_id=chatbot_id
                         )
-                        fuente_respuesta = "mejorada"
+                        fuente_respuesta = "dataset_mejorada"
 
                 if ultima_respuesta:
                     app.logger.info("Respuesta generada con éxito")
@@ -490,10 +578,9 @@ def ask():
             return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
 
     except Exception as e:
-        app.logger.error(f"Error en /ask: {e}")
+        app.logger.error(f"Error en /ask_eventos: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 
 
