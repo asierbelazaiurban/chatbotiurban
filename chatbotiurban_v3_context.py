@@ -309,7 +309,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
     frase_combinada = texto_fijo + frase
 
     # Establecer la clave de API de OpenAI
-    openai.api_key = openai_api_key
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
         response = openai.ChatCompletion.create(
