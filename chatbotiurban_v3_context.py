@@ -154,19 +154,17 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         return None
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
-    # Verificar si se ha proporcionado new_prompt o contexto_adicional
-    if not new_prompt and not contexto_adicional:
-        raise Exception("Se requiere un new_prompt o contexto_adicional para continuar.")
-
     # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     app.logger.info("Entrando en OpenAI")
 
+    # Definir la ruta base para el conjunto de datos de prompts
+    BASE_DATASET_PROMPTS = "data/uploads/prompts/"  # Ruta base para buscar prompts
+
     # Carga del conjunto de datos si chatbot_id está presente y new_prompt no se ha proporcionado
     if chatbot_id and not new_prompt:
         try:
-            BASE_DATASET_PROMPTS = "ruta/al/directorio/de/datasets"  # Asegúrate de definir esta ruta correctamente
             dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
             with open(dataset_file_path, 'r') as file:
                 dataset_content = json.load(file)
@@ -190,6 +188,16 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}"
     app.logger.info(prompt_base)
 
+    # Verificar si se ha proporcionado new_prompt o contexto_adicional justo antes de generar la respuesta mejorada
+    if not new_prompt and not contexto_adicional:
+        missing_params = []
+        if not new_prompt:
+            missing_params.append("new_prompt")
+        if not contexto_adicional:
+            missing_params.append("contexto_adicional")
+        app.logger.error(f"Falta(n) el/los siguiente(s) parámetro(s) para continuar: {', '.join(missing_params)}. new_prompt: '{new_prompt}', contexto_adicional: '{contexto_adicional}'")
+        return None
+
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
@@ -201,12 +209,11 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
             temperature=float(temperature) if temperature else 0.5
         )
         improved_response = response.choices[0].message['content'].strip()
-        logging.info("Respuesta generada con éxito.")
+        app.logger.info("Respuesta generada con éxito.")
         return improved_response
     except Exception as e:
-        logging.error(f"Error al interactuar con OpenAI: {e}")
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
-
 
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
