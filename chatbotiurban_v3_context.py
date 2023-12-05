@@ -159,21 +159,41 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     app.logger.info("Entrando en OpenAI")
 
-    # Definir la ruta base para el conjunto de datos de prompts
-    BASE_DATASET_PROMPTS = "data/uploads/prompts/"  # Ruta base para buscar prompts
+    # Definir las rutas base para los prompts
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
 
-    # Carga del conjunto de datos si chatbot_id está presente y new_prompt no se ha proporcionado
-    if chatbot_id and not new_prompt:
+    # Inicializar la variable para almacenar el new_prompt obtenido por chatbot_id
+    new_prompt_by_id = None
+
+    # Intentar cargar el new_prompt desde los prompts, según chatbot_id
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
-            dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
-            with open(dataset_file_path, 'r') as file:
-                dataset_content = json.load(file)
-            new_prompt = dataset_content
-            app.logger.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
+            with open(prompt_file_path, 'r') as file:
+                new_prompt_by_id = file.read()
+            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
         except Exception as e:
-            app.logger.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
+            app.logger.info(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
-    # Usar un prompt predeterminado si no se ha proporcionado ninguno
+    # Utilizar new_prompt_by_id si no viene vacío, de lo contrario usar new_prompt proporcionado
+    if new_prompt_by_id:
+        new_prompt = new_prompt_by_id
+    elif new_prompt:
+        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        try:
+            with open(prompt_file_path_direct, 'r') as file:
+                new_prompt_direct = file.read()
+            new_prompt = new_prompt_direct
+            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
+        except Exception as e:
+            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
+
+    # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
+    if not contexto_adicional:
+        app.logger.error("Falta contexto adicional para continuar.")
+        return "Se requiere contexto adicional para procesar esta solicitud."
+
+    # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
         new_prompt = ("Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
                       "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
@@ -187,16 +207,6 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     # Construir el prompt base
     prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}"
     app.logger.info(prompt_base)
-
-    # Verificar si se ha proporcionado new_prompt o contexto_adicional justo antes de generar la respuesta mejorada
-    if not new_prompt and not contexto_adicional:
-        missing_params = []
-        if not new_prompt:
-            missing_params.append("new_prompt")
-        if not contexto_adicional:
-            missing_params.append("contexto_adicional")
-        app.logger.error(f"Falta(n) el/los siguiente(s) parámetro(s) para continuar: {', '.join(missing_params)}. new_prompt: '{new_prompt}', contexto_adicional: '{contexto_adicional}'")
-        return None
 
     # Generar la respuesta mejorada
     try:
@@ -214,6 +224,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
