@@ -1,46 +1,50 @@
 ##!/usr/bin/env python
 # coding: utf-8
 
-import chardet
-import numpy as np
-from flask import Flask, request, jsonify
-import logging
-from logging.handlers import RotatingFileHandler
-from logging import FileHandler
-import os
-import openai
-import requests
-from bs4 import BeautifulSoup
+# Librerías estándar de Python
 import json
-import time
-from urllib.parse import urlparse, urljoin
+import logging
+import os
 import random
-from time import sleep
+import re
+import subprocess
+import time
 import traceback
+from logging import FileHandler
+from logging.handlers import RotatingFileHandler
+from time import sleep
+from urllib.parse import urlparse, urljoin
+
+# Librerías de terceros
+import chardet
+import evaluate
 import gensim.downloader as api
-from gensim.models import Word2Vec
 import nltk
-from nltk.tokenize import word_tokenize
+import numpy as np
+import openai
+import pandas as pd
+import requests
+import torch
+from bs4 import BeautifulSoup
+from datasets import Dataset, load_dataset
+from flask import Flask, request, jsonify
+from gensim.models import Word2Vec
 from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from peft import PeftConfig, PeftModel, TaskType, LoraConfig
+from sentence_transformers import SentenceTransformer, util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, GenerationConfig
-from datasets import load_dataset
-from peft import PeftModel, PeftConfig, LoraConfig, TaskType
-from trl import PPOTrainer, PPOConfig, AutoModelForSeq2SeqLMWithValueHead
-from trl import create_reference_model
-from trl.core import LengthSampler
-import torch
-import evaluate
-import pandas as pd
 from tqdm import tqdm
-from datasets import Dataset
-import subprocess
-import difflib
-import re 
-from werkzeug.datastructures import FileStorage 
+from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
+from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
+from trl.core import LengthSampler
+from werkzeug.datastructures import FileStorage
+
+# Módulos locales
+import date_management
 from process_docs import process_file
-from sentence_transformers import SentenceTransformer, util
+
 
 
 
@@ -1054,7 +1058,6 @@ def change_params():
         chatbot_id=chatbot_id
     )
 
-
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
@@ -1082,13 +1085,11 @@ def events():
         return jsonify({"error": "Error al mejorar la respuesta"}), 500
 
 
-
 @app.route('/list_chatbot_ids', methods=['GET'])
 def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
-
 
 
 @app.route('/run_tests', methods=['POST'])
