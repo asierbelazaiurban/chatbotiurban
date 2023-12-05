@@ -961,7 +961,7 @@ def change_params():
         pregunta=pregunta,
         respuesta=respuesta,
         new_prompt=saved_prompt,
-        contexto_adicional=contexto_adicional,
+        contexto_adicional="",
         temperature=temperature,
         model_gpt=model_gpt,
         chatbot_id=chatbot_id
