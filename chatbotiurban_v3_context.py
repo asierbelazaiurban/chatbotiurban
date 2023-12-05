@@ -425,8 +425,6 @@ def ask():
                 )
                 fuente_respuesta = "mejorada"
 
-                    fuente_respuesta = "mejorada"
-
                 if ultima_respuesta:
                     app.logger.info("Respuesta generada con éxito")
                     return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
