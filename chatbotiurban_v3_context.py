@@ -766,8 +766,6 @@ def delete_urls():
 
 
 
-
-
 @app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
     data = request.json
@@ -855,7 +853,6 @@ def delete_pre_established_answers():
     })
 
 
-
 @app.route('/change_params_prompt_temperature_and_model', methods=['POST'])
 def change_params():
     data = request.json
@@ -899,6 +896,13 @@ def list_folders():
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
 
+
+
+@app.route('/run_tests', methods=['POST'])
+def run_tests():
+    import subprocess
+    result = subprocess.run(['python', 'run_tests.py'], capture_output=True, text=True)
+    return result.stdout
  ######## Fin Endpoints ######## 
 
 if __name__ == "__main__":
