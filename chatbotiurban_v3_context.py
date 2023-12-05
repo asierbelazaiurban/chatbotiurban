@@ -518,7 +518,7 @@ def ask():
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     # Llamar al servicio externo para obtener eventos
                     contexto_adicional = generar_contexto_con_openai(contexto)
-                    ultima_respuesta = obtener_eventos(ultima_pregunta)  # Esta función debe ser definida
+                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id) # Esta función debe ser definida
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
                         respuesta=ultima_respuesta,  # O una respuesta inicial si es necesario
