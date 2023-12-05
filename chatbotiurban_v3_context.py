@@ -482,12 +482,11 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    app.logger.info("Solicitud recibida en /ask_eventos")
+    app.logger.info("Solicitud recibida en ask")
 
     try:
         data = request.get_json()
-        chatbot_id = data.get('chatbot_id')
-        openai_api_key = data.get('openai_api_key')  # Asegúrate de recibir la clave API de OpenAI en la solicitud
+        chatbot_id = data.get('chatbot_id')  # Asegúrate de recibir la clave API de OpenAI en la solicitud
         app.logger.info(f"Datos recibidos: {data}")
 
         if 'pares_pregunta_respuesta' in data:
@@ -574,7 +573,7 @@ def ask():
             return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
 
     except Exception as e:
-        app.logger.error(f"Error en /ask_eventos: {e}")
+        app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
