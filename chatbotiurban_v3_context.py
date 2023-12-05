@@ -289,7 +289,7 @@ def generar_contexto_con_openai(historial):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Resumen del historial de conversación. Siempre en el idioma del historial"},
+                {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
             ]
         )
