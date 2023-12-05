@@ -951,7 +951,7 @@ def change_params():
 def events():
     data = request.json
     chatbot_id = data.get('chatbot_id')
-    event = data.get('event')
+    event = data.get('events')
     pregunta = data.get('pregunta')
 
     if not (chatbot_id and event):
