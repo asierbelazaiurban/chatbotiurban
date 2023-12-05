@@ -436,21 +436,45 @@ def ask():
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                 if encontrada_en_json:
+                    # Mejorar la respuesta preestablecida con OpenAI
                     contexto_adicional = generar_contexto_con_openai(contexto)
-                    ultima_respuesta = respuesta_preestablecida + " " + contexto_adicional
-                    fuente_respuesta = "preestablecida"
-                else:
-                    contexto_generado = generar_contexto_con_openai(contexto)
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
-                        respuesta="",  # O una respuesta inicial si es necesario
+                        respuesta=respuesta_preestablecida,
                         new_prompt="",  # Ajusta según sea necesario
-                        contexto_adicional=contexto_generado,
+                        contexto_adicional=contexto_adicional,
                         temperature="",  # Ajusta según sea necesario
                         model_gpt="",  # Ajusta según sea necesario
                         chatbot_id=chatbot_id
-                )
-                fuente_respuesta = "mejorada"
+                    )
+                    fuente_respuesta = "preestablecida_mejorada"
+                else:
+                    # Cargar el dataset
+                    base_dataset_dir = BASE_DATASET_DIR
+                    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+                    with open(dataset_file_path, 'r') as file:
+                        datos_del_dataset = json.load(file)
+
+                    # Generar contexto con OpenAI
+                    contexto_generado = generar_contexto_con_openai(contexto)
+
+                    # Buscar en el dataset
+                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
+                    if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
+                        ultima_respuesta = respuesta_del_dataset
+                        fuente_respuesta = "dataset"
+                    else:
+                        # Mejorar respuesta con OpenAI
+                        ultima_respuesta = mejorar_respuesta_generales_con_openai(
+                            pregunta=ultima_pregunta,
+                            respuesta="",  # O una respuesta inicial si es necesario
+                            new_prompt="",  # Ajusta según sea necesario
+                            contexto_adicional=contexto_generado,
+                            temperature="",  # Ajusta según sea necesario
+                            model_gpt="",  # Ajusta según sea necesario
+                            chatbot_id=chatbot_id
+                        )
+                        fuente_respuesta = "mejorada"
 
                 if ultima_respuesta:
                     app.logger.info("Respuesta generada con éxito")
@@ -951,21 +975,24 @@ def change_params():
 def events():
     data = request.json
     chatbot_id = data.get('chatbot_id')
-    event = data.get('events')
+    eventos = data.get('events')  # 'events' es un array
     pregunta = data.get('pregunta')
 
-    if not (chatbot_id and event):
-        app.logger.warning("Faltan datos en la solicitud (chatbot_id, event).")
-        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, event)."}), 400
+    if not (chatbot_id and eventos):
+        app.logger.warning("Faltan datos en la solicitud (chatbot_id, events).")
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, events)."}), 400
 
-    respuesta_mejorada = mejorar_respuesta_con_openai(event, pregunta, chatbot_id)
+    # Concatenar los eventos en una sola cadena
+    eventos_concatenados = " ".join(eventos)
 
+    # Llamar a mejorar_respuesta_con_openai con los eventos concatenados
+    respuesta_mejorada = mejorar_respuesta_con_openai(eventos_concatenados, pregunta, chatbot_id)
     if respuesta_mejorada:
-        app.logger.info(f"Respuesta mejorada para '{event[:50]}...' generada con éxito.")
+        app.logger.info("Respuesta mejorada generada con éxito.")
         return jsonify({'mensaje': 'Respuesta mejorada', 'respuesta_mejorada': respuesta_mejorada})
     else:
-        app.logger.error("Error al mejorar la respuesta para el evento.")
-        return jsonify({"error": "Error al mejorar el evento"}), 500
+        app.logger.error("Error al mejorar la respuesta para el evento concatenado.")
+        return jsonify({"error": "Error al mejorar la respuesta"}), 500
 
 
 
