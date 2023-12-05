@@ -943,22 +943,21 @@ def change_params():
         chatbot_id=chatbot_id
     )
 
-
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
-@app.route('/lead', methods=['POST'])
-def lead():
+@app.route('/events', methods=['POST'])
+def events():
     data = request.json
     chatbot_id = data.get('chatbot_id')
-    lead = data.get('lead')
+    lead = data.get('events')
     pregunta = data.get('pregunta')
 
     if not (chatbot_id and lead):
-        app.logger.warning("Faltan datos en la solicitud (chatbot_id, lead).")
-        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, lead)."}), 400
+        app.logger.warning("Faltan datos en la solicitud (chatbot_id, events).")
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, events)."}), 400
 
-    respuesta_mejorada = mejorar_respuesta_con_openai(lead, pregunta, chatbot_id)
+    respuesta_mejorada = mejorar_respuesta_con_openai(events, pregunta, chatbot_id)
 
     if respuesta_mejorada:
         json_file_path = f'data/uploads/mejoras_respuestas/{chatbot_id}/mejoras_respuestas.json'
