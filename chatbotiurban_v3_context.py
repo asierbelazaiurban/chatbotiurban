@@ -133,25 +133,52 @@ def clean_and_transform_data(data):
     return cleaned_data
 
 
-def mejorar_respuesta_con_openai(respuesta_original, pregunta):
+def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-    ("Mejorando respuesta con OpenAI")
 
-    # Construyendo el prompt para un modelo de chat
-    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 40 palabras"
+    # Definir las rutas base para los prompts
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
 
+    # Intentar cargar el prompt específico desde los prompts, según chatbot_id
+    new_prompt_by_id = None
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+        try:
+            with open(prompt_file_path, 'r') as file:
+                new_prompt_by_id = file.read()
+            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+        except Exception as e:
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+
+    # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
+    new_prompt = new_prompt_by_id if new_prompt_by_id else (
+        "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
+        "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
+        "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
+        "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
+        "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
+        "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
+        "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
+        "proporciona el contacto: info@iurban.es."
+    )
+
+    # Construir el prompt base
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}"
+
+    # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Mejora las respuestas"},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": respuesta_original}
             ]
         )
         return response.choices[0].message['content'].strip()
     except Exception as e:
-        app.logger.info("Mejorando respuesta con OpenAI")(f"Error al interactuar con OpenAI: {e}")
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     # Configurar la clave API de OpenAI
@@ -920,6 +947,38 @@ def change_params():
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
+@app.route('/lead', methods=['POST'])
+def lead():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    lead = data.get('lead')
+    pregunta = data.get('pregunta')
+
+    if not (chatbot_id and lead):
+        app.logger.warning("Faltan datos en la solicitud (chatbot_id, lead).")
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, lead)."}), 400
+
+    respuesta_mejorada = mejorar_respuesta_con_openai(lead, pregunta, chatbot_id)
+
+    if respuesta_mejorada:
+        json_file_path = f'data/uploads/mejoras_respuestas/{chatbot_id}/mejoras_respuestas.json'
+        os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
+
+        if os.path.isfile(json_file_path):
+            with open(json_file_path, 'r', encoding='utf-8') as json_file:
+                leads_mejorados = json.load(json_file)
+        else:
+            leads_mejorados = {}
+
+        leads_mejorados[lead] = respuesta_mejorada
+
+        with open(json_file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(leads_mejorados, json_file, ensure_ascii=False, indent=4)
+
+        app.logger.info(f"Lead mejorado para '{lead[:50]}...' guardado con éxito.")
+        return jsonify({'mensaje': 'Lead mejorado guardado correctamente'})
+    else:
+        return jsonify({"error": "Error al mejorar el lead"}), 500
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
