@@ -299,11 +299,11 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def buscar_en_openai_relacion_con_eventos(frase, openai_api_key):
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
+def buscar_en_openai_relacion_con_eventos(frase):
+    app.logger.info("Hemos detectado un evento")
 
     # Texto fijo a concatenar
-    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... "
+    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. "
 
     # Concatenar el texto fijo con la frase
     frase_combinada = texto_fijo + frase
@@ -323,6 +323,9 @@ def buscar_en_openai_relacion_con_eventos(frase, openai_api_key):
         # Interpretar la respuesta y normalizarla
         respuesta = response.choices[0].message['content'].strip().lower()
         respuesta = unidecode.unidecode(respuesta).replace(".", "")
+
+        app.logger.info("Respuesta es ")
+        app.logger.info(respuesta)
 
         if respuesta == "si":
             return True
@@ -513,7 +516,7 @@ def ask():
                         chatbot_id=chatbot_id
                     )
                     fuente_respuesta = "preestablecida_mejorada"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta, openai_api_key):
+                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     # Llamar al servicio externo para obtener eventos
                     contexto_adicional = generar_contexto_con_openai(contexto)
                     ultima_respuesta = obtener_eventos(ultima_pregunta)  # Esta función debe ser definida
