@@ -523,7 +523,7 @@ def ask():
                         pregunta=ultima_pregunta,
                         respuesta=ultima_respuesta,  # O una respuesta inicial si es necesario
                         new_prompt="",  # Ajusta según sea necesario
-                        contexto_adicional=contexto_generado,
+                        contexto_adicional=contexto_adicional,
                         temperature="",  # Ajusta según sea necesario
                         model_gpt="",  # Ajusta según sea necesario
                         chatbot_id=chatbot_id
