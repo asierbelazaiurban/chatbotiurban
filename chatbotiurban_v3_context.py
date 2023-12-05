@@ -375,7 +375,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}")
+        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
         return respuesta_mejor_coincidencia, True
     else:
         app.logger.info("No se encontró una coincidencia adecuada")
@@ -414,7 +414,7 @@ def ask():
                     fuente_respuesta = "preestablecida"
                 else:
                     contexto_generado = generar_contexto_con_openai(contexto)
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(ultima_pregunta, contexto_generado, chatbot_id=chatbot_id)
+                    ultima_respuesta = mejorar_respuesta_generales_con_openai(ultima_pregunta, respuesta = "", new_prompt="", contexto_generado, temperature="", model_gpt="",chatbot_id=chatbot_id)
                     fuente_respuesta = "mejorada"
 
                 if ultima_respuesta:
