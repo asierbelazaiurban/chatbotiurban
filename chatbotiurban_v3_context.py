@@ -42,7 +42,7 @@ from trl.core import LengthSampler
 from werkzeug.datastructures import FileStorage
 
 # Módulos locales
-import date_management
+from date_management import *
 from process_docs import process_file
 
 from flask import current_app as app
