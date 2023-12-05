@@ -409,12 +409,12 @@ def ask():
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                 if encontrada_en_json:
-                    ultima_respuesta = respuesta_preestablecida
-                    contexto += f"Pregunta: {ultima_pregunta} Respuesta: {ultima_respuesta} "
+                    contexto_adicional = generar_contexto_con_openai(contexto)
+                    ultima_respuesta = respuesta_preestablecida + " " + contexto_adicional
                     fuente_respuesta = "preestablecida"
                 else:
-                    # Mejorar la respuesta con OpenAI
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(ultima_pregunta, ultima_respuesta, chatbot_id=chatbot_id)
+                    contexto_generado = generar_contexto_con_openai(contexto)
+                    ultima_respuesta = mejorar_respuesta_generales_con_openai(ultima_pregunta, contexto_generado, chatbot_id=chatbot_id)
                     fuente_respuesta = "mejorada"
 
                 if ultima_respuesta:
@@ -432,8 +432,9 @@ def ask():
 
     except Exception as e:
         app.logger.error(f"Error en /ask: {e}")
-        traceback.print_exc()  # Opcional, para imprimir la traza de la excepción en el log
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 
