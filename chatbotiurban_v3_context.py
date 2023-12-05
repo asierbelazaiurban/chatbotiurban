@@ -414,7 +414,17 @@ def ask():
                     fuente_respuesta = "preestablecida"
                 else:
                     contexto_generado = generar_contexto_con_openai(contexto)
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(pregunta = ultima_pregunta, contexto_adicional = contexto_generado, chatbot_id=chatbot_id)
+                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
+                        pregunta=ultima_pregunta,
+                        respuesta="",  # O una respuesta inicial si es necesario
+                        new_prompt="",  # Ajusta según sea necesario
+                        contexto_adicional=contexto_generado,
+                        temperature="",  # Ajusta según sea necesario
+                        model_gpt="",  # Ajusta según sea necesario
+                        chatbot_id=chatbot_id
+                )
+                fuente_respuesta = "mejorada"
+
                     fuente_respuesta = "mejorada"
 
                 if ultima_respuesta:
@@ -898,7 +908,16 @@ def change_params():
         app.logger.info("El nuevo prompt es igual al prompt base. No se realizó ninguna acción.")
         return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
 
-    mejorar_respuesta_generales_con_openai(saved_prompt, temperature, model_gpt)
+    mejorar_respuesta_generales_con_openai(
+        pregunta=pregunta,
+        respuesta=respuesta,
+        new_prompt=saved_prompt,
+        contexto_adicional=contexto_adicional,
+        temperature=temperature,
+        model_gpt=model_gpt,
+        chatbot_id=chatbot_id
+    )
+
 
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
