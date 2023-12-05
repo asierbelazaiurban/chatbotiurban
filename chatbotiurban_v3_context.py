@@ -111,30 +111,6 @@ def safe_request(url, max_retries=3):
             logging.error(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
 
-def obtener_eventos(pregunta, chatbot_id):
-    url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
-    headers = {'Content-Type': 'application/json'}
-    payload = {
-        'pregunta': pregunta,
-        'chatbot_id': chatbot_id
-    }
-
-    try:
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status()
-        eventos_data = response.json()
-
-        # Aquí procesarías la respuesta para extraer los eventos
-        # Suponiendo que la respuesta contiene una lista de eventos en un campo 'eventos'
-        eventos = eventos_data.get('eventos', [])
-        eventos_concatenados = ' '.join(eventos)  # Concatena los eventos en una sola cadena
-
-        return eventos_concatenados
-
-    except requests.exceptions.RequestException as e:
-        # Manejo de errores de la solicitud
-        print(f"Error en la solicitud HTTP: {e}")
-        return None
 
 def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
@@ -303,7 +279,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
     app.logger.info("Hemos detectado un evento")
 
     # Texto fijo a concatenar
-    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. "
+    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. la frase es: "
 
     # Concatenar el texto fijo con la frase
     frase_combinada = texto_fijo + frase
@@ -315,7 +291,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",  # Ajusta el modelo según lo necesario
             messages=[
-                {"role": "system", "content": "A continuación una conversación en cualquier idioma pero con respuesta solo Sí o No en Español."},
+                {"role": "system", "content": ""},
                 {"role": "user", "content": frase_combinada}
             ]
         )
