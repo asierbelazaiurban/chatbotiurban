@@ -222,8 +222,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
     if not contexto_adicional:
-        app.logger.error("Falta contexto adicional para continuar.")
-        return "Se requiere contexto adicional para procesar esta solicitud."
+        contexto_adicional = "";
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
