@@ -95,18 +95,17 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
         return None
 
-
 def safe_request(url, max_retries=3):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
     for attempt in range(max_retries):
         try:
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response
         except RequestException as e:
-            print(f"Attempt {attempt + 1} failed for {url}: {e}")
+            logging.error(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
+
 
 def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
@@ -124,15 +123,19 @@ def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
             max_coincidencias = len(coincidencias)
             respuesta_mas_adeacuada = datos['respuesta']
 
+    app.logger.info(f"Respuesta más adecuada encontrada: {respuesta_mas_adeacuada}")
     return respuesta_mas_adeacuada
 
+
 def clean_and_transform_data(data):
-    # Aquí puedes implementar tu lógica de limpieza y transformación
     cleaned_data = data.strip().replace("\r", "").replace("\n", " ")
+    app.logger.info("Datos limpiados y transformados")
     return cleaned_data
+
 
 def mejorar_respuesta_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
+    ("Mejorando respuesta con OpenAI")
 
     # Construyendo el prompt para un modelo de chat
     prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 40 palabras"
@@ -147,25 +150,30 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta):
         )
         return response.choices[0].message['content'].strip()
     except Exception as e:
-        print(f"Error al interactuar con OpenAI: {e}")
+        app.logger.info("Mejorando respuesta con OpenAI")(f"Error al interactuar con OpenAI: {e}")
         return None
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
+    # Verificar si se ha proporcionado new_prompt o contexto_adicional
+    if not new_prompt and not contexto_adicional:
+        raise Exception("Se requiere un new_prompt o contexto_adicional para continuar.")
+
     # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    logging.info("Entrando en OpenAI")
+    app.logger.info("Entrando en OpenAI")
 
     # Carga del conjunto de datos si chatbot_id está presente y new_prompt no se ha proporcionado
     if chatbot_id and not new_prompt:
         try:
+            BASE_DATASET_PROMPTS = "ruta/al/directorio/de/datasets"  # Asegúrate de definir esta ruta correctamente
             dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
             with open(dataset_file_path, 'r') as file:
                 dataset_content = json.load(file)
             new_prompt = dataset_content
-            logging.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
+            app.logger.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
         except Exception as e:
-            logging.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
+            app.logger.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
 
     # Usar un prompt predeterminado si no se ha proporcionado ninguno
     if not new_prompt:
@@ -179,8 +187,8 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"{new_prompt} {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n"
-    logging.info(prompt_base)
+    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}"
+    app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
     try:
@@ -196,8 +204,9 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         logging.info("Respuesta generada con éxito.")
         return improved_response
     except Exception as e:
-        logging.info(f"Error al interactuar con OpenAI: {e}")
+        logging.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
@@ -212,7 +221,7 @@ def generar_contexto_con_openai(historial):
         )
         return response.choices[0].message['content'].strip()
     except Exception as e:
-        print(f"Error al generar contexto con OpenAI: {e}")
+        app.logger.info(f"Error al generar contexto con OpenAI: {e}")
         return ""
 
 
@@ -319,11 +328,13 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
 
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
-    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
+    app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
+    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
     if not os.path.exists(json_file_path):
+        app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
         return None, False
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
@@ -346,8 +357,10 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}")
         return respuesta_mejor_coincidencia, True
     else:
+        app.logger.info("No se encontró una coincidencia adecuada")
         return None, False
 
 ####### FIN Utils busqueda en Json #######
@@ -356,15 +369,14 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 ####### Inicio Endpoints #######
 
 
-
 @app.route('/ask', methods=['POST'])
 def ask():
-    logging.info("Solicitud recibida en /ask_combined")
+    app.logger.info("Solicitud recibida en /ask")
 
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id')
-        logging.info(f"Datos recibidos: {data}")
+        app.logger.info(f"Datos recibidos: {data}")
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -388,22 +400,22 @@ def ask():
                     fuente_respuesta = "mejorada"
 
                 if ultima_respuesta:
-                    logging.info("Respuesta generada con éxito")
+                    app.logger.info("Respuesta generada con éxito")
                     return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
                 else:
-                    logging.info("No se encontró una respuesta adecuada")
+                    app.logger.info("No se encontró una respuesta adecuada")
                     return jsonify({'respuesta': 'No se encontró una respuesta adecuada.', 'fuente': 'ninguna'})
             else:
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
-            logging.info("Formato de solicitud incorrecto")
+            app.logger.warning("Formato de solicitud incorrecto")
             return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
 
     except Exception as e:
-        logging.info(f"Error en /ask_combined: {e}")
+        app.logger.error(f"Error en /ask: {e}")
+        traceback.print_exc()  # Opcional, para imprimir la traza de la excepción en el log
         return jsonify({'error': str(e)}), 500
-
 
 
 
@@ -413,29 +425,29 @@ def upload_file():
         logging.info("Procesando solicitud de carga de archivo")
 
         if 'documento' not in request.files:
-            logging.warning("Archivo 'documento' no encontrado en la solicitud")
+            app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
-        logging.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
+        app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
-            logging.warning("Nombre de archivo vacío")
+            app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         docs_folder = os.path.join(BASE_DIR_DOCS, str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
-        logging.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
+        app.logger.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
 
         file_extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
         file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
-        logging.info(f"Archivo guardado en: {file_path}")
+        app.logger.info(f"Archivo guardado en: {file_path}")
 
         readable_content = process_file(file_path, file_extension)
         if readable_content is None:
-            logging.error("No se pudo procesar el archivo")
+            app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
         # Contar palabras en el contenido
@@ -448,7 +460,7 @@ def upload_file():
         if os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
-                logging.info("Archivo JSON del dataset existente cargado")
+                app.logger.info("Archivo JSON del dataset existente cargado")
 
         indice = uploaded_file.filename
         dataset_entries[indice] = {
@@ -459,7 +471,7 @@ def upload_file():
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-            logging.info("Archivo JSON del dataset actualizado y guardado")
+            app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
@@ -476,7 +488,7 @@ def upload_file():
 @app.route('/save_text', methods=['POST'])
 def save_text():
     try:
-        logging.info("Procesando solicitud para guardar texto")
+        app.logger.info("Procesando solicitud para guardar texto")
 
         # Obtener el JSON de la solicitud
         data = request.get_json()
@@ -534,7 +546,7 @@ def save_text():
         })
 
     except Exception as e:
-        logging.error(f"Error durante el procesamiento. Error: {e}")
+        app.logger.error(f"Error durante el procesamiento. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
@@ -618,14 +630,16 @@ def save_urls():
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
 
-@app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
+        app.logger.info("Procesando solicitud de scraping de URL")
+
         data = request.get_json()
         base_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
 
         if not base_url:
+            app.logger.warning("No se proporcionó URL")
             return jsonify({'error': 'No URL provided'}), 400
 
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -648,6 +662,7 @@ def url_for_scraping():
                 if same_domain(url):
                     urls.add(url)
         else:
+            app.logger.error("Error al obtener respuesta del URL base")
             return jsonify({'error': 'Failed to fetch base URL'}), 500
 
         urls_data = []
@@ -665,42 +680,38 @@ def url_for_scraping():
             for url_data in urls_data:
                 text_file.write(url_data['url'] + '\n')
 
+        app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
     except Exception as e:
+        app.logger.error(f"Error inesperado en url_for_scraping: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
 
 @app.route('/url_for_scraping_by_sitemap', methods=['POST'])
 def url_for_scraping_by_sitemap():
     try:
+        app.logger.info("Procesando solicitud de scraping por sitemap")
+
         data = request.get_json()
         sitemap_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
 
-        logging.info(f"Recibida solicitud para chatbot_id: {chatbot_id}, URL del sitemap: {sitemap_url}")
-
         if not sitemap_url:
-            logging.error("No se proporcionó URL del sitemap")
+            app.logger.warning("No se proporcionó URL del sitemap")
             return jsonify({'error': 'No se proporcionó URL del sitemap'}), 400
 
-        # Crear el directorio para guardar los datos
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
         os.makedirs(save_dir, exist_ok=True)
         file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
 
-        logging.info(f"Directorio creado: {save_dir}")
-
-        # Función para solicitar el sitemap
         def request_sitemap(url):
             try:
                 response = requests.get(url)
                 response.raise_for_status()
                 return response.text
             except requests.RequestException as e:
-                logging.error(f"Error al descargar el sitemap: {e}")
+                app.logger.error(f"Error al descargar el sitemap: {e}")
                 return None
 
-        # Obtener y procesar el sitemap
         sitemap_content = request_sitemap(sitemap_url)
         if not sitemap_content:
             return jsonify({'error': 'Error al descargar el sitemap'}), 500
@@ -708,18 +719,14 @@ def url_for_scraping_by_sitemap():
         soup = BeautifulSoup(sitemap_content, 'xml')
         urls = [loc.text for loc in soup.find_all('loc')]
 
-        logging.info(f"URLs encontradas en el sitemap: {len(urls)}")
-
-        # Guardar las URLs en un archivo
         with open(file_path, 'w') as file:
             for url in urls:
                 file.write(url + '\n')
 
-        logging.info(f"URLs guardadas en {file_path}")
-
+        app.logger.info(f"Sitemap procesado correctamente para {sitemap_url}")
         return jsonify({'message': 'Sitemap procesado correctamente', 'urls_count': len(urls)})
     except Exception as e:
-        logging.error(f"Error inesperado: {e}")
+        app.logger.error(f"Error inesperado en url_for_scraping_by_sitemap: {e}")
         return jsonify({'error': f'Error inesperado: {str(e)}'}), 500
 
 
@@ -731,21 +738,24 @@ def delete_urls():
     chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
 
     if not urls_to_delete or not chatbot_id:
+        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
 
-    print("Ruta del directorio del chatbot:", chatbot_folder)
+    app.logger.info(f"Ruta del directorio del chatbot: {chatbot_folder}")
 
     if not os.path.exists(chatbot_folder):
+        app.logger.error("Carpeta del chatbot no encontrada")
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
     file_name = f"{chatbot_id}.txt"
     file_path = os.path.join(chatbot_folder, file_name)
 
-    print("Ruta del archivo de URLs:", file_path)
+    app.logger.info(f"Ruta del archivo de URLs: {file_path}")
 
     if not os.path.exists(file_path):
+        app.logger.error(f"Archivo {file_name} no encontrado en la carpeta del chatbot")
         return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
 
     try:
@@ -760,8 +770,10 @@ def delete_urls():
                 if url.strip():  # Asegura que la URL no sea una línea vacía
                     file.write(url + '\n')
 
+        app.logger.info("URLs eliminadas con éxito")
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
+        app.logger.error(f"Error al eliminar URLs: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -774,37 +786,30 @@ def pre_established_answers():
     respuesta = data.get('respuesta')
 
     if not (chatbot_id and pregunta and respuesta):
+        app.logger.warning("Faltan datos en la solicitud (chatbot_id, pregunta, respuesta).")
         return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, pregunta, respuesta)."}), 400
 
-    # Extraer palabras clave de la pregunta
     palabras_clave = extraer_palabras_clave(pregunta)
-
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-
-    # Verificar si el directorio existe, si no, crearlo
     os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
 
-    # Intentar leer el archivo JSON existente o crear un nuevo diccionario si no existe
     if os.path.isfile(json_file_path):
         with open(json_file_path, 'r', encoding='utf-8') as json_file:
             preguntas_respuestas = json.load(json_file)
     else:
         preguntas_respuestas = {}
 
-    # Actualizar o añadir la nueva pregunta y respuesta
     preguntas_respuestas[pregunta] = {
         "Pregunta": [pregunta],
         "palabras_clave": palabras_clave,
         "respuesta": respuesta
     }
 
-    # Guardar los cambios en el archivo JSON
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
-    # Devolver la respuesta
+    app.logger.info(f"Respuesta para la pregunta '{pregunta}' guardada con éxito.")
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
-
 
 @app.route('/delete_pre_established_answers', methods=['POST'])
 def delete_pre_established_answers():
@@ -813,12 +818,13 @@ def delete_pre_established_answers():
     preguntas_a_eliminar = data.get('preguntas')
 
     if not chatbot_id or not preguntas_a_eliminar:
+        app.logger.warning("Faltan datos en la solicitud (chatbot_id, preguntas).")
         return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, preguntas)."}), 400
 
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
-    # Verificar si el archivo existe
     if not os.path.isfile(json_file_path):
+        app.logger.error("Archivo de preguntas y respuestas no encontrado.")
         return jsonify({"error": "No se encontró el archivo de preguntas y respuestas."}), 404
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
@@ -827,7 +833,6 @@ def delete_pre_established_answers():
     preguntas_eliminadas = []
     preguntas_no_encontradas = []
 
-    # Intentar eliminar las preguntas proporcionadas
     for pregunta in preguntas_a_eliminar:
         if pregunta in preguntas_respuestas:
             del preguntas_respuestas[pregunta]
@@ -835,23 +840,15 @@ def delete_pre_established_answers():
         else:
             preguntas_no_encontradas.append(pregunta)
 
-    # Guardar los cambios en el archivo JSON
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
-    if len(preguntas_a_eliminar) == len(preguntas_no_encontradas):
-        mensaje = 'No se ha encontrado ninguna pregunta para borrar'
-    elif preguntas_no_encontradas:
-        mensaje = 'Proceso no completado del todo'
-    else:
-        mensaje = 'Proceso de eliminación completado'
-
+    app.logger.info("Proceso de eliminación de preguntas completado.")
     return jsonify({
-        'mensaje': mensaje,
+        'mensaje': 'Proceso de eliminación completado',
         'preguntas_eliminadas': preguntas_eliminadas,
         'preguntas_no_encontradas': preguntas_no_encontradas
     })
-
 
 @app.route('/change_params_prompt_temperature_and_model', methods=['POST'])
 def change_params():
@@ -862,30 +859,29 @@ def change_params():
     model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
 
     if not new_prompt or not chatbot_id:
+        app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
         return jsonify({"error": "Los campos 'new_prompt' y 'chatbot_id' son requeridos"}), 400
 
-    # Guardar el nuevo prompt en un archivo
     prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.txt"
     os.makedirs(os.path.dirname(prompt_file_path), exist_ok=True)
 
     with open(prompt_file_path, 'w') as file:
         file.write(new_prompt)
 
-    # Leer el contenido del nuevo prompt del archivo
     with open(prompt_file_path, 'r') as file:
         saved_prompt = file.read()
 
-    pregunta = ""  # 'pregunta' está vacía porque no se utiliza en este contexto
-    respuesta = ""  # 'respuesta' está vacía porque no se utiliza en este contexto
+    pregunta = ""
+    respuesta = ""
     prompt_base = f"Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'. {saved_prompt}"
 
-    # Comprobación para ver si el nuevo prompt es igual al prompt base
     if new_prompt == prompt_base:
+        app.logger.info("El nuevo prompt es igual al prompt base. No se realizó ninguna acción.")
         return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
 
-    # Llamada a la función para actualizar la configuración del modelo
     mejorar_respuesta_generales_con_openai(saved_prompt, temperature, model_gpt)
 
+    app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
 
