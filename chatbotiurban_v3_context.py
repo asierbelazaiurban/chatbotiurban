@@ -943,41 +943,30 @@ def change_params():
         chatbot_id=chatbot_id
     )
 
+
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
-@app.route('/events', methods=['POST'])
-def events():
+@app.route('/event', methods=['POST'])
+def event():
     data = request.json
     chatbot_id = data.get('chatbot_id')
-    lead = data.get('events')
+    event = data.get('event')
     pregunta = data.get('pregunta')
 
-    if not (chatbot_id and lead):
-        app.logger.warning("Faltan datos en la solicitud (chatbot_id, events).")
-        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, events)."}), 400
+    if not (chatbot_id and event):
+        app.logger.warning("Faltan datos en la solicitud (chatbot_id, event).")
+        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, event)."}), 400
 
-    respuesta_mejorada = mejorar_respuesta_con_openai(events, pregunta, chatbot_id)
+    respuesta_mejorada = mejorar_respuesta_con_openai(event, pregunta, chatbot_id)
 
     if respuesta_mejorada:
-        json_file_path = f'data/uploads/mejoras_respuestas/{chatbot_id}/mejoras_respuestas.json'
-        os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
-
-        if os.path.isfile(json_file_path):
-            with open(json_file_path, 'r', encoding='utf-8') as json_file:
-                leads_mejorados = json.load(json_file)
-        else:
-            leads_mejorados = {}
-
-        leads_mejorados[lead] = respuesta_mejorada
-
-        with open(json_file_path, 'w', encoding='utf-8') as json_file:
-            json.dump(leads_mejorados, json_file, ensure_ascii=False, indent=4)
-
-        app.logger.info(f"Lead mejorado para '{lead[:50]}...' guardado con éxito.")
-        return jsonify({'mensaje': 'Lead mejorado guardado correctamente'})
+        app.logger.info(f"Respuesta mejorada para '{event[:50]}...' generada con éxito.")
+        return jsonify({'mensaje': 'Respuesta mejorada', 'respuesta_mejorada': respuesta_mejorada})
     else:
-        return jsonify({"error": "Error al mejorar el lead"}), 500
+        app.logger.error("Error al mejorar la respuesta para el evento.")
+        return jsonify({"error": "Error al mejorar el evento"}), 500
+
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
