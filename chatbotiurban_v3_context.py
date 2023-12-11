@@ -396,8 +396,10 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
 from sklearn.decomposition import TruncatedSVD
 
 def encode_data(data):
-    vectorizer = TfidfVectorizer()
-    encoded_data = vectorizer.fit_transform(data)
+    vectorizer = TfidfVectorizer(ngram_range=(1, 1))
+    X = vectorizer.fit_transform(data)
+    svd = TruncatedSVD(n_components=100)  # Ajusta el número de componentes según sea necesario
+    encoded_data = svd.fit_transform(X)
     return encoded_data, vectorizer
 
 
