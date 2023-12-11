@@ -343,9 +343,19 @@ def extraer_palabras_clave(pregunta):
 
 # Función para convertir un elemento del dataset en texto
 def filtrar_texto_irrelevante(texto):
+    # Asegúrate de que el texto no esté vacío y sea una cadena
+    if not isinstance(texto, str) or not texto:
+        return ""
+
     # Elimina líneas con palabras clave irrelevantes
-    lineas_filtradas = [linea for linea en texto.split('\n') if 'palabra_clave_irrelevante' not in linea]
-    return ' '.join(lineas_filtradas)
+    lineas_filtradas = []
+    for linea in texto.split('\n'):
+        if 'palabra_clave_irrelevante' not in linea:
+            lineas_filtradas.append(linea)
+
+    texto_filtrado = ' '.join(lineas_filtradas)
+    return texto_filtrado
+
 
 def convertir_a_texto(item):
     # Convierte el item en texto
