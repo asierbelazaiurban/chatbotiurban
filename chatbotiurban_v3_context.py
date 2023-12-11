@@ -393,8 +393,6 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=200):
 
         # Codificar los datos
         encoded_data, vectorizer = encode_data(datos)
-        app.logger("datos")
-        app.logger(datos)
 
         # Determinar si usar el contexto en la codificación
         texto_para_codificar = pregunta_procesada if not contexto else pregunta_procesada + " " + contexto
@@ -526,8 +524,8 @@ def ask():
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
 
-                    app.logger("datos del dataset")
-                    app.logger(datos_del_dataset)
+                    app.logger.info(("datos del dataset")
+                    app.logger.info((datos_del_dataset)
 
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
 
