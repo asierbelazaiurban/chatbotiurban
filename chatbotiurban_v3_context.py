@@ -403,10 +403,14 @@ def perform_search(encoded_data, encoded_query):
     return ranked_results.flatten(), ranked_scores.flatten()
 
 def preprocess_query(query):
-    # Función existente para preprocesar la consulta
-    query_limpia = limpiar_texto(query)
-    tokens = nltk.word_tokenize(query_limpia.lower())
+    """
+    Realiza el preprocesamiento básico de la consulta.
+    """
+    query = query.lower()  # Convierte a minúsculas
+    tokens = word_tokenize(query)  # Tokenización sin eliminación de stopwords
+    tokens = [word for word in tokens if word.isalnum()]  # Elimina caracteres no alfanuméricos
     return ' '.join(tokens)
+
 
 def encode_data(data):
     vectorizer = TfidfVectorizer()
@@ -418,31 +422,29 @@ def encontrar_respuesta(pregunta, datos, contexto=None):
     """
     Encuentra la respuesta más relevante para una pregunta dada.
     """
-    # Si se proporciona contexto, añádelo a la pregunta
+    if not datos:
+        return "No hay datos disponibles para responder a esta pregunta."
+
     if contexto:
         pregunta_procesada = f"{pregunta} {contexto}"
     else:
         pregunta_procesada = pregunta
 
-    # Preprocesar pregunta
     pregunta_procesada = preprocess_query(pregunta_procesada)
 
-    # Vectorizar datos
-    vectorizer = TfidfVectorizer(min_df=1, max_df=0.8, ngram_range=(1,3))
+    # Vectorización más permisiva
+    vectorizer = TfidfVectorizer(min_df=1, max_df=1.0, ngram_range=(1,3))
     encoded_data = vectorizer.fit_transform(datos)
-
-    # Vectorizar pregunta
     encoded_query = vectorizer.transform([pregunta_procesada])
 
-    # Calcular similitud
     similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
 
-    # Encontrar el índice del documento con la puntuación más alta
+    # Seleccionar la mejor coincidencia, independientemente de la puntuación
     max_score_index = similarity_scores.argmax()
-
-    # Devolver la respuesta más similar, independientemente de su puntuación
-    return datos[max_score_index]
-
+    if max_score_index < len(datos):
+        return datos[max_score_index]
+    else:
+        return "No se encontró una coincidencia adecuada en los datos."
 
 
 
