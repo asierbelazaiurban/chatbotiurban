@@ -373,11 +373,13 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         return []
 
 def encode_data(data):
+    # Asegúrate de tener TfidfVectorizer importado
     vectorizer = TfidfVectorizer()
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
 def preprocess_query(query):
+    # Suponiendo que ya tienes word_tokenize importado
     tokens = word_tokenize(query.lower())
     processed_query = ' '.join(tokens)
     return processed_query
@@ -395,7 +397,7 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=200):
         encoded_data, vectorizer = encode_data(datos)
 
         # Determinar si usar el contexto en la codificación
-        texto_para_codificar = pregunta_procesada if not contexto else pregunta_procesada + " " + contexto
+        texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
 
         # Codificar la pregunta (y contexto si está disponible)
         encoded_query = vectorizer.transform([texto_para_codificar])
