@@ -514,7 +514,6 @@ def ask():
                     if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
-                    else:
                         ultima_respuesta = mejorar_respuesta_generales_con_openai(
                             pregunta=ultima_pregunta,
                             respuesta=ultima_respuesta,
