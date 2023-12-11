@@ -49,9 +49,11 @@ from process_docs import process_file
 from flask import current_app as app
 import unidecode
 
-
-nltk.download('punkt')
+import nltk
+from nltk.tokenize import word_tokenize
 nltk.download('stopwords')
+nltk.download('punkt')
+
 
 tqdm.pandas()
 
@@ -358,8 +360,13 @@ def convertir_a_texto(item):
         # Convierte el 'item' a cadena si es de otro tipo de dato
         return str(item)
 
-import nltk
-from nltk.tokenize import word_tokenize
+
+# Función para codificar los datos usando TfidfVectorizer con stopwords en español
+def encode_data(data):
+    spanish_stopwords = stopwords.words('spanish')
+    vectorizer = TfidfVectorizer(stop_words=spanish_stopwords, ngram_range=(1, 2))
+    encoded_data = vectorizer.fit_transform(data)
+    return encoded_data, vectorizer
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
