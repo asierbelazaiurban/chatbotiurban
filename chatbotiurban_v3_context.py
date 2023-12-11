@@ -396,67 +396,45 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 
-def encode_data(data):
-    vectorizer = TfidfVectorizer(ngram_range=(1, 1))
-    X = vectorizer.fit_transform(data)
+def perform_search(encoded_data, encoded_query):
+    similarity_scores = cosine_similarity(encoded_data, encoded_query)
+    ranked_results = np.argsort(similarity_scores, axis=0)[::-1]
+    ranked_scores = np.sort(similarity_scores, axis=0)[::-1]
+    return ranked_results.flatten(), ranked_scores.flatten()
 
-    # El número de componentes en TruncatedSVD debe ser menor o igual al número de características
-    n_components = min(X.shape[1], 100)  # Asegúrate de que n_components no exceda el número de características
-
-    svd = TruncatedSVD(n_components=n_components)
-    encoded_data = svd.fit_transform(X)
-
-    return encoded_data, vectorizer
-
-# Función para preprocesar las preguntas de forma genérica
 def preprocess_query(query):
-    # Asegúrate de que la limpieza y tokenización de la pregunta coincida con la del dataset
+    # Función existente para preprocesar la consulta
     query_limpia = limpiar_texto(query)
-    tokens = word_tokenize(query_limpia.lower())
+    tokens = nltk.word_tokenize(query_limpia.lower())
     return ' '.join(tokens)
 
+def encode_data(data):
+    vectorizer = TfidfVectorizer()
+    encoded_data = vectorizer.fit_transform(data)
+    return encoded_data, vectorizer
 
-# Función para encontrar la mejor respuesta basada en la similitud de coseno
-def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.1):
+# Adaptada para incluir contexto adicional
+def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.1, context_window=1):
     try:
-        # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
-
-        # Codificar los datos del dataset
         encoded_data, vectorizer = encode_data(datos)
-
-        app.logger.info("datos encoded_data, vectorizer")
-        app.logger.info(encoded_data)
-        app.logger.info(vectorizer)
-        app.logger.info("pregunta pregunta_procesada")
-        app.logger.info(vectorizer)
-
-        # Información de depuración
-        app.logger.info("Vectorizador utilizado: " + str(vectorizer))
-
-        # Combinar la pregunta procesada con el contexto si está disponible
         texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
-
-        # Codificar la pregunta procesada
         encoded_query = vectorizer.transform([texto_para_codificar])
-
-        # Calcular las puntuaciones de similitud
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
-        app.logger.info("Puntuaciones de similitud: " + str(similarity_scores))
 
-        # Encontrar el índice con la mayor puntuación de similitud
-        indice_mejor = similarity_scores.argmax()
-
-        # Verificar si la similitud supera el umbral establecido
-        if similarity_scores[indice_mejor] > umbral_similitud:
-            respuesta_mejor = datos[indice_mejor]
-            app.logger.info("Respuesta encontrada con similitud aceptable.")
-            return respuesta_mejor
+        # Nueva lógica para recuperar resultados con contexto
+        ranked_results, ranked_scores = np.argsort(similarity_scores, axis=0)[::-1], np.sort(similarity_scores, axis=0)[::-1]
+        top_result_idx = ranked_results[0]
+        if ranked_scores[0] > umbral_similitud:
+            start = max(0, top_result_idx - context_window)
+            end = min(len(datos), top_result_idx + context_window + 1)
+            contexto_respuesta = datos[start:end]
+            respuesta_mejor = ' '.join(contexto_respuesta)
+            return respuesta_mejor.strip()
         else:
-            app.logger.info("No se encontró una coincidencia adecuada, proporcionando respuesta alternativa.")
             return "No tengo información detallada sobre eso, pero puedo intentar ayudarte con preguntas similares o relacionadas."
     except Exception as e:
-        app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
+        app.logger.error(f"Error en encontrar_respuesta: {e}")
         raise e
 
 
