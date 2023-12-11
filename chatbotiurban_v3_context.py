@@ -43,7 +43,7 @@ from werkzeug.datastructures import FileStorage
 
 # Módulos locales
 from date_management import *
-from clean_dara_for_scraping import *
+from clean_data_for_scraping import *
 from process_docs import process_file
 
 from flask import current_app as app
@@ -361,13 +361,6 @@ def convertir_a_texto(item):
         return str(item)
 
 
-# Función para codificar los datos usando TfidfVectorizer con stopwords en español
-def encode_data(data):
-    spanish_stopwords = stopwords.words('spanish')
-    vectorizer = TfidfVectorizer(stop_words=spanish_stopwords, ngram_range=(1, 2))
-    encoded_data = vectorizer.fit_transform(data)
-    return encoded_data, vectorizer
-
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
     app.logger.info(f"Dataset con ruta {dataset_file_path}")
@@ -382,21 +375,20 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         return []
 
 # Función para preprocesar las preguntas
-def preprocess_query(query):
-    query = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑ ]', '', query)  # Eliminar caracteres especiales y números
-    tokens = word_tokenize(query.lower())
-    return ' '.join(tokens)
-
-# Función para codificar los datos usando TfidfVectorizer
 def encode_data(data):
-    # Definir las stopwords en español dentro de la función
-    spanish_stopwords = stopwords.words('spanish')
-    vectorizer = TfidfVectorizer(stop_words=spanish_stopwords, ngram_range=(1, 2))
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2))
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
+# Función para preprocesar las preguntas de forma genérica
+def preprocess_query(query):
+    query = re.sub(r'[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]', '', query)  # Conservar caracteres alfanuméricos y espacios
+    tokens = word_tokenize(query.lower())
+    return ' '.join(tokens)
+
+
 # Función para encontrar la mejor respuesta basada en la similitud de coseno
-def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100):
+def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.1):
     try:
         pregunta_procesada = preprocess_query(pregunta)
         encoded_data, vectorizer = encode_data(datos)
@@ -405,22 +397,17 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100):
         encoded_query = vectorizer.transform([texto_para_codificar])
 
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
-        indices_ordenados = similarity_scores.argsort()[::-1]
+        indice_mejor = similarity_scores.argmax()
 
-        respuesta_amplia = ""
-        for indice in indices_ordenados:
-            if similarity_scores[indice] > 0:
-                if datos[indice] not in respuesta_amplia:
-                    respuesta_amplia += " " + datos[indice]
-                    if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
-                        break
-
-        if len(respuesta_amplia) > 0:
-            app.logger.info("Respuesta ampliada encontrada.")
-            return respuesta_amplia.strip()
+        # Proporcionar la mejor coincidencia, incluso si la similitud no es muy alta
+        if similarity_scores[indice_mejor] > umbral_similitud:
+            respuesta_mejor = datos[indice_mejor]
+            app.logger.info("Respuesta encontrada con similitud aceptable.")
+            return respuesta_mejor
         else:
-            app.logger.info("No se encontró ninguna coincidencia.")
-            return "No se encontró ninguna coincidencia."
+            # Respuesta alternativa si no hay coincidencia suficiente
+            app.logger.info("No se encontró una coincidencia adecuada, proporcionando respuesta alternativa.")
+            return "No tengo información detallada sobre eso, pero puedo intentar ayudarte con preguntas similares o relacionadas."
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
