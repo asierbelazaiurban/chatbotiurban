@@ -389,11 +389,11 @@ def preprocess_query(query):
 
 # Función para codificar los datos usando TfidfVectorizer
 def encode_data(data):
-    # Usar la lista de stopwords en español directamente
+    # Definir las stopwords en español dentro de la función
+    spanish_stopwords = stopwords.words('spanish')
     vectorizer = TfidfVectorizer(stop_words=spanish_stopwords, ngram_range=(1, 2))
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
-
 
 # Función para encontrar la mejor respuesta basada en la similitud de coseno
 def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100):
