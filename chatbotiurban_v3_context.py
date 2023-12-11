@@ -414,28 +414,26 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 # Adaptada para incluir contexto adicional
-def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.001, context_window=1):
-    try:
-        pregunta_procesada = preprocess_query(pregunta)
-        encoded_data, vectorizer = encode_data(datos)
-        texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
-        encoded_query = vectorizer.transform([texto_para_codificar])
-        similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
+def encontrar_respuesta(pregunta, datos):
+    # Preprocesar pregunta
+    pregunta_procesada = preprocess_query(pregunta)  # Asegúrate de que esta función realice el preprocesamiento adecuado
 
-        # Nueva lógica para recuperar resultados con contexto
-        ranked_results, ranked_scores = np.argsort(similarity_scores, axis=0)[::-1], np.sort(similarity_scores, axis=0)[::-1]
-        top_result_idx = ranked_results[0]
-        if ranked_scores[0] > umbral_similitud:
-            start = max(0, top_result_idx - context_window)
-            end = min(len(datos), top_result_idx + context_window + 1)
-            contexto_respuesta = datos[start:end]
-            respuesta_mejor = ' '.join(contexto_respuesta)
-            return respuesta_mejor.strip()
-        else:
-            return "No tengo información detallada sobre eso, pero puedo intentar ayudarte con preguntas similares o relacionadas."
-    except Exception as e:
-        app.logger.error(f"Error en encontrar_respuesta: {e}")
-        raise e
+    # Vectorizar datos
+    vectorizer = TfidfVectorizer(max_df=0.5, min_df=2, ngram_range=(1,3))
+    encoded_data = vectorizer.fit_transform(datos)
+    
+    # Vectorizar pregunta
+    encoded_query = vectorizer.transform([pregunta_procesada])
+
+    # Calcular similitud
+    similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
+
+    # Encontrar el índice del documento con la puntuación más alta
+    max_score_index = similarity_scores.argmax()
+
+    # Devolver la respuesta más similar, independientemente de su puntuación
+    return datos[max_score_index]
+
 
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
