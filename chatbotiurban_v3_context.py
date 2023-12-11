@@ -457,6 +457,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en ask")
+    contexto_generado = ""
 
     try:
         data = request.get_json()
@@ -465,8 +466,7 @@ def ask():
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-            contexto_generado = ""
-
+            
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
