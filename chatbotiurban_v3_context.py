@@ -395,50 +395,51 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
 
 from sklearn.decomposition import TruncatedSVD
 
-def encode_data_with_lsa(data):
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_df=0.85, min_df=0.01, max_features=1000)
-    svd_model = TruncatedSVD(n_components=100, random_state=42)
-    
-    encoded_data = vectorizer.fit_transform(data)
-    lsa_features = svd_model.fit_transform(encoded_data)
-    
-    return lsa_features, vectorizer
-
-# Función para preprocesar las preguntas
 def encode_data(data):
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_df=0.85, min_df=0.01, max_features=1000)
+    vectorizer = TfidfVectorizer(max_df=0.85, min_df=0.01, max_features=1000, ngram_range=(1, 2))
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
 # Función para preprocesar las preguntas de forma genérica
 def preprocess_query(query):
-    # Elimina caracteres especiales y mantiene solo letras y números
-    query = re.sub(r'[^A-Za-z0-9 ]', ' ', query)
-    tokens = word_tokenize(query.lower())
-
+    # Asegúrate de que la limpieza y tokenización de la pregunta coincida con la del dataset
+    query_limpia = limpiar_texto(query)
+    tokens = word_tokenize(query_limpia.lower())
     return ' '.join(tokens)
 
 
 # Función para encontrar la mejor respuesta basada en la similitud de coseno
 def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.1):
     try:
+        # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
+
+        # Codificar los datos del dataset
         encoded_data, vectorizer = encode_data(datos)
+
         app.logger.info("datos encoded_data, vectorizer")
         app.logger.info(encoded_data)
         app.logger.info(vectorizer)
         app.logger.info("pregunta pregunta_procesada")
         app.logger.info(vectorizer)
 
+        # Información de depuración
+        app.logger.info("Vectorizador utilizado: " + str(vectorizer))
+
+        # Combinar la pregunta procesada con el contexto si está disponible
         texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
+
+        # Codificar la pregunta procesada
         encoded_query = vectorizer.transform([texto_para_codificar])
 
+        # Calcular las puntuaciones de similitud
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
-
-        # Registrar las puntuaciones de similitud
         app.logger.info("Puntuaciones de similitud: " + str(similarity_scores))
 
+        # Encontrar el índice con la mayor puntuación de similitud
         indice_mejor = similarity_scores.argmax()
+
+        # Verificar si la similitud supera el umbral establecido
         if similarity_scores[indice_mejor] > umbral_similitud:
             respuesta_mejor = datos[indice_mejor]
             app.logger.info("Respuesta encontrada con similitud aceptable.")
@@ -449,6 +450,7 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umb
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
+
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
