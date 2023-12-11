@@ -391,12 +391,10 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umb
         pregunta_procesada = preprocess_query(pregunta)
         encoded_data, vectorizer = encode_data(datos)
 
-
-
         app.logger.info("datos")
         app.logger.info(datos)
 
-        pp.logger.info("Pregunta")
+        app.logger.info("Pregunta")
         app.logger.info(pregunta)
 
 
@@ -516,9 +514,7 @@ def ask():
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
 
-                    app.logger.info("datos del dataset")
-                    app.logger.info(datos_del_dataset)
-
+            
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
 
                     if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
