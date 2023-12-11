@@ -424,10 +424,11 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umb
     try:
         pregunta_procesada = preprocess_query(pregunta)
         encoded_data, vectorizer = encode_data(datos)
-        app.logger.info("datos")
-        app.logger.info(datos)
-        app.logger.info("pregunta")
-        app.logger.info(pregunta)
+        app.logger.info("datos encoded_data, vectorizer")
+        app.logger.info(encoded_data)
+        app.logger.info(vectorizer)
+        app.logger.info("pregunta pregunta_procesada")
+        app.logger.info(vectorizer)
 
         texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
         encoded_query = vectorizer.transform([texto_para_codificar])
