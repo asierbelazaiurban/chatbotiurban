@@ -764,7 +764,7 @@ def save_urls():
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
-
+@app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
         app.logger.info("Procesando solicitud de scraping de URL")
