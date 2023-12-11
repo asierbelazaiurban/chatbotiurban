@@ -173,7 +173,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4,
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
