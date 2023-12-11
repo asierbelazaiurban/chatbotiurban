@@ -358,6 +358,8 @@ def convertir_a_texto(item):
         # Convierte el 'item' a cadena si es de otro tipo de dato
         return str(item)
 
+import nltk
+from nltk.tokenize import word_tokenize
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
@@ -372,46 +374,33 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         app.logger.error(f"Error al cargar el dataset: {e}")
         return []
 
+# Función para preprocesar las preguntas
+def preprocess_query(query):
+    query = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑ ]', '', query)  # Eliminar caracteres especiales y números
+    tokens = word_tokenize(query.lower())
+    return ' '.join(tokens)
+
+# Función para codificar los datos usando TfidfVectorizer
 def encode_data(data):
-    # Asegúrate de tener TfidfVectorizer importado
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(stop_words='spanish', ngram_range=(1, 2))
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
-def preprocess_query(query):
-    # Suponiendo que ya tienes word_tokenize importado
-    tokens = word_tokenize(query.lower())
-    processed_query = ' '.join(tokens)
-    return processed_query
-
-import nltk
-from nltk.tokenize import word_tokenize
-nltk.download('punkt')
-
-def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=200):
+# Función para encontrar la mejor respuesta basada en la similitud de coseno
+def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100):
     try:
-        # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
-
-        # Codificar los datos
         encoded_data, vectorizer = encode_data(datos)
 
-        # Determinar si usar el contexto en la codificación
         texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
-
-        # Codificar la pregunta (y contexto si está disponible)
         encoded_query = vectorizer.transform([texto_para_codificar])
 
-        # Calcular la similitud
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
-
-        # Ordenar los índices de los documentos por similitud
         indices_ordenados = similarity_scores.argsort()[::-1]
 
         respuesta_amplia = ""
         for indice in indices_ordenados:
             if similarity_scores[indice] > 0:
-                # Evitar respuestas repetitivas
                 if datos[indice] not in respuesta_amplia:
                     respuesta_amplia += " " + datos[indice]
                     if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
@@ -426,8 +415,6 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=200):
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
-
-
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
