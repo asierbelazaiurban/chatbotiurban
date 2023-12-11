@@ -173,7 +173,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4,
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -242,7 +242,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-3.5-turbo",
+            model=model_gpt if model_gpt else "gpt-4",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -262,7 +262,7 @@ def generar_contexto_con_openai(historial):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
@@ -288,7 +288,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Ajusta el modelo según lo necesario
+            model="gpt-4",  # Ajusta el modelo según lo necesario
             messages=[
                 {"role": "system", "content": ""},
                 {"role": "user", "content": frase_combinada}
@@ -483,7 +483,7 @@ def ask():
                         new_prompt="",
                         contexto_adicional=contexto_generado,
                         temperature=0.7,
-                        model_gpt="gpt-3.5-turbo",
+                        model_gpt="gpt-4",
                         chatbot_id=chatbot_id
                     )
                     fuente_respuesta = "preestablecida_mejorada"
@@ -495,7 +495,7 @@ def ask():
                         new_prompt="",
                         contexto_adicional=contexto_generado,
                         temperature=0.7,
-                        model_gpt="gpt-3.5-turbo",
+                        model_gpt="gpt-4",
                         chatbot_id=chatbot_id
                     )
                     fuente_respuesta = "eventos_mejorados"
@@ -518,7 +518,7 @@ def ask():
                             new_prompt="",
                             contexto_adicional=contexto_generado,
                             temperature=0.7,
-                            model_gpt="gpt-3.5-turbo",
+                            model_gpt="gpt-4",
                             chatbot_id=chatbot_id
                         )
                         fuente_respuesta = "dataset_mejorada"
@@ -980,7 +980,7 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
+    model_gpt = data.get('model_gpt', 'gpt-4')
 
     if not new_prompt or not chatbot_id:
         app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
