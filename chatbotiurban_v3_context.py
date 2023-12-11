@@ -526,6 +526,9 @@ def ask():
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
 
+                    app.logger("datos del dataset")
+                    app.logger(datos_del_dataset)
+
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
 
                     if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
