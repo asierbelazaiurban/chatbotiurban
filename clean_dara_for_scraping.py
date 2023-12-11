@@ -1,7 +1,4 @@
 
-import requests
-from bs4 import BeautifulSoup
-
 def save_dataset(dataset_entries, chatbot_id):
     dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
     os.makedirs(dataset_folder, exist_ok=True)
@@ -22,7 +19,8 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para chatbot_id {chatbot_id}")
         return None
 
-def clean_and_format_text(text):
+
+def clean_and_format_text(soup):
 
     for script_or_style in soup(["script", "style"]):
         script_or_style.decompose()
