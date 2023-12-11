@@ -414,7 +414,7 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 # Adaptada para incluir contexto adicional
-def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.1, context_window=1):
+def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umbral_similitud=0.001, context_window=1):
     try:
         pregunta_procesada = preprocess_query(pregunta)
         encoded_data, vectorizer = encode_data(datos)
