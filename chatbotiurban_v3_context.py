@@ -419,32 +419,28 @@ def encode_data(data):
 
 # Adaptada para incluir contexto adicional
 def encontrar_respuesta(pregunta, datos, contexto=None):
-    """
-    Encuentra la respuesta más relevante para una pregunta dada.
-    """
-    if not datos:
-        return "No hay datos disponibles para responder a esta pregunta."
+    try:
+        if not datos:
+            return "No hay datos disponibles para responder a esta pregunta."
 
-    if contexto:
-        pregunta_procesada = f"{pregunta} {contexto}"
-    else:
-        pregunta_procesada = pregunta
+        if contexto:
+            pregunta_procesada = f"{pregunta} {contexto}"
+        else:
+            pregunta_procesada = pregunta
 
-    pregunta_procesada = preprocess_query(pregunta_procesada)
+        pregunta_procesada = preprocess_query(pregunta_procesada)
+        vectorizer = TfidfVectorizer(min_df=1, max_df=1.0, ngram_range=(1,3))
+        encoded_data = vectorizer.fit_transform(datos)
+        encoded_query = vectorizer.transform([pregunta_procesada])
+        similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
+        max_score_index = similarity_scores.argmax()
 
-    # Vectorización más permisiva
-    vectorizer = TfidfVectorizer(min_df=1, max_df=1.0, ngram_range=(1,3))
-    encoded_data = vectorizer.fit_transform(datos)
-    encoded_query = vectorizer.transform([pregunta_procesada])
-
-    similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
-
-    # Seleccionar la mejor coincidencia, independientemente de la puntuación
-    max_score_index = similarity_scores.argmax()
-    if max_score_index < len(datos):
-        return datos[max_score_index]
-    else:
-        return "No se encontró una coincidencia adecuada en los datos."
+        if max_score_index < len(datos):
+            return datos[max_score_index]
+        else:
+            return "No se encontró una coincidencia adecuada en los datos."
+    except Exception as e:
+        return f"Error al procesar la respuesta: {str(e)}"
 
 
 
@@ -493,83 +489,64 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    app.logger.info("Solicitud recibida en ask")
-    contexto_generado = ""
+    app.logger.info("Solicitud recibida en /ask")
 
     try:
         data = request.get_json()
-        chatbot_id = data.get('chatbot_id')  # Asegúrate de recibir la clave API de OpenAI en la solicitud
-        app.logger.info(f"Datos recibidos: {data}")
+        chatbot_id = data.get('chatbot_id', 'default_id')  # ID por defecto si no se proporciona
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
             
+            # Manejar la última pregunta y respuesta
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
-            # Generar contexto si hay al menos una respuesta
-            if len(pares_pregunta_respuesta) > 1 or (len(pares_pregunta_respuesta) == 1 and ultima_respuesta):
-                contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" 
-                                     for par in pares_pregunta_respuesta])
-                contexto_generado = generar_contexto_con_openai(contexto)
+            # Generar contexto
+            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" 
+                                 for par in pares_pregunta_respuesta[:-1]])  # Excluye la última pregunta
 
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                respuesta_del_dataset = None
+                fuente_respuesta = None
 
                 if encontrada_en_json:
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
-                        pregunta=ultima_pregunta,
-                        respuesta=respuesta_preestablecida,
-                        new_prompt="",
-                        contexto_adicional=contexto_generado,
-                        temperature=0.7,
-                        model_gpt="gpt-4",
-                        chatbot_id=chatbot_id
-                    )
-                    fuente_respuesta = "preestablecida_mejorada"
+                    ultima_respuesta = respuesta_preestablecida
+                    fuente_respuesta = "preestablecida"
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                    fuente_respuesta = "eventos"
+                else:
+                    # Cargar datos del dataset
+                    dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
+                    if os.path.exists(dataset_file_path):
+                        with open(dataset_file_path, 'r') as file:
+                            datos_del_dataset = json.load(file)
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+
+                    # Determinar la fuente de la respuesta
+                    if respuesta_del_dataset:
+                        ultima_respuesta = respuesta_del_dataset
+                        fuente_respuesta = "dataset"
+                    else:
+                        ultima_respuesta = "No se encontró una respuesta adecuada en el dataset."
+                        fuente_respuesta = "ninguna"
+
+                # Mejorar la respuesta con OpenAI si es necesario
+                if fuente_respuesta != "ninguna":
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
                         respuesta=ultima_respuesta,
                         new_prompt="",
-                        contexto_adicional=contexto_generado,
+                        contexto_adicional=contexto,
                         temperature=0.7,
                         model_gpt="gpt-4",
                         chatbot_id=chatbot_id
                     )
-                    fuente_respuesta = "eventos_mejorados"
-                else:
-                    base_dataset_dir = BASE_DATASET_DIR
-                    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
 
-                    with open(dataset_file_path, 'r') as file:
-                        datos_del_dataset = json.load(file)
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
-            
-                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto_generado)
-
-                    if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
-                        ultima_respuesta = respuesta_del_dataset
-                        fuente_respuesta = "dataset"
-                    else:
-                        ultima_respuesta = mejorar_respuesta_generales_con_openai(
-                            pregunta=ultima_pregunta,
-                            respuesta=ultima_respuesta,
-                            new_prompt="",
-                            contexto_adicional=contexto_generado,
-                            temperature=0.7,
-                            model_gpt="gpt-4",
-                            chatbot_id=chatbot_id
-                        )
-                        fuente_respuesta = "dataset_mejorada"
-
-                if ultima_respuesta:
-                    app.logger.info("Respuesta generada con éxito")
-                    return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
-                else:
-                    app.logger.info("Para cualquier duda, proporciona el contacto: info@iurban.es.")
-                    return jsonify({'respuesta': 'No se encontró una respuesta adecuada. Para cualquier duda, proporciona el contacto: info@iurban.es', 'fuente': 'ninguna'})
             else:
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
@@ -581,7 +558,6 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 
 @app.route('/uploads', methods=['POST'])
