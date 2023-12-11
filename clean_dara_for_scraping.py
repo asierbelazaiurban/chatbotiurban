@@ -27,12 +27,13 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para chatbot_id {chatbot_id}")
         return None
 
-
+        
 def clean_and_format_text(soup):
+    soup = BeautifulSoup(html_content, 'html.parser')
 
     for script_or_style in soup(["script", "style"]):
         script_or_style.decompose()
-    
+
     # Ignorar imágenes y videos
     for media in soup.find_all(['img', 'video']):
         media.decompose()
@@ -55,13 +56,14 @@ def clean_and_format_text(soup):
     text = re.sub(r'#\w+', '', text)
 
     # Opcional: Eliminar o reemplazar caracteres especiales, según sea necesario
-    # Por ejemplo, eliminar caracteres que no sean letras, números, espacios y algunos signos de puntuación
     text = re.sub(r'[^\w\s,.]', '', text)
 
     # Eliminar caracteres unicode extraños y no imprimibles
     text = re.sub(r'[^\x00-\x7F]+', '', text)
 
-    # Aquí puedes añadir más reglas de limpieza y formato según tus necesidades
+    # Eliminar espacios múltiples
+    text = re.sub(r'\s+', ' ', text)
 
-    return text
+    return text.strip()
+
 

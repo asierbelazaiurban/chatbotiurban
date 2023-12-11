@@ -386,11 +386,11 @@ import nltk
 from nltk.tokenize import word_tokenize
 nltk.download('punkt')
 
-def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
+def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=200):
     try:
         # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
-       
+
         # Codificar los datos
         encoded_data, vectorizer = encode_data(datos)
 
@@ -409,9 +409,11 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
         respuesta_amplia = ""
         for indice in indices_ordenados:
             if similarity_scores[indice] > 0:
-                respuesta_amplia += " " + datos[indice]
-                if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
-                    break
+                # Evitar respuestas repetitivas
+                if datos[indice] not in respuesta_amplia:
+                    respuesta_amplia += " " + datos[indice]
+                    if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
+                        break
 
         if len(respuesta_amplia) > 0:
             app.logger.info("Respuesta ampliada encontrada.")
@@ -419,7 +421,6 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
         else:
             app.logger.info("No se encontró ninguna coincidencia.")
             return "No se encontró ninguna coincidencia."
-
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
