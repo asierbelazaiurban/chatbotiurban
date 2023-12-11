@@ -396,9 +396,11 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
 from sklearn.decomposition import TruncatedSVD
 
 def encode_data(data):
-    vectorizer = TfidfVectorizer(max_df=0.85, min_df=0.01, max_features=1000, ngram_range=(1, 2))
+    # Ajuste de parámetros para evitar que cada documento se represente con un solo término
+    vectorizer = TfidfVectorizer(ngram_range=(1, 3), max_df=0.7, min_df=2)
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
+
 
 # Función para preprocesar las preguntas de forma genérica
 def preprocess_query(query):
