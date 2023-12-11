@@ -27,9 +27,8 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para chatbot_id {chatbot_id}")
         return None
 
-        
+
 def clean_and_format_text(soup):
-    soup = BeautifulSoup(html_content, 'html.parser')
 
     for script_or_style in soup(["script", "style"]):
         script_or_style.decompose()
