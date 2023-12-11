@@ -9,7 +9,6 @@ from flask import Flask
 app = Flask(__name__)
 
 
-
 def save_dataset(dataset_entries, chatbot_id):
     dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
     os.makedirs(dataset_folder, exist_ok=True)
