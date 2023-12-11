@@ -341,17 +341,13 @@ def extraer_palabras_clave(pregunta):
 
 ####### Utils busqueda en Json #######
 
-# Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
+# Función para convertir un elemento del dataset en texto
 def convertir_a_texto(item):
-    """
-    Convierte un elemento de dataset en una cadena de texto.
-    Esta función asume que el 'item' puede ser un diccionario, una lista, o un texto simple.
-    """
     if isinstance(item, dict):
-        # Concatena los valores del diccionario si 'item' es un diccionario
+        # Concatena los valores del diccionario
         return ' '.join(str(value) for value in item.values())
     elif isinstance(item, list):
-        # Concatena los elementos de la lista si 'item' es una lista
+        # Concatena los elementos de la lista
         return ' '.join(str(element) for element in item)
     elif isinstance(item, str):
         # Devuelve el string si 'item' ya es una cadena de texto
@@ -382,8 +378,10 @@ def encode_data(data):
 
 # Función para preprocesar las preguntas de forma genérica
 def preprocess_query(query):
-    query = re.sub(r'[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]', '', query)  # Conservar caracteres alfanuméricos y espacios
+    # Elimina caracteres especiales y mantiene solo letras y números
+    query = re.sub(r'[^A-Za-z0-9 ]', ' ', query)
     tokens = word_tokenize(query.lower())
+
     return ' '.join(tokens)
 
 
