@@ -714,7 +714,10 @@ def process_urls():
         try:
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text()
+            
+            # Limpiar y formatear el texto
+            text = clean_and_format_text(soup)
+
             dataset_entries[len(dataset_entries) + 1] = {
                 "indice": len(dataset_entries) + 1,
                 "url": url,
@@ -728,22 +731,14 @@ def process_urls():
             break
 
     if all_processed:
-        # Construye la ruta del archivo donde se guardará el dataset
-        dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
-        os.makedirs(dataset_folder, exist_ok=True)  # Crea la carpeta si no existe
-        dataset_file_path = os.path.join(dataset_folder, 'dataset.json')
-
-        # Guarda el dataset en un archivo JSON
-        with open(dataset_file_path, 'w') as dataset_file:
-            json.dump(dataset_entries, dataset_file, indent=4)
-
+        # Guardar el dataset
+        save_dataset(dataset_entries, chatbot_id)
 
         return jsonify({"status": "success", "message": "Datos procesados y almacenados correctamente"})
     else:
         return jsonify({"status": "error", "message": f"Error al procesar datos: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
-
 
 
 @app.route('/save_urls', methods=['POST'])
