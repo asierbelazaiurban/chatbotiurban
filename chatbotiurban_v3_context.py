@@ -342,37 +342,61 @@ def extraer_palabras_clave(pregunta):
 ####### Utils busqueda en Json #######
 
 # Función para convertir un elemento del dataset en texto
+def filtrar_texto_irrelevante(texto):
+    # Elimina líneas con palabras clave irrelevantes
+    lineas_filtradas = [linea for linea en texto.split('\n') if 'palabra_clave_irrelevante' not in linea]
+    return ' '.join(lineas_filtradas)
+
 def convertir_a_texto(item):
+    # Convierte el item en texto
+    texto = ''
     if isinstance(item, dict):
-        # Concatena los valores del diccionario
-        return ' '.join(str(value) for value in item.values())
+        texto = ' '.join(str(value) for value in item.values())
     elif isinstance(item, list):
-        # Concatena los elementos de la lista
-        return ' '.join(str(element) for element in item)
+        texto = ' '.join(str(element) for element in item)
     elif isinstance(item, str):
-        # Devuelve el string si 'item' ya es una cadena de texto
-        return item
+        texto = item
     else:
-        # Convierte el 'item' a cadena si es de otro tipo de dato
-        return str(item)
+        texto = str(item)
+    
+    # Filtra y limpia el texto convertido
+    texto_filtrado = filtrar_texto_irrelevante(texto)
+    return limpiar_texto(texto_filtrado)
+
+# Asegúrate de que la función limpiar_texto esté definida en tu código
+def limpiar_texto(texto):
+    texto = re.sub(r'x{2,}', ' ', texto)  # Ejemplo, ajustar según sea necesario
+    texto = re.sub(r'[^A-Za-z0-9áéíóúÁÉÍÓÚñÑ ]', ' ', texto)
+    texto = re.sub(r'\s+', ' ', texto).strip()
+    return texto
 
 
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
-    app.logger.info(f"Dataset con ruta {dataset_file_path}")
-
     try:
         with open(dataset_file_path, 'r') as file:
             data = json.load(file)
-            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
-            return [convertir_a_texto(item) for item in data.values()]
+        processed_data = [convertir_a_texto(item) for item in data.values()]
+        return processed_data
     except Exception as e:
         app.logger.error(f"Error al cargar el dataset: {e}")
         return []
 
+
+from sklearn.decomposition import TruncatedSVD
+
+def encode_data_with_lsa(data):
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_df=0.85, min_df=0.01, max_features=1000)
+    svd_model = TruncatedSVD(n_components=100, random_state=42)
+    
+    encoded_data = vectorizer.fit_transform(data)
+    lsa_features = svd_model.fit_transform(encoded_data)
+    
+    return lsa_features, vectorizer
+
 # Función para preprocesar las preguntas
 def encode_data(data):
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2))
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), max_df=0.85, min_df=0.01, max_features=1000)
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
@@ -391,26 +415,20 @@ def encontrar_respuesta(pregunta, datos, contexto=None, longitud_minima=100, umb
         pregunta_procesada = preprocess_query(pregunta)
         encoded_data, vectorizer = encode_data(datos)
 
-        app.logger.info("vectorizer")
-        app.logger.info(vectorizer)
-
-        app.logger.info("pregunta_procesada")
-        app.logger.info(pregunta_procesada)
-
-
         texto_para_codificar = pregunta_procesada if not contexto else f"{pregunta_procesada} {contexto}"
         encoded_query = vectorizer.transform([texto_para_codificar])
 
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
-        indice_mejor = similarity_scores.argmax()
 
-        # Proporcionar la mejor coincidencia, incluso si la similitud no es muy alta
+        # Registrar las puntuaciones de similitud
+        app.logger.info("Puntuaciones de similitud: " + str(similarity_scores))
+
+        indice_mejor = similarity_scores.argmax()
         if similarity_scores[indice_mejor] > umbral_similitud:
             respuesta_mejor = datos[indice_mejor]
             app.logger.info("Respuesta encontrada con similitud aceptable.")
             return respuesta_mejor
         else:
-            # Respuesta alternativa si no hay coincidencia suficiente
             app.logger.info("No se encontró una coincidencia adecuada, proporcionando respuesta alternativa.")
             return "No tengo información detallada sobre eso, pero puedo intentar ayudarte con preguntas similares o relacionadas."
     except Exception as e:
