@@ -387,14 +387,17 @@ nltk.download('punkt')
 
 def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
     try:
-        # Preprocesar la pregunta y el contexto
+        # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
        
         # Codificar los datos
         encoded_data, vectorizer = encode_data(datos)
 
-        # Codificar la pregunta y el contexto
-        encoded_query = vectorizer.transform([pregunta_procesada + " " + contexto])
+        # Determinar si usar el contexto en la codificación
+        texto_para_codificar = pregunta_procesada if not contexto else pregunta_procesada + " " + contexto
+
+        # Codificar la pregunta (y contexto si está disponible)
+        encoded_query = vectorizer.transform([texto_para_codificar])
 
         # Calcular la similitud
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
@@ -419,6 +422,7 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
+
 
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
