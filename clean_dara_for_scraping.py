@@ -4,9 +4,7 @@ import json
 import re
 from bs4 import BeautifulSoup  
 import requests  
-from flask import Flask
 
-app = Flask(__name__)
 
 
 def save_dataset(dataset_entries, chatbot_id):

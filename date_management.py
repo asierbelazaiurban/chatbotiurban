@@ -3,6 +3,9 @@ import requests
 import json
 from dateutil import parser
 import spacy
+from flask import Flask
+
+app = Flask(__name__)
 
 def extraer_fechas_con_contexto(pregunta):
     nlp = spacy.load('en_core_web_sm')
