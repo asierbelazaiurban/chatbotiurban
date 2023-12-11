@@ -1,4 +1,7 @@
 
+import re
+import os
+
 def save_dataset(dataset_entries, chatbot_id):
     dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
     os.makedirs(dataset_folder, exist_ok=True)
@@ -19,7 +22,6 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para chatbot_id {chatbot_id}")
         return None
 
-import re
 
 def clean_and_format_text(soup):
 
