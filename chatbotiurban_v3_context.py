@@ -393,15 +393,20 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         return []
 
 
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import TruncatedSVD
 
 def encode_data(data):
     vectorizer = TfidfVectorizer(ngram_range=(1, 1))
     X = vectorizer.fit_transform(data)
-    svd = TruncatedSVD(n_components=100)  # Ajusta el número de componentes según sea necesario
-    encoded_data = svd.fit_transform(X)
-    return encoded_data, vectorizer
 
+    # El número de componentes en TruncatedSVD debe ser menor o igual al número de características
+    n_components = min(X.shape[1], 100)  # Asegúrate de que n_components no exceda el número de características
+
+    svd = TruncatedSVD(n_components=n_components)
+    encoded_data = svd.fit_transform(X)
+
+    return encoded_data, vectorizer
 
 # Función para preprocesar las preguntas de forma genérica
 def preprocess_query(query):
