@@ -1,6 +1,11 @@
 
-import re
 import os
+import json
+import re
+from bs4 import BeautifulSoup  
+import requests  
+
+
 
 def save_dataset(dataset_entries, chatbot_id):
     dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
