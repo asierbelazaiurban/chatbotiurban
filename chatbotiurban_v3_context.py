@@ -43,6 +43,7 @@ from werkzeug.datastructures import FileStorage
 
 # Módulos locales
 from date_management import *
+from cleaned_data_for_scraping import *
 from process_docs import process_file
 
 from flask import current_app as app
