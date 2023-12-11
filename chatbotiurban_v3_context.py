@@ -380,13 +380,12 @@ def encontrar_respuesta(pregunta, datos, contexto, longitud_minima=200):
     try:
         # Preprocesar la pregunta y el contexto
         pregunta_procesada = preprocess_query(pregunta)
-        contexto_procesado = preprocess_query(contexto)
-
+       
         # Codificar los datos
         encoded_data, vectorizer = encode_data(datos)
 
         # Codificar la pregunta y el contexto
-        encoded_query = vectorizer.transform([pregunta_procesada + " " + contexto_procesado])
+        encoded_query = vectorizer.transform([pregunta_procesada + " " + contexto])
 
         # Calcular la similitud
         similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
@@ -468,16 +467,11 @@ def ask():
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
             contexto = ""
 
-            for par in pares_pregunta_respuesta[:-1]:
-                contexto += f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']} "
-
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
             if len(pares_pregunta_respuesta) > 1:
                 contexto_generado = generar_contexto_con_openai(contexto)
-            else:
-                contexto_generado = contexto
 
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
