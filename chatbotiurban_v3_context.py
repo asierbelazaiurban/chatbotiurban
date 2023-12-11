@@ -414,9 +414,15 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 # Adaptada para incluir contexto adicional
-def encontrar_respuesta(pregunta, datos):
+def encontrar_respuesta(pregunta, datos, contexto=None):
+    # Si se proporciona contexto, añádelo a la pregunta
+    if contexto:
+        pregunta_procesada = f"{pregunta} {contexto}"
+    else:
+        pregunta_procesada = pregunta
+
     # Preprocesar pregunta
-    pregunta_procesada = preprocess_query(pregunta)  # Asegúrate de que esta función realice el preprocesamiento adecuado
+    pregunta_procesada = preprocess_query(pregunta_procesada)  # Asegúrate de que esta función realice el preprocesamiento adecuado
 
     # Vectorizar datos
     vectorizer = TfidfVectorizer(max_df=0.5, min_df=2, ngram_range=(1,3))
@@ -433,6 +439,7 @@ def encontrar_respuesta(pregunta, datos):
 
     # Devolver la respuesta más similar, independientemente de su puntuación
     return datos[max_score_index]
+
 
 
 
