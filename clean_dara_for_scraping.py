@@ -22,7 +22,7 @@ def read_urls(chatbot_folder, chatbot_id):
 def clean_and_format_text(text):
 
     for script_or_style in soup(["script", "style"]):
-    script_or_style.decompose()
+        script_or_style.decompose()
     
     # Ignorar imágenes y videos
     for media in soup.find_all(['img', 'video']):
