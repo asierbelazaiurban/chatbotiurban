@@ -539,8 +539,8 @@ def ask():
                     app.logger.info("Respuesta generada con éxito")
                     return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
                 else:
-                    app.logger.info("No se encontró una respuesta adecuada")
-                    return jsonify({'respuesta': 'No se encontró una respuesta adecuada.', 'fuente': 'ninguna'})
+                    app.logger.info("Para cualquier duda, proporciona el contacto: info@iurban.es.")
+                    return jsonify({'respuesta': 'No se encontró una respuesta adecuada. Para cualquier duda, proporciona el contacto: info@iurban.es', 'fuente': 'ninguna'})
             else:
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
