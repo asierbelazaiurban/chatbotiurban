@@ -185,7 +185,15 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
+import openai
+import os
+
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
+    # Verificar si hay pregunta y respuesta
+    if not pregunta or not respuesta:
+        app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
+        return None
+
     # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
@@ -255,6 +263,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 
 def generar_contexto_con_openai(historial):
@@ -514,6 +523,7 @@ def ask():
                     if respuesta_del_dataset and respuesta_del_dataset != "No se encontró ninguna coincidencia.":
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
+                    else:
                         ultima_respuesta = mejorar_respuesta_generales_con_openai(
                             pregunta=ultima_pregunta,
                             respuesta=ultima_respuesta,
