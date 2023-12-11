@@ -448,6 +448,7 @@ def encontrar_respuesta(pregunta, datos, contexto=None):
 
 
 
+
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
