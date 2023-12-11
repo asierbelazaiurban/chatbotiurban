@@ -470,7 +470,10 @@ def ask():
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
-            if len(pares_pregunta_respuesta) > 1:
+            # Generar contexto si hay al menos una respuesta
+            if len(pares_pregunta_respuesta) > 1 or (len(pares_pregunta_respuesta) == 1 and ultima_respuesta):
+                contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" 
+                                     for par in pares_pregunta_respuesta])
                 contexto_generado = generar_contexto_con_openai(contexto)
 
             if ultima_respuesta == "":
