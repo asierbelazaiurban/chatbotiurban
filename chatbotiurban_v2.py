@@ -1,59 +1,50 @@
 ##!/usr/bin/env python
 # coding: utf-8
 
-# Librerías estándar de Python
-import json
-import logging
-import os
-import random
-import re
-import subprocess
-import time
-import traceback
-from logging import FileHandler
-from logging.handlers import RotatingFileHandler
-from time import sleep
-from urllib.parse import urlparse, urljoin
-
-# Librerías de terceros
 import chardet
-import evaluate
-import gensim.downloader as api
-import nltk
 import numpy as np
-import openai
-import pandas as pd
-import requests
-import torch
-from bs4 import BeautifulSoup
-from datasets import Dataset, load_dataset
 from flask import Flask, request, jsonify
+import logging
+from logging.handlers import RotatingFileHandler
+from logging import FileHandler
+import os
+import openai
+import requests
+from bs4 import BeautifulSoup
+import json
+import time
+from urllib.parse import urlparse, urljoin
+import random
+from time import sleep
+import traceback
+import gensim.downloader as api
 from gensim.models import Word2Vec
-from nltk.corpus import stopwords
+import nltk
 from nltk.tokenize import word_tokenize
-from peft import PeftConfig, PeftModel, TaskType, LoraConfig
-from sentence_transformers import SentenceTransformer, util
+from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from tqdm import tqdm
-from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
-from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, GenerationConfig
+from datasets import load_dataset
+from peft import PeftModel, PeftConfig, LoraConfig, TaskType
+from trl import PPOTrainer, PPOConfig, AutoModelForSeq2SeqLMWithValueHead
+from trl import create_reference_model
 from trl.core import LengthSampler
-from werkzeug.datastructures import FileStorage
-
-# Módulos locales
-from date_management import *
-from clean_data_for_scraping import *
+import torch
+import evaluate
+import pandas as pd
+from tqdm import tqdm
+from datasets import Dataset
+import subprocess
+import difflib
+import re 
+from werkzeug.datastructures import FileStorage 
 from process_docs import process_file
 
-from flask import current_app as app
-import unidecode
 
-import nltk
-from nltk.tokenize import word_tokenize
-nltk.download('stopwords')
+
 nltk.download('punkt')
-
+nltk.download('stopwords')
 
 tqdm.pandas()
 
@@ -103,17 +94,18 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
         return None
 
+
 def safe_request(url, max_retries=3):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
     for attempt in range(max_retries):
         try:
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response
         except RequestException as e:
-            logging.error(f"Attempt {attempt + 1} failed for {url}: {e}")
+            print(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
-
 
 def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
@@ -131,129 +123,61 @@ def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
             max_coincidencias = len(coincidencias)
             respuesta_mas_adeacuada = datos['respuesta']
 
-    app.logger.info(f"Respuesta más adecuada encontrada: {respuesta_mas_adeacuada}")
     return respuesta_mas_adeacuada
 
-
 def clean_and_transform_data(data):
+    # Aquí puedes implementar tu lógica de limpieza y transformación
     cleaned_data = data.strip().replace("\r", "").replace("\n", " ")
-    app.logger.info("Datos limpiados y transformados")
     return cleaned_data
 
-
-def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
+def mejorar_respuesta_con_openai(respuesta_original, pregunta):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Definir las rutas base para los prompts
-    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+    # Construyendo el prompt para un modelo de chat
+    prompt = f"La pregunta es: {pregunta}\nLa respuesta original es: {respuesta_original}\n Responde como si fueras una guía de una oficina de turismo. Siempre responde en el mismo idioma de la pregunta y SIEMPRE contesta sobre el mismo idioma que te están realizando la pregunta. SE BREVE, entre 20 y 40 palabras"
 
-    # Intentar cargar el prompt específico desde los prompts, según chatbot_id
-    new_prompt_by_id = None
-    if chatbot_id:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
-        try:
-            with open(prompt_file_path, 'r') as file:
-                new_prompt_by_id = file.read()
-            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
-        except Exception as e:
-            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
-
-    # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
-    new_prompt = new_prompt_by_id if new_prompt_by_id else (
-        "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
-        "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
-        "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
-        "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
-        "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
-        "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
-        "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-        "proporciona el contacto: info@iurban.es."
-    )
-
-    # Construir el prompt base
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
-
-    # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": prompt_base},
-                {"role": "user", "content": respuesta_original}
+                {"role": "system", "content": "Mejora las respuestas"},
+                {"role": "user", "content": prompt}
             ]
         )
         return response.choices[0].message['content'].strip()
     except Exception as e:
-        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        print(f"Error al interactuar con OpenAI: {e}")
         return None
 
-
-import openai
-import os
-
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
-    # Verificar si hay pregunta y respuesta
-    if not pregunta or not respuesta:
-        app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
-        return None
-
-    # Configurar la clave API de OpenAI
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", temperature="", model_gpt="", chatbot_id=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    app.logger.info("Entrando en OpenAI")
-
-    # Definir las rutas base para los prompts
-    BASE_PROMPTS_DIR = "data/uploads/prompts/"
-
-    # Inicializar la variable para almacenar el new_prompt obtenido por chatbot_id
-    new_prompt_by_id = None
-
-    # Intentar cargar el new_prompt desde los prompts, según chatbot_id
+    # Comprobación y carga del dataset basado en chatbot_id
     if chatbot_id:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
-            with open(prompt_file_path, 'r') as file:
-                new_prompt_by_id = file.read()
-            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+            dataset_file_path = os.path.join(BASE_DATASET_PROMPTS, str(chatbot_id), 'prompt.txt')
+            with open(dataset_file_path, 'r') as file:
+                dataset_content = json.load(file)
+            new_prompt = dataset_content
+            logging.info(f"Conjunto de datos cargado con éxito para chatbot_id {chatbot_id}.")
         except Exception as e:
-            app.logger.info(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+            logging.info(f"Error al cargar el conjunto de datos para chatbot_id {chatbot_id}: {e}")
 
-    # Utilizar new_prompt_by_id si no viene vacío, de lo contrario usar new_prompt proporcionado
-    if new_prompt_by_id:
-        new_prompt = new_prompt_by_id
-    elif new_prompt:
-        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
-        try:
-            with open(prompt_file_path_direct, 'r') as file:
-                new_prompt_direct = file.read()
-            new_prompt = new_prompt_direct
-            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
-        except Exception as e:
-            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
+    # Construcción del prompt base
+    prompt_base = f"""Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'"""
 
-    # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
-    if not contexto_adicional:
-        contexto_adicional = "";
+    # Uso de new_prompt proporcionado si existe
+    if new_prompt:
+        logging.info("Utilizando new_prompt proporcionado.")
+        prompt_base = f"{prompt_base} {new_prompt}"
+    else:
+        logging.info("Utilizando extensión de prompt por defecto.")
+        prompt_base += " Mantén la coherencia con la pregunta y si la respuesta no se alinea..."
 
-    # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
-    if not new_prompt:
-        new_prompt = ("Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
-                      "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
-                      "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
-                      "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
-                      "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
-                      "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
-                      "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-                      "proporciona el contacto: info@iurban.es.")
-
-    # Construir el prompt base
-    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
-    app.logger.info(prompt_base)
-
-    # Generar la respuesta mejorada
+    # Intento de generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4",
+            model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -261,66 +185,12 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
             temperature=float(temperature) if temperature else 0.5
         )
         improved_response = response.choices[0].message['content'].strip()
-        app.logger.info("Respuesta generada con éxito.")
+        logging.info("Respuesta generada con éxito.")
         return improved_response
     except Exception as e:
-        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        logging.info(f"Error al interactuar con OpenAI: {e}")
         return None
 
-
-
-def generar_contexto_con_openai(historial):
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
-                {"role": "user", "content": historial}
-            ]
-        )
-        return response.choices[0].message['content'].strip()
-    except Exception as e:
-        app.logger.info(f"Error al generar contexto con OpenAI: {e}")
-        return ""
-
-
-def buscar_en_openai_relacion_con_eventos(frase):
-    app.logger.info("Hemos detectado un evento")
-
-    # Texto fijo a concatenar
-    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. la frase es: "
-
-    # Concatenar el texto fijo con la frase
-    frase_combinada = texto_fijo + frase
-
-    # Establecer la clave de API de OpenAI
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # Ajusta el modelo según lo necesario
-            messages=[
-                {"role": "system", "content": ""},
-                {"role": "user", "content": frase_combinada}
-            ]
-        )
-
-        # Interpretar la respuesta y normalizarla
-        respuesta = response.choices[0].message['content'].strip().lower()
-        respuesta = unidecode.unidecode(respuesta).replace(".", "")
-
-        app.logger.info("Respuesta es ")
-        app.logger.info(respuesta)
-
-        if respuesta == "si":
-            return True
-        elif respuesta == "no":
-            return False
-    except Exception as e:
-        app.logger.error(f"Error al procesar la solicitud: {e}")
-        return None
 
 
 def extraer_palabras_clave(pregunta):
@@ -337,9 +207,6 @@ def extraer_palabras_clave(pregunta):
     return palabras_clave
 
  ######## Inicio Endpoints ########
-
-
-####### Utils busqueda en Json #######
 
 
 ####### Utils busqueda en Json #######
@@ -426,121 +293,38 @@ def encontrar_respuesta(pregunta, datos, longitud_minima=200):
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
         raise e
 
+# Uso de la función
+# respuesta_ampliada = encontrar_respuesta_amplia(la_pregunta, los_datos)
 
-
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
-    app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
-
-    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-
-    if not os.path.exists(json_file_path):
-        app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None, False
-
-    with open(json_file_path, 'r', encoding='utf-8') as json_file:
-        preguntas_respuestas = json.load(json_file)
-
-    # Crear una lista de todas las palabras clave
-    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
-    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
-
-    # Calcular los embeddings para las palabras clave y la pregunta del usuario
-    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
-    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
-
-    # Calcular la similitud semántica
-    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
-
-    # Encontrar la mejor coincidencia si supera el umbral
-    mejor_coincidencia = similitudes.argmax()
-    max_similitud = similitudes[mejor_coincidencia].item()
-
-    if max_similitud >= umbral_similitud:
-        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
-        return respuesta_mejor_coincidencia, True
-    else:
-        app.logger.info("No se encontró una coincidencia adecuada")
-        return None, False
 
 ####### FIN Utils busqueda en Json #######
 
 
 ####### Inicio Endpoints #######
 
+@app.route('/ask_general', methods=['POST'])
+def ask_general():
+    contenido = request.json
+    pregunta = contenido['pregunta']
+    chatbot_id = contenido['chatbot_id']
 
-@app.route('/ask', methods=['POST'])
-def ask():
-    app.logger.info("Solicitud recibida en /ask")
+    # Cargar datos
+    datos = cargar_dataset(chatbot_id, BASE_DATASET_DIR)
 
+    # Encontrar respuesta
+    respuesta_original = encontrar_respuesta(pregunta, datos)
+
+    # Intentar mejorar la respuesta con OpenAI
     try:
-        data = request.get_json()
-        chatbot_id = data.get('chatbot_id', 'default_id')  # ID por defecto si no se proporciona
-
-        if 'pares_pregunta_respuesta' in data:
-            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-            
-            # Manejar la última pregunta y respuesta
-            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
-
-            # Generar contexto
-            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" 
-                                 for par in pares_pregunta_respuesta[:-1]])  # Excluye la última pregunta
-
-            if ultima_respuesta == "":
-                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                respuesta_del_dataset = None
-                fuente_respuesta = None
-
-                if encontrada_en_json:
-                    ultima_respuesta = respuesta_preestablecida
-                    fuente_respuesta = "preestablecida"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    fuente_respuesta = "eventos"
-                else:
-                    # Cargar datos del dataset
-                    dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
-
-                    # Determinar la fuente de la respuesta
-                    if respuesta_del_dataset:
-                        ultima_respuesta = respuesta_del_dataset
-                        fuente_respuesta = "dataset"
-                    else:
-                        ultima_respuesta = "No se encontró una respuesta adecuada en el dataset."
-                        fuente_respuesta = "ninguna"
-
-                # Mejorar la respuesta con OpenAI si es necesario
-                if fuente_respuesta != "ninguna":
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
-                        pregunta=ultima_pregunta,
-                        respuesta=ultima_respuesta,
-                        new_prompt="",
-                        contexto_adicional=contexto,
-                        temperature=0.7,
-                        model_gpt="gpt-4",
-                        chatbot_id=chatbot_id
-                    )
-
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
-
-            else:
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
-
-        else:
-            app.logger.warning("Formato de solicitud incorrecto")
-            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
-
+        respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+            pregunta, respuesta_original, chatbot_id=chatbot_id
+        )
+        if respuesta_mejorada:
+            return jsonify({'respuesta': respuesta_mejorada})
     except Exception as e:
-        app.logger.error(f"Error en /ask: {e}")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        print(f"Error al mejorar respuesta con OpenAI: {e}")
+        # Devolver la respuesta original en caso de error
+        return jsonify({'respuesta': respuesta_original})
 
 
 @app.route('/uploads', methods=['POST'])
@@ -549,29 +333,29 @@ def upload_file():
         logging.info("Procesando solicitud de carga de archivo")
 
         if 'documento' not in request.files:
-            app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
+            logging.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
         
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
-        app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
+        logging.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
-            app.logger.warning("Nombre de archivo vacío")
+            logging.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         docs_folder = os.path.join(BASE_DIR_DOCS, str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
-        app.logger.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
+        logging.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
 
         file_extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
         file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
-        app.logger.info(f"Archivo guardado en: {file_path}")
+        logging.info(f"Archivo guardado en: {file_path}")
 
         readable_content = process_file(file_path, file_extension)
         if readable_content is None:
-            app.logger.error("No se pudo procesar el archivo")
+            logging.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
         # Contar palabras en el contenido
@@ -584,7 +368,7 @@ def upload_file():
         if os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
-                app.logger.info("Archivo JSON del dataset existente cargado")
+                logging.info("Archivo JSON del dataset existente cargado")
 
         indice = uploaded_file.filename
         dataset_entries[indice] = {
@@ -595,7 +379,7 @@ def upload_file():
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-            app.logger.info("Archivo JSON del dataset actualizado y guardado")
+            logging.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
@@ -612,7 +396,7 @@ def upload_file():
 @app.route('/save_text', methods=['POST'])
 def save_text():
     try:
-        app.logger.info("Procesando solicitud para guardar texto")
+        logging.info("Procesando solicitud para guardar texto")
 
         # Obtener el JSON de la solicitud
         data = request.get_json()
@@ -670,7 +454,7 @@ def save_text():
         })
 
     except Exception as e:
-        app.logger.error(f"Error durante el procesamiento. Error: {e}")
+        logging.error(f"Error durante el procesamiento. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
@@ -698,10 +482,7 @@ def process_urls():
         try:
             response = requests.get(url)
             soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Limpiar y formatear el texto
-            text = clean_and_format_text(soup)
-
+            text = soup.get_text()
             dataset_entries[len(dataset_entries) + 1] = {
                 "indice": len(dataset_entries) + 1,
                 "url": url,
@@ -715,14 +496,22 @@ def process_urls():
             break
 
     if all_processed:
-        # Guardar el dataset
-        save_dataset(dataset_entries, chatbot_id)
+        # Construye la ruta del archivo donde se guardará el dataset
+        dataset_folder = os.path.join('data', 'uploads', 'datasets', chatbot_id)
+        os.makedirs(dataset_folder, exist_ok=True)  # Crea la carpeta si no existe
+        dataset_file_path = os.path.join(dataset_folder, 'dataset.json')
+
+        # Guarda el dataset en un archivo JSON
+        with open(dataset_file_path, 'w') as dataset_file:
+            json.dump(dataset_entries, dataset_file, indent=4)
+
 
         return jsonify({"status": "success", "message": "Datos procesados y almacenados correctamente"})
     else:
         return jsonify({"status": "error", "message": f"Error al procesar datos: {error_message}"})
 
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+
 
 
 @app.route('/save_urls', methods=['POST'])
@@ -748,17 +537,15 @@ def save_urls():
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
+
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
-        app.logger.info("Procesando solicitud de scraping de URL")
-
         data = request.get_json()
         base_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
 
         if not base_url:
-            app.logger.warning("No se proporcionó URL")
             return jsonify({'error': 'No URL provided'}), 400
 
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
@@ -781,7 +568,6 @@ def url_for_scraping():
                 if same_domain(url):
                     urls.add(url)
         else:
-            app.logger.error("Error al obtener respuesta del URL base")
             return jsonify({'error': 'Failed to fetch base URL'}), 500
 
         urls_data = []
@@ -799,38 +585,42 @@ def url_for_scraping():
             for url_data in urls_data:
                 text_file.write(url_data['url'] + '\n')
 
-        app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
     except Exception as e:
-        app.logger.error(f"Error inesperado en url_for_scraping: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
 
 @app.route('/url_for_scraping_by_sitemap', methods=['POST'])
 def url_for_scraping_by_sitemap():
     try:
-        app.logger.info("Procesando solicitud de scraping por sitemap")
-
         data = request.get_json()
         sitemap_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
 
+        logging.info(f"Recibida solicitud para chatbot_id: {chatbot_id}, URL del sitemap: {sitemap_url}")
+
         if not sitemap_url:
-            app.logger.warning("No se proporcionó URL del sitemap")
+            logging.error("No se proporcionó URL del sitemap")
             return jsonify({'error': 'No se proporcionó URL del sitemap'}), 400
 
+        # Crear el directorio para guardar los datos
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
         os.makedirs(save_dir, exist_ok=True)
         file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
 
+        logging.info(f"Directorio creado: {save_dir}")
+
+        # Función para solicitar el sitemap
         def request_sitemap(url):
             try:
                 response = requests.get(url)
                 response.raise_for_status()
                 return response.text
             except requests.RequestException as e:
-                app.logger.error(f"Error al descargar el sitemap: {e}")
+                logging.error(f"Error al descargar el sitemap: {e}")
                 return None
 
+        # Obtener y procesar el sitemap
         sitemap_content = request_sitemap(sitemap_url)
         if not sitemap_content:
             return jsonify({'error': 'Error al descargar el sitemap'}), 500
@@ -838,14 +628,18 @@ def url_for_scraping_by_sitemap():
         soup = BeautifulSoup(sitemap_content, 'xml')
         urls = [loc.text for loc in soup.find_all('loc')]
 
+        logging.info(f"URLs encontradas en el sitemap: {len(urls)}")
+
+        # Guardar las URLs en un archivo
         with open(file_path, 'w') as file:
             for url in urls:
                 file.write(url + '\n')
 
-        app.logger.info(f"Sitemap procesado correctamente para {sitemap_url}")
+        logging.info(f"URLs guardadas en {file_path}")
+
         return jsonify({'message': 'Sitemap procesado correctamente', 'urls_count': len(urls)})
     except Exception as e:
-        app.logger.error(f"Error inesperado en url_for_scraping_by_sitemap: {e}")
+        logging.error(f"Error inesperado: {e}")
         return jsonify({'error': f'Error inesperado: {str(e)}'}), 500
 
 
@@ -857,24 +651,21 @@ def delete_urls():
     chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
 
     if not urls_to_delete or not chatbot_id:
-        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
     chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
 
-    app.logger.info(f"Ruta del directorio del chatbot: {chatbot_folder}")
+    print("Ruta del directorio del chatbot:", chatbot_folder)
 
     if not os.path.exists(chatbot_folder):
-        app.logger.error("Carpeta del chatbot no encontrada")
         return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
 
     file_name = f"{chatbot_id}.txt"
     file_path = os.path.join(chatbot_folder, file_name)
 
-    app.logger.info(f"Ruta del archivo de URLs: {file_path}")
+    print("Ruta del archivo de URLs:", file_path)
 
     if not os.path.exists(file_path):
-        app.logger.error(f"Archivo {file_name} no encontrado en la carpeta del chatbot")
         return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
 
     try:
@@ -889,12 +680,82 @@ def delete_urls():
                 if url.strip():  # Asegura que la URL no sea una línea vacía
                     file.write(url + '\n')
 
-        app.logger.info("URLs eliminadas con éxito")
         return jsonify({"status": "success", "message": "URLs deleted successfully"})
     except Exception as e:
-        app.logger.error(f"Error al eliminar URLs: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+@app.route('/ask', methods=['POST'])
+def ask():
+    app.logger.info("Inicio de la función /ask")
+    try:
+        app.logger.info("Intentando obtener datos JSON de la solicitud")
+        data = request.get_json()
+        if not data:
+            raise ValueError("No se recibieron datos JSON válidos.")
+
+        app.logger.info(f"Datos recibidos: {data}")
+        chatbot_id = data.get('chatbot_id')
+        pregunta = data.get('pregunta')
+        token = data.get('token')
+
+        if not pregunta or not chatbot_id or not token:
+            app.logger.error("Falta chatbot_id o o token o pregunta en la solicitud.")
+            return jsonify({"error": "Falta chatbot_id o pregunta en la solicitud."}), 400
+
+        json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+        app.logger.info(f"Ruta del archivo JSON: {json_file_path}")
+
+        if not os.path.exists(json_file_path):
+            app.logger.error("Archivo de respuestas preestablecidas no encontrado.")
+            return jsonify({'error': 'Archivo de respuestas preestablecidas no encontrado.'}), 404
+
+        with open(json_file_path, 'r', encoding='utf-8') as json_file:
+            preguntas_respuestas = json.load(json_file)
+
+        app.logger.info("Archivo JSON cargado correctamente")
+        respuesta = None
+        max_similarity = 0.0
+        for entry in preguntas_respuestas.values():
+            palabras_clave = ' '.join(entry["palabras_clave"])
+            similarity = difflib.SequenceMatcher(None, pregunta, palabras_clave).ratio()
+            if similarity > max_similarity:
+                max_similarity = similarity
+                respuesta = entry["respuesta"]
+                app.logger.info(f"Similitud encontrada: {similarity} para la pregunta '{pregunta}'")
+
+        if max_similarity <= 0.9:
+            app.logger.info("No se encontró una coincidencia adecuada, llamando a /ask_general")
+            try:
+                contenido_general = {
+                    'pregunta': pregunta,
+                    'chatbot_id': chatbot_id,
+                    'token': token,  
+                }
+
+                # Llamando a /ask_general internamente
+                respuesta_general = ask_general(contenido_general)
+                return respuesta_general
+
+            except Exception as e:
+                app.logger.error(f"Error al llamar a /ask_general: {e}")
+                # Si hay un error, devolver la respuesta generada por OpenAI
+                return jsonify({'respuesta': respuesta})
+
+        # Intentar mejorar la respuesta con OpenAI
+        try:
+            app.logger.info("Intentando mejorar respuesta con OpenAI")
+            respuesta_mejorada = mejorar_respuesta_con_openai(respuesta, pregunta)
+            if respuesta_mejorada:
+                return jsonify({'respuesta': respuesta_mejorada})
+        except Exception as e:
+            app.logger.error(f"Error al mejorar respuesta con OpenAI: {e}")
+            # Devolver la respuesta original en caso de error
+            return jsonify({'respuesta': respuesta})
+
+    except Exception as e:
+        app.logger.error(f"Error inesperado en /ask: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/pre_established_answers', methods=['POST'])
@@ -905,69 +766,37 @@ def pre_established_answers():
     respuesta = data.get('respuesta')
 
     if not (chatbot_id and pregunta and respuesta):
-        app.logger.warning("Faltan datos en la solicitud (chatbot_id, pregunta, respuesta).")
         return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, pregunta, respuesta)."}), 400
 
+    # Extraer palabras clave de la pregunta
     palabras_clave = extraer_palabras_clave(pregunta)
+
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+
+    # Verificar si el directorio existe, si no, crearlo
     os.makedirs(os.path.dirname(json_file_path), exist_ok=True)
 
+    # Intentar leer el archivo JSON existente o crear un nuevo diccionario si no existe
     if os.path.isfile(json_file_path):
         with open(json_file_path, 'r', encoding='utf-8') as json_file:
             preguntas_respuestas = json.load(json_file)
     else:
         preguntas_respuestas = {}
 
+    # Actualizar o añadir la nueva pregunta y respuesta
     preguntas_respuestas[pregunta] = {
         "Pregunta": [pregunta],
         "palabras_clave": palabras_clave,
         "respuesta": respuesta
     }
 
+    # Guardar los cambios en el archivo JSON
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
 
-    app.logger.info(f"Respuesta para la pregunta '{pregunta}' guardada con éxito.")
+    # Devolver la respuesta
     return jsonify({'mensaje': 'Pregunta y respuesta guardadas correctamente'})
 
-@app.route('/delete_pre_established_answers', methods=['POST'])
-def delete_pre_established_answers():
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    preguntas_a_eliminar = data.get('preguntas')
-
-    if not chatbot_id or not preguntas_a_eliminar:
-        app.logger.warning("Faltan datos en la solicitud (chatbot_id, preguntas).")
-        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, preguntas)."}), 400
-
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-
-    if not os.path.isfile(json_file_path):
-        app.logger.error("Archivo de preguntas y respuestas no encontrado.")
-        return jsonify({"error": "No se encontró el archivo de preguntas y respuestas."}), 404
-
-    with open(json_file_path, 'r', encoding='utf-8') as json_file:
-        preguntas_respuestas = json.load(json_file)
-
-    preguntas_eliminadas = []
-    preguntas_no_encontradas = []
-
-    for pregunta in preguntas_a_eliminar:
-        if pregunta in preguntas_respuestas:
-            del preguntas_respuestas[pregunta]
-            preguntas_eliminadas.append(pregunta)
-        else:
-            preguntas_no_encontradas.append(pregunta)
-
-    with open(json_file_path, 'w', encoding='utf-8') as json_file:
-        json.dump(preguntas_respuestas, json_file, ensure_ascii=False, indent=4)
-
-    app.logger.info("Proceso de eliminación de preguntas completado.")
-    return jsonify({
-        'mensaje': 'Proceso de eliminación completado',
-        'preguntas_eliminadas': preguntas_eliminadas,
-        'preguntas_no_encontradas': preguntas_no_encontradas
-    })
 
 @app.route('/change_params_prompt_temperature_and_model', methods=['POST'])
 def change_params():
@@ -975,64 +804,35 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-4')
+    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
 
     if not new_prompt or not chatbot_id:
-        app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
         return jsonify({"error": "Los campos 'new_prompt' y 'chatbot_id' son requeridos"}), 400
 
+    # Guardar el nuevo prompt en un archivo
     prompt_file_path = f"data/uploads/prompts/{chatbot_id}/prompt.txt"
     os.makedirs(os.path.dirname(prompt_file_path), exist_ok=True)
 
     with open(prompt_file_path, 'w') as file:
         file.write(new_prompt)
 
+    # Leer el contenido del nuevo prompt del archivo
     with open(prompt_file_path, 'r') as file:
         saved_prompt = file.read()
 
-    pregunta = ""
-    respuesta = ""
+    pregunta = ""  # 'pregunta' está vacía porque no se utiliza en este contexto
+    respuesta = ""  # 'respuesta' está vacía porque no se utiliza en este contexto
     prompt_base = f"Cuando recibas una pregunta, comienza con: '{pregunta}'. Luego sigue con tu respuesta original: '{respuesta}'. {saved_prompt}"
 
+    # Comprobación para ver si el nuevo prompt es igual al prompt base
     if new_prompt == prompt_base:
-        app.logger.info("El nuevo prompt es igual al prompt base. No se realizó ninguna acción.")
         return jsonify({"mensaje": "El nuevo prompt es igual al prompt base. No se realizó ninguna acción."})
 
-    mejorar_respuesta_generales_con_openai(
-        pregunta=pregunta,
-        respuesta=respuesta,
-        new_prompt=saved_prompt,
-        contexto_adicional="",
-        temperature=temperature,
-        model_gpt=model_gpt,
-        chatbot_id=chatbot_id
-    )
+    # Llamada a la función para actualizar la configuración del modelo
+    mejorar_respuesta_generales_con_openai(saved_prompt, temperature, model_gpt)
 
-    app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
 
-@app.route('/events', methods=['POST'])
-def events():
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    eventos = data.get('events')  # 'events' es un array
-    pregunta = data.get('pregunta')
-
-    if not (chatbot_id and eventos):
-        app.logger.warning("Faltan datos en la solicitud (chatbot_id, events).")
-        return jsonify({"error": "Faltan datos en la solicitud (chatbot_id, events)."}), 400
-
-    # Concatenar los eventos en una sola cadena
-    eventos_concatenados = " ".join(eventos)
-
-    # Llamar a mejorar_respuesta_con_openai con los eventos concatenados
-    respuesta_mejorada = mejorar_respuesta_con_openai(eventos_concatenados, pregunta, chatbot_id)
-    if respuesta_mejorada:
-        app.logger.info("Respuesta mejorada generada con éxito.")
-        return jsonify({'mensaje': 'Respuesta mejorada', 'respuesta_mejorada': respuesta_mejorada})
-    else:
-        app.logger.error("Error al mejorar la respuesta para el evento concatenado.")
-        return jsonify({"error": "Error al mejorar la respuesta"}), 500
 
 
 @app.route('/list_chatbot_ids', methods=['GET'])
@@ -1041,12 +841,6 @@ def list_folders():
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
 
-
-@app.route('/run_tests', methods=['POST'])
-def run_tests():
-    import subprocess
-    result = subprocess.run(['python', 'run_tests.py'], capture_output=True, text=True)
-    return result.stdout
  ######## Fin Endpoints ######## 
 
 if __name__ == "__main__":
