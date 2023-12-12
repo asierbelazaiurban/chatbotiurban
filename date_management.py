@@ -116,20 +116,17 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_data = response.json()
         app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
-        if 'events' in eventos_data and isinstance(eventos_data['events'], list):
-            eventos = eventos_data['events']
-            if eventos:
-                # Limpiar y concatenar todos los eventos en un solo string
-                eventos_limpios = [html.unescape(evento).replace('\n', ' ').replace('\r', '').replace('\xa0', ' ') for evento in eventos]
-                eventos_concatenados = ' '.join(eventos_limpios)
-                app.logger.info("Eventos concatenados: %s", eventos_concatenados)
-                return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
-            else:
-                app.logger.info("Se encontraron eventos, pero la lista está vacía.")
-                return {"chatbot_id": chatbot_id, "events": "Se encontraron eventos, pero la lista está vacía."}
-        else:
-            app.logger.info("La clave 'events' no está presente en la respuesta JSON.")
-            return {"chatbot_id": chatbot_id, "events": "La clave 'events' no está presente en la respuesta JSON."}
+        # Convertir el JSON a string y realizar la limpieza
+        eventos_string = json.dumps(eventos_data, ensure_ascii=False)
+        eventos_string = html.unescape(eventos_string)
+
+        # Eliminar 'chatbot_id', reemplazar 'events' por un punto y eliminar caracteres específicos
+        eventos_string = eventos_string.replace(f'"chatbot_id":"{chatbot_id}",', '')
+        eventos_string = eventos_string.replace('"events":', '.')
+        eventos_string = eventos_string.translate(str.maketrans('', '', '{}[]'))
+
+        app.logger.info("Eventos en formato string ajustado: %s", eventos_string)
+        return {"chatbot_id": chatbot_id, "events": eventos_string}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
