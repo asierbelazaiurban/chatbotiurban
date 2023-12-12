@@ -29,7 +29,8 @@ def get_openai_response(texto):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     if not openai.api_key:
         raise ValueError("OPENAI_API_KEY is not set in environment variables")
-    instruccion_gpt4 = ("""Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.""")
+    instruccion_gpt4 = ("Tu tarea es identificar cualquier referencia temporal en la pregunta del usuario, ya sea que esté en cualquier idioma o formato. Esto incluye expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', así como años específicos como '2024'. Devuelve estas referencias temporales exactamente como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir únicamente las referencias temporales identificadas, sin fechas adicionales ni interpretaciones.")
+
     respuesta = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -37,7 +38,17 @@ def get_openai_response(texto):
             {"role": "user", "content": texto},
         ]
     )
-    return respuesta.choices[0].message['content']
+
+    app.logger.info("Respuesta open AI")
+    app.logger.info(respuesta.choices[0].message['content'])
+     # Encuentra todos los números en la respuesta y asegúrate de que estén en formato de texto
+    numeros_encontrados = re.findall(r'\d+', respuesta_texto)
+    for numero in numeros_encontrados:
+        # Aunque 'numero' ya es un string, este paso asegura que se maneje como tal
+        numero_en_texto = str(numero)
+        respuesta_texto = respuesta_texto.replace(numero, numero_en_texto)
+
+    return respuesta_texto
 
 def interpretar_intencion_y_fechas(texto, fecha_actual):
     # Obtener respuesta de GPT-4
@@ -89,7 +100,7 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_string = eventos_string.replace('\xa0', ' ').encode('utf-8', 'ignore').decode('utf-8')
         eventos_string = eventos_string.replace('"', '').replace('\\', '').replace('[', '').replace(']', '').replace('{', '').replace('}', '').replace(',', '. ')
         return eventos_string
-        
+
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
