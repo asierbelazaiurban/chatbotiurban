@@ -115,6 +115,7 @@ def obtener_eventos(pregunta, chatbot_id):
         "end": fecha_final,
         "chatbot_id": chatbot_id
     }
+    
 
     try:
         app.logger.info("Enviando solicitud HTTP a: %s", url)
