@@ -10,8 +10,6 @@ from flask import Flask
 import html  
 import datetime
 
-
-
 app = Flask(__name__)
 
 # Configuración del Logger
@@ -50,9 +48,6 @@ def interpretar_fecha_con_nlp(fecha_texto):
         return fecha_format
     return None
 
-
-# Suponiendo que el resto de tu configuración de Flask y logging ya está definido en otra parte del código
-
 def interpretar_intencion_y_fechas(texto):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
@@ -61,7 +56,7 @@ def interpretar_intencion_y_fechas(texto):
         respuesta = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "Tu eres un asistente, Me tienes que devolver solo las fechas que encuentres en las preguntas, esto incluye intencionalidad o cosas como dos dias en adelante, el proximo año, etc."},
+                {"role": "system", "content": "Tu eres un asistente, Me tienes que devolver solo las fehcas que encuentres en las preguntas, esto incluye intencionalidad o cosas como dos dias en adelante, el proximo año etc.."},
                 {"role": "user", "content": texto},
             ]
         )
@@ -70,30 +65,18 @@ def interpretar_intencion_y_fechas(texto):
         app.logger.info("Texto interpretado: %s", texto_interpretado)
 
         # Utiliza dateparser para interpretar las fechas
-        fecha_hoy = datetime.datetime.now()
-        settings = {'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': fecha_hoy}
+        settings = {'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': datetime.datetime.now()}
         fecha_interpretada = dateparser.parse(texto_interpretado, settings=settings)
-
         if fecha_interpretada:
-            # Ajustar para un rango de fechas si es necesario
-            if fecha_interpretada.year > fecha_hoy.year:
-                fecha_inicial = datetime.datetime(fecha_interpretada.year, 1, 1)
-                fecha_final = datetime.datetime(fecha_interpretada.year, 12, 31)
-            else:
-                fecha_inicial = fecha_interpretada
-                fecha_final = fecha_interpretada
+            fecha_format = fecha_interpretada.strftime('%Y-%m-%d')
+            return fecha_format, fecha_format
 
-            fecha_format_inicial = fecha_inicial.strftime('%Y-%m-%d')
-            fecha_format_final = fecha_final.strftime('%Y-%m-%d')
-            return fecha_format_inicial, fecha_format_final
+        # Usa interpretar_fecha_con_nlp si dateparser no encuentra una fecha
+        fecha_nlp = interpretar_fecha_con_nlp(texto_interpretado)
+        if fecha_nlp:
+            return fecha_nlp, fecha_nlp
 
-        # Continuar con la lógica existente...
         return None, None
-
-    except Exception as e:
-        app.logger.error("Excepción encontrada: %s", e)
-        return None, None
-
 
     except Exception as e:
         app.logger.error("Excepción encontrada: %s", e)
