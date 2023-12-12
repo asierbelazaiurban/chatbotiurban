@@ -88,14 +88,15 @@ def interpretar_intencion_y_fechas(texto):
         app.logger.error("Excepción encontrada: %s", e)
         return None, None
 
+
 def obtener_eventos(pregunta, chatbot_id):
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
-    app.logger.info("fecha_inicial")
-    app.logger.info(fecha_inicial)
-    app.logger.info("fecha fecha_final")
-    app.logger.info(fecha_final)
+    app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
+    app.logger.info("Fecha final interpretada: %s", fecha_final)
+    app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
 
     if fecha_inicial is None or fecha_final is None:
+        app.logger.info("No se pudo interpretar las fechas de la pregunta.")
         return "No se pudo interpretar las fechas de la pregunta."
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
@@ -107,15 +108,19 @@ def obtener_eventos(pregunta, chatbot_id):
     }
 
     try:
+        app.logger.info("Enviando solicitud HTTP a: %s", url)
+        app.logger.info("Payload de la solicitud: %s", payload)
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status()
+        response.raise_for_status()  # Esto lanzará una excepción si el código de estado HTTP no es 200
         eventos_data = response.json()
 
         eventos = eventos_data.get('eventos', [])
         if not eventos:
+            app.logger.info("No se han encontrado eventos en las fechas especificadas.")
             return "No se han encontrado eventos en las fechas especificadas."
 
         eventos_concatenados = ' '.join(eventos)
+        app.logger.info("Eventos encontrados: %s", eventos_concatenados)
         return eventos_concatenados
 
     except requests.exceptions.RequestException as e:
