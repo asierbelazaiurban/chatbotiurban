@@ -1,4 +1,3 @@
-import re
 import openai
 import os
 import dateparser
@@ -9,8 +8,6 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask
 from datetime import datetime
 from langdetect import detect
-from dateutil.relativedelta import relativedelta
-from dateparser.search import search_dates
 
 app = Flask(__name__)
 
@@ -31,7 +28,7 @@ def get_openai_response(texto):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     if not openai.api_key:
         raise ValueError("OPENAI_API_KEY is not set in environment variables")
-    instruccion_gpt4 = ("""Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.""")
+    instruccion_gpt4 = ("Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.")
     respuesta = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -42,45 +39,24 @@ def get_openai_response(texto):
     return respuesta.choices[0].message['content']
 
 def interpretar_intencion_y_fechas(texto, fecha_actual):
-    try:
-        texto_interpretado = get_openai_response(texto)
-        app.logger.info("Texto interpretado: %s", texto_interpretado)
-        referencias_temporales = extraer_referencias_temporales(texto_interpretado)
-        fechas = [convertir_referencia_temporal_a_fechas(referencia, fecha_actual) for referencia in referencias_temporales]
-        return [fecha for fecha in fechas if fecha is not None]
-    except Exception as e:
-        app.logger.error("Excepción encontrada: %s", e)
-        return []
+    # Obtener respuesta de GPT-4
+    respuesta_gpt4 = get_openai_response(texto)
 
-def extraer_referencias_temporales(texto):
-    idioma = detect(texto)
-    fechas_encontradas = search_dates(texto, languages=[idioma])
-    if fechas_encontradas:
-        return [fecha[1] for fecha in fechas_encontradas]
-    return []
+    # Procesar la respuesta de GPT-4 para extraer fechas
+    idioma = detect(respuesta_gpt4)  # Detectar el idioma del texto
+    fechas_interpretadas = dateparser.search.search_dates(respuesta_gpt4, languages=[idioma])
 
-def convertir_referencia_temporal_a_fechas(referencia, fecha_actual):
-    try:
-        settings = {
-            'PREFER_DATES_FROM': 'future',
-            'RELATIVE_BASE': fecha_actual,
-            'DATE_ORDER': 'DMY'
-        }
-        fecha_interpretada = dateparser.parse(referencia, settings=settings)
-        if fecha_interpretada is None:
-            if "año que viene" in referencia:
-                fecha_inicial = fecha_actual.replace(year=fecha_actual.year + 1, month=1, day=1)
-                fecha_final = fecha_inicial.replace(year=fecha_inicial.year + 1, month=1, day=1) - relativedelta(days=1)
-            # Aquí puedes añadir más casos especiales
-            else:
-                return None, None
-        else:
-            fecha_inicial = fecha_interpretada
-            fecha_final = fecha_interpretada
-        return fecha_inicial.strftime('%Y-%m-%d'), fecha_final.strftime('%Y-%m-%d')
-    except Exception as e:
-        app.logger.error(f"Error al convertir referencia temporal '{referencia}': {e}")
-        return None, None
+    # Lista para almacenar las fechas interpretadas como tuplas (fecha_inicial, fecha_final)
+    fechas_resultantes = []
+
+    if fechas_interpretadas:
+        for _, fecha in fechas_interpretadas:
+            # Formatear la fecha interpretada y añadirla a la lista
+            fecha_formateada = fecha.strftime('%Y-%m-%d')
+            fechas_resultantes.append((fecha_formateada, fecha_formateada))
+
+    return fechas_resultantes
+
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_actual = datetime.now()
@@ -122,5 +98,6 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
+
 
 
