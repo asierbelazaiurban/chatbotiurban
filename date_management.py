@@ -28,7 +28,13 @@ if not app.debug:
 def interpretar_intencion_y_fechas(texto, fecha_actual):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    instruccion_gpt4 = "Interpreta la pregunta del usuario para identificar cualquier referencia a fechas y conviértelas en un formato estándar 'YYYY-MM-DD'. Considera el contexto actual y las convenciones comunes para interpretar expresiones como 'mañana', 'el próximo año', etc."
+    instruccion_gpt4 = (
+        "Tu tarea es interpretar la pregunta del usuario, que puede estar en cualquier idioma, "
+        "para identificar referencias a fechas. Convierte estas referencias en un formato estándar 'YYYY-MM-DD'. "
+        "Considera el contexto actual y las convenciones comunes para interpretar expresiones como 'mañana', "
+        "'el próximo año', etc. Devuelve únicamente las fechas identificadas, indicando cuál es la primera fecha "
+        "y cuál la segunda en el rango temporal mencionado."
+    )
 
     try:
         respuesta = openai.ChatCompletion.create(
@@ -42,25 +48,28 @@ def interpretar_intencion_y_fechas(texto, fecha_actual):
         texto_interpretado = respuesta.choices[0].message['content']
         app.logger.info("Texto interpretado: %s", texto_interpretado)
 
-        # Mejora en la interpretación de las fechas
-        # Utiliza expresiones regulares para encontrar fechas en el formato 'YYYY-MM-DD' en el texto interpretado
-        fechas = re.findall(r'\d{4}-\d{2}-\d{2}', texto_interpretado)
-        if fechas:
-            fecha_inicial = min(fechas)
-            fecha_final = max(fechas)
-            return fecha_inicial, fecha_final
-        else:
-            # Utiliza dateparser como respaldo si no se encuentran fechas con la expresión regular
-            settings = {'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': fecha_actual}
-            fecha_interpretada = dateparser.parse(texto_interpretado, settings=settings)
-            if fecha_interpretada:
-                fecha_format = fecha_interpretada.strftime('%Y-%m-%d')
-                return fecha_format, fecha_format  # Asumimos la misma fecha inicial y final para simplificar
+        # Llama a la función para convertir las referencias temporales a fechas
+        fecha_inicial, fecha_final = convertir_referencia_temporal_a_fechas(texto_interpretado, fecha_actual)
 
-        return None, None
+        return fecha_inicial, fecha_final
 
     except Exception as e:
         app.logger.error("Excepción encontrada: %s", e)
+        return None, None
+
+def convertir_referencia_temporal_a_fechas(referencia, fecha_actual):
+    settings = {
+        'PREFER_DATES_FROM': 'future',
+        'RELATIVE_BASE': fecha_actual,
+        'DATE_ORDER': 'DMY'
+    }
+
+    fecha_interpretada = dateparser.parse(referencia, settings=settings)
+    if fecha_interpretada:
+        fecha_inicial = fecha_interpretada.strftime('%Y-%m-%d')
+        fecha_final = fecha_interpretada.strftime('%Y-%m-%d')
+        return fecha_inicial, fecha_final
+    else:
         return None, None
 
 def obtener_eventos(pregunta, chatbot_id):
