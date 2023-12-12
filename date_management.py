@@ -8,14 +8,6 @@ import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask
 import html  
-app = Flask(__name__)
-
-# Asumiendo que la función interpretar_intencion_y_fechas ya está definida en tu código
-
-def obtener_eventos(pregunta, chatbot_id):
-    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
-    app.logger.info("Fecha inicial interpretada: %s",
-
 
 app = Flask(__name__)
 
