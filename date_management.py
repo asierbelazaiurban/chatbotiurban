@@ -108,7 +108,6 @@ def obtener_eventos(pregunta, chatbot_id):
         response.raise_for_status()
 
         eventos_data = response.json()
-        app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
         # Convertir los eventos a string para limpieza
         eventos_string = json.dumps(eventos_data['events'])
