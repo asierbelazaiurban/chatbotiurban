@@ -190,6 +190,9 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
+import os
+import openai
+
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta=None, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id="", eventos=None, preestablecida=None):
     # Asegurarse de que la pregunta esté presente
     if not pregunta:
@@ -266,6 +269,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta=None, new_prompt=
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 
 
@@ -520,7 +524,7 @@ def ask():
                         model_gpt="gpt-4",
                         chatbot_id=chatbot_id,
                         eventos = ultima_respuesta,
-                        preestablecida = preestablecida
+                        preestablecida = ultima_respuesta
                     )
 
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
