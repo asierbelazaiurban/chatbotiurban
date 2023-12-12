@@ -86,15 +86,26 @@ def convertir_referencia_temporal_a_fechas(referencia, fecha_actual):
 def obtener_eventos(pregunta, chatbot_id):
     fecha_actual = datetime.now()
 
-    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta, fecha_actual)
+    resultado_fechas = interpretar_intencion_y_fechas(pregunta, fecha_actual)
+
+    # Verifica si el resultado contiene al menos una tupla
+    if resultado_fechas and len(resultado_fechas) > 0:
+        fecha_inicial, fecha_final = resultado_fechas[0]
+    else:
+        app.logger.info("No se pudo interpretar las fechas de la pregunta.")
+        return "No se pudo interpretar las fechas de la pregunta."
+
+    # Registro de información
     app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
     app.logger.info("Fecha final interpretada: %s", fecha_final)
     app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
 
+    # Si las fechas son None, maneja ese caso
     if fecha_inicial is None or fecha_final is None:
-        app.logger.info("No se pudo interpretar las fechas de la pregunta.")
-        return "No se pudo interpretar las fechas de la pregunta."
+        app.logger.info("No se encontraron fechas en la pregunta.")
+        return "No se encontraron fechas en la pregunta."
 
+    # Preparar y enviar la solicitud
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
     payload = {
@@ -113,8 +124,6 @@ def obtener_eventos(pregunta, chatbot_id):
 
         # Convertir los eventos a string para limpieza
         eventos_string = json.dumps(eventos_data['events'])
-
-        # Limpieza del string
         eventos_string = eventos_string.replace('\xa0', ' ')
         eventos_string = eventos_string.encode('utf-8', 'ignore').decode('utf-8')
         eventos_string = eventos_string.replace('"', '').replace('\\', '')
