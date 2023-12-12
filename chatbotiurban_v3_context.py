@@ -493,6 +493,8 @@ def ask():
                     fuente_respuesta = "preestablecida"
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                    app.logger.info("ultima_pregunta en eventos")
+                    app.logger.info(ultima_pregunta)
                     fuente_respuesta = "eventos"
                 else:
                     dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
