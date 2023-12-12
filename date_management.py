@@ -1,4 +1,3 @@
-import re
 import openai
 import os
 import dateparser
@@ -40,13 +39,19 @@ def get_openai_response(texto):
     )
     return respuesta.choices[0].message['content']
 
-def interpretar_referencias_temporales(texto):
-    idioma = detect(texto)
-    fechas = dateparser.search.search_dates(texto, languages=[idioma])
-    if fechas:
-        return [(fecha[1].strftime('%Y-%m-%d'), fecha[1].strftime('%Y-%m-%d')) for fecha in fechas]
-    else:
-        return None
+def interpretar_intencion_y_fechas(texto, fecha_actual):
+    # Obtener respuesta de GPT-4
+    respuesta_gpt4 = get_openai_response(texto)
+    idioma = detect(respuesta_gpt4)
+    fechas_interpretadas = search_dates(respuesta_gpt4, languages=[idioma])
+
+    fechas_resultantes = []
+    if fechas_interpretadas:
+        for _, fecha in fechas_interpretadas:
+            fecha_formateada = fecha.strftime('%Y-%m-%d')
+            fechas_resultantes.append((fecha_formateada, fecha_formateada))
+
+    return fechas_resultantes
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_actual = datetime.now()
@@ -84,7 +89,7 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_string = eventos_string.replace('\xa0', ' ').encode('utf-8', 'ignore').decode('utf-8')
         eventos_string = eventos_string.replace('"', '').replace('\\', '').replace('[', '').replace(']', '').replace('{', '').replace('}', '').replace(',', '. ')
         return eventos_string
-
+        
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
