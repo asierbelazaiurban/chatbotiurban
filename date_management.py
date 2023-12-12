@@ -116,26 +116,24 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_data = response.json()
         app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
-        eventos = eventos_data.get('eventos', [])
-        if eventos and isinstance(eventos, list):  # Asegurarse de que eventos es una lista y no está vacía
-            # Limpiar y concatenar todos los eventos en un solo string
-            eventos_limpios = []
-            for evento in eventos:
-                evento_limpio = html.unescape(evento)  # Convertir entidades HTML a texto
-                evento_limpio = evento_limpio.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
-                eventos_limpios.append(evento_limpio)
-
-            eventos_concatenados = ' '.join(eventos_limpios)
-            app.logger.info("Eventos concatenados: %s", eventos_concatenados)
-            return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
+        if 'events' in eventos_data and isinstance(eventos_data['events'], list):
+            eventos = eventos_data['events']
+            if eventos:
+                # Limpiar y concatenar todos los eventos en un solo string
+                eventos_limpios = [html.unescape(evento).replace('\n', ' ').replace('\r', '').replace('\xa0', ' ') for evento in eventos]
+                eventos_concatenados = ' '.join(eventos_limpios)
+                app.logger.info("Eventos concatenados: %s", eventos_concatenados)
+                return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
+            else:
+                app.logger.info("No se han encontrado eventos en las fechas especificadas.")
+                return {"chatbot_id": chatbot_id, "events": "No se han encontrado eventos en las fechas especificadas."}
         else:
-            app.logger.info("No se han encontrado eventos en las fechas especificadas o la respuesta no es una lista.")
-            return {"chatbot_id": chatbot_id, "events": "No se han encontrado eventos en las fechas especificadas o la respuesta no es una lista."}
+            app.logger.info("La clave 'events' no está presente en la respuesta JSON o no es una lista.")
+            return {"chatbot_id": chatbot_id, "events": "La clave 'events' no está presente en la respuesta JSON o no es una lista."}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
-
 
 
 
