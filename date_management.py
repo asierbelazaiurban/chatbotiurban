@@ -48,6 +48,10 @@ def get_openai_response(texto):
         numero_en_texto = str(numero)
         respuesta_texto = respuesta_texto.replace(numero, numero_en_texto)
 
+    app.logger.info("respuesta_texto")     
+
+    app.logger.info(respuesta_texto)  
+
     return respuesta_texto
 
 
