@@ -239,7 +239,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
-        new_prompt = ("Excepto si las preguntas son eventos, Mantén la coherencia con la pregunta y, si la respuesta se desvia mucho mucho, indica 'No tengo información "
+        new_prompt = ("Excepto si las rewspuestas son eventos, Mantén la coherencia con la pregunta y, si la respuesta se desvia mucho mucho, indica 'No tengo información "
                       "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
                       "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
                       "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
