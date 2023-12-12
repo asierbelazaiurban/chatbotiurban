@@ -118,16 +118,11 @@ def obtener_eventos(pregunta, chatbot_id):
         app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
         # Concatenar los eventos y limpiarlos para que sean legibles
-        eventos_string = ', '.join(eventos_data['events'])
+        eventos_string = '. '.join(eventos_data['events'])  # Concatenar los eventos con un punto y espacio
         eventos_string = eventos_string.replace('\xa0', ' ')  # Reemplazar espacios no rompibles
         eventos_string = eventos_string.encode('utf-8', 'ignore').decode('utf-8')  # Eliminar caracteres no UTF-8
-        eventos_string = eventos_string.replace('{' + f'"chatbot_id":"{chatbot_id}",' + ' "events":', '')  # Eliminar menciones de 'chatbot_id' y 'events'
-        eventos_string = eventos_string.replace('{', '').replace('}', '')  # Eliminar todos los caracteres { y }
-
-        # Truncar si es necesario para evitar exceder el límite de longitud
-        max_length = 3000
-        if len(eventos_string) > max_length:
-            eventos_string = eventos_string[:max_length] + '...'
+        eventos_string = eventos_string.replace('"', '')  # Eliminar comillas
+        eventos_string = eventos_string.replace('\\', '')  # Eliminar barras invertidas
 
         app.logger.info("Eventos en formato string legible: %s", eventos_string)
         return {"chatbot_id": chatbot_id, "events": eventos_string}
