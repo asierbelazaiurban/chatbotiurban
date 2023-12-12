@@ -121,8 +121,9 @@ def obtener_eventos(pregunta, chatbot_id):
             app.logger.info("No se han encontrado eventos en las fechas especificadas.")
             return {"chatbot_id": chatbot_id, "events": ""}
 
-        # Concatenar todos los eventos en un solo string largo
-        eventos_concatenados = ' '.join(eventos).replace('\n', ' ').replace('\r', '')
+        # Concatenar todos los eventos en un solo string
+        eventos_concatenados = ' '.join(eventos)
+        eventos_concatenados = eventos_concatenados.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
         app.logger.info("Eventos concatenados: %s", eventos_concatenados)
         return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
 
