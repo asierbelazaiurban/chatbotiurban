@@ -376,16 +376,35 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         app.logger.error(f"Error al cargar el dataset: {e}")
         return []
 
+
+
 def preprocess_query(query):
-    # Tokeniza y convierte a minúsculas la consulta
     tokens = word_tokenize(query.lower())
     return ' '.join(tokens)
 
 def encode_data(data):
-    # Codifica los datos usando TF-IDF
     vectorizer = TfidfVectorizer()
-    encoded_data = vectorizer.fit_tra
+    encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
+
+def encontrar_respuesta(pregunta, datos, vectorizer, contexto, longitud_minima=200):
+    pregunta_procesada = preprocess_query(pregunta)
+    encoded_query = vectorizer.transform([pregunta_procesada])
+    similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
+    indices_ordenados = similarity_scores.argsort()[::-1]
+
+    respuesta_amplia = ""
+    for indice in indices_ordenados:
+        if similarity_scores[indice] > 0.1:
+            respuesta_amplia += " " + datos[indice]
+            if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
+                break
+
+    return respuesta_amplia.strip() if respuesta_amplia else seleccionar_respuesta_por_defecto()
+
+def seleccionar_respuesta_por_defecto():
+    # Devuelve una respuesta por defecto
+    return random.choice(respuestas_por_defecto)
 
 respuestas_por_defecto = [
     "Lamentamos no poder encontrar una respuesta precisa. Para más información, contáctanos en info@iurban.es.",
@@ -399,41 +418,6 @@ respuestas_por_defecto = [
     "Lo sentimos, no tenemos una respuesta directa a tu consulta. Para más detalles, envía un correo a info@iurban.es.",
     "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
 ]
-
-def encontrar_respuesta(pregunta, datos, vectorizer, contexto, longitud_minima=200):
-    try:
-        # Preprocesar la pregunta
-        pregunta_procesada = preprocess_query(pregunta)
-
-        # Codificar la pregunta
-        encoded_query = vectorizer.transform([pregunta_procesada])
-
-        # Calcular la similitud
-        similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
-
-        # Ordenar los índices de los documentos por similitud
-        indices_ordenados = similarity_scores.argsort()[::-1]
-
-        respuesta_amplia = ""
-        for indice in indices_ordenados:
-            if similarity_scores[indice] > 0.1:  # Ajusta este umbral según sea necesario
-                respuesta_amplia += " " + datos[indice]
-                if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
-                    break
-
-        # Si no se encuentra una respuesta adecuada, selecciona una respuesta por defecto
-        if len(respuesta_amplia.strip()) == 0:
-            return random.choice(respuestas_por_defecto)
-        else:
-            return respuesta_amplia.strip()
-
-    except Exception as e:
-        app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
-        return random.choice(respuestas_por_defecto)
-
-def seleccionar_respuesta_por_defecto():
-    # Devuelve una respuesta por defecto
-    return random.choice(respuestas_por_defecto)
 
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
@@ -484,7 +468,7 @@ def ask():
 
     try:
         data = request.get_json()
-        chatbot_id = data.get('chatbot_id', 'default_id')  # ID por defecto si no se proporciona
+        chatbot_id = data.get('chatbot_id', 'default_id')
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -495,7 +479,7 @@ def ask():
 
             # Generar contexto
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" 
-                                 for par in pares_pregunta_respuesta[:-1]])  # Excluye la última pregunta
+                                 for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
@@ -509,20 +493,19 @@ def ask():
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     fuente_respuesta = "eventos"
                 else:
-                    # Cargar datos del dataset
                     dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
 
-                    # Determinar la fuente de la respuesta
                     if respuesta_del_dataset:
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
                     else:
-                        ultima_respuesta = "No se encontró una respuesta adecuada en el dataset."
-                        fuente_respuesta = "ninguna"
+                        # Aquí se invoca seleccionar_respuesta_por_defecto si no hay respuesta del dataset
+                        ultima_respuesta = seleccionar_respuesta_por_defecto()
+                        fuente_respuesta = "respuesta_por_defecto"
 
                 # Mejorar la respuesta con OpenAI si es necesario
                 if fuente_respuesta != "ninguna":
