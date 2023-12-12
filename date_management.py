@@ -126,41 +126,4 @@ def obtener_eventos(pregunta, chatbot_id):
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
-        return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}def obtener_eventos(pregunta, chatbot_id):
-    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
-    app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
-    app.logger.info("Fecha final interpretada: %s", fecha_final)
-    app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
-
-    if fecha_inicial is None or fecha_final is None:
-        app.logger.info("No se pudo interpretar las fechas de la pregunta.")
-        return {"chatbot_id": chatbot_id, "events": "No se pudo interpretar las fechas de la pregunta."}
-
-    url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
-    headers = {'Content-Type': 'application/json'}
-    payload = {
-        "start": fecha_inicial,
-        "end": fecha_final,
-        "chatbot_id": chatbot_id
-    }
-
-    try:
-        app.logger.info("Enviando solicitud HTTP a: %s", url)
-        app.logger.info("Payload de la solicitud: %s", json.dumps(payload))
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status()
-
-        eventos_data = response.json()
-        app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
-
-        # Procesar y limpiar la respuesta para formatearla adecuadamente
-        eventos_string = ', '.join(eventos_data['events'])  # Concatenar los eventos con coma
-        eventos_string = eventos_string.replace('\xa0', ' ')  # Reemplazar espacios no rompibles
-
-        app.logger.info("Eventos en formato string legible: %s", eventos_string)
-        return {"chatbot_id": chatbot_id, "events": eventos_string}
-
-    except requests.exceptions.RequestException as e:
-        app.logger.error("Error en la solicitud HTTP: %s", e)
         return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
-
