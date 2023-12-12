@@ -55,7 +55,7 @@ def interpretar_intencion_y_fechas(texto):
         respuesta = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "You are a helpful assistant. You must provide us with the dates, including intentions such as today or next month or within two days or next year, etc., and provide us with that part with the intentionality."},
                 {"role": "user", "content": texto},
             ]
         )
@@ -80,7 +80,7 @@ def interpretar_intencion_y_fechas(texto):
     except Exception as e:
         app.logger.error("Excepción encontrada: %s", e)
         return None, None
-        
+
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
