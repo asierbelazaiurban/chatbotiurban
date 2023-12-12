@@ -7,7 +7,7 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask
-import html  
+import html
 import datetime
 
 app = Flask(__name__)
@@ -25,38 +25,16 @@ if not app.debug:
     app.logger.setLevel(logging.INFO)
     app.logger.info('Chatbot startup')
 
-def encontrar_fechas_con_regex(texto):
-    patrones_fecha = [
-        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",  # dd/mm/yyyy o mm/dd/yyyy
-        r"\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b",  # yyyy/mm/dd
-        r"\b\d{4}\b"                            # yyyy
-    ]
-    
-    fechas_encontradas = []
-    for patron in patrones_fecha:
-        fechas_encontradas.extend(re.findall(patron, texto))
-
-    app.logger.info("Fechas encontradas con regex: %s", fechas_encontradas)
-    return fechas_encontradas
-
-
-def interpretar_fecha_con_nlp(fecha_texto):
-    fecha = dateparser.parse(fecha_texto)
-    if fecha:
-        fecha_format = fecha.strftime('%Y-%m-%d')
-        app.logger.info("Fecha interpretada con NLP: %s", fecha_format)
-        return fecha_format
-    return None
-
-def interpretar_intencion_y_fechas(texto):
+def interpretar_intencion_y_fechas(texto, fecha_actual):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
+    instruccion_gpt4 = "Tu eres un asistente virtual. Tu tarea es interpretar la pregunta del usuario y devolver la fecha mencionada en un formato estándar como 'YYYY-MM-DD'. Debes entender y procesar preguntas en cualquier idioma."
+
     try:
-        # Utiliza OpenAI GPT-4 para interpretar la intención y el contexto
         respuesta = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "Tu eres un asistente, Me tienes que devolver solo las fehcas que encuentres en las preguntas, esto incluye intencionalidad o cosas como dos dias en adelante, el proximo año etc.."},
+                {"role": "system", "content": instruccion_gpt4},
                 {"role": "user", "content": texto},
             ]
         )
@@ -64,17 +42,13 @@ def interpretar_intencion_y_fechas(texto):
         texto_interpretado = respuesta.choices[0].message['content']
         app.logger.info("Texto interpretado: %s", texto_interpretado)
 
-        # Utiliza dateparser para interpretar las fechas
-        settings = {'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': datetime.datetime.now()}
+        # Utiliza dateparser para interpretar la respuesta en el formato deseado
+        settings = {'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': fecha_actual}
         fecha_interpretada = dateparser.parse(texto_interpretado, settings=settings)
+
         if fecha_interpretada:
             fecha_format = fecha_interpretada.strftime('%Y-%m-%d')
-            return fecha_format, fecha_format
-
-        # Usa interpretar_fecha_con_nlp si dateparser no encuentra una fecha
-        fecha_nlp = interpretar_fecha_con_nlp(texto_interpretado)
-        if fecha_nlp:
-            return fecha_nlp, fecha_nlp
+            return fecha_format, fecha_format  # Asumimos la misma fecha inicial y final para simplificar
 
         return None, None
 
@@ -82,9 +56,8 @@ def interpretar_intencion_y_fechas(texto):
         app.logger.error("Excepción encontrada: %s", e)
         return None, None
 
-
-def obtener_eventos(pregunta, chatbot_id):
-    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
+def obtener_eventos(pregunta, chatbot_id, fecha_actual):
+    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta, fecha_actual)
     app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
     app.logger.info("Fecha final interpretada: %s", fecha_final)
     app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
@@ -111,7 +84,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
         # Convertir los eventos a string para limpieza
         eventos_string = json.dumps(eventos_data['events'])
-        
+
         # Limpieza del string
         eventos_string = eventos_string.replace('\xa0', ' ')
         eventos_string = eventos_string.encode('utf-8', 'ignore').decode('utf-8')
@@ -125,3 +98,6 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
+
+# Aquí podrías añadir tus rutas de Flask y otras funcionalidades necesarias.
+
