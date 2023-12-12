@@ -8,10 +8,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask
 from datetime import datetime
+from langdetect import detect
+from dateutil.relativedelta import relativedelta
 
 app = Flask(__name__)
 
-# Configuración del Logger
 def configure_logger():
     if not app.debug and not os.path.exists('logs'):
         os.mkdir('logs')
@@ -29,9 +30,7 @@ def get_openai_response(texto):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     if not openai.api_key:
         raise ValueError("OPENAI_API_KEY is not set in environment variables")
-
     instruccion_gpt4 = ("""Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.""")
-
     respuesta = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -39,30 +38,25 @@ def get_openai_response(texto):
             {"role": "user", "content": texto},
         ]
     )
-
     return respuesta.choices[0].message['content']
 
 def interpretar_intencion_y_fechas(texto, fecha_actual):
     try:
         texto_interpretado = get_openai_response(texto)
         app.logger.info("Texto interpretado: %s", texto_interpretado)
-
         referencias_temporales = extraer_referencias_temporales(texto_interpretado)
         fechas = [convertir_referencia_temporal_a_fechas(referencia, fecha_actual) for referencia in referencias_temporales]
-
-        # Asegúrate de que 'fechas' es una lista de tuplas
-        fechas = [fecha for fecha in fechas if fecha is not None]
-        return fechas if fechas else [(None, None)]
-
+        return [fecha for fecha in fechas if fecha is not None]
     except Exception as e:
         app.logger.error("Excepción encontrada: %s", e)
-        # Devuelve una lista con una tupla de None si hay un error
-        return [(None, None)]
-
+        return []
 
 def extraer_referencias_temporales(texto):
-    # Implementa tu lógica para extraer referencias temporales del texto
-    return re.findall('tu expresión regular aquí', texto)
+    idioma = detect(texto)
+    fechas_encontradas = dateparser.search.search_dates(texto, languages=[idioma])
+    if fechas_encontradas:
+        return [fecha[1] for fecha in fechas_encontradas]
+    return []
 
 def convertir_referencia_temporal_a_fechas(referencia, fecha_actual):
     try:
@@ -71,41 +65,39 @@ def convertir_referencia_temporal_a_fechas(referencia, fecha_actual):
             'RELATIVE_BASE': fecha_actual,
             'DATE_ORDER': 'DMY'
         }
-
         fecha_interpretada = dateparser.parse(referencia, settings=settings)
-        if fecha_interpretada:
-            fecha_inicial = fecha_interpretada.strftime('%Y-%m-%d')
-            fecha_final = fecha_interpretada.strftime('%Y-%m-%d')
-            return fecha_inicial, fecha_final
+        if fecha_interpretada is None:
+            if "año que viene" in referencia:
+                fecha_inicial = fecha_actual.replace(year=fecha_actual.year + 1, month=1, day=1)
+                fecha_final = fecha_inicial.replace(year=fecha_inicial.year + 1, month=1, day=1) - relativedelta(days=1)
+            # Aquí puedes añadir más casos especiales
+            else:
+                return None, None
+        else:
+            fecha_inicial = fecha_interpretada
+            fecha_final = fecha_interpretada
+        return fecha_inicial.strftime('%Y-%m-%d'), fecha_final.strftime('%Y-%m-%d')
     except Exception as e:
         app.logger.error(f"Error al convertir referencia temporal '{referencia}': {e}")
-        return None
-
         return None, None
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_actual = datetime.now()
-
     resultado_fechas = interpretar_intencion_y_fechas(pregunta, fecha_actual)
-
-    # Verifica si el resultado contiene al menos una tupla
     if resultado_fechas and len(resultado_fechas) > 0:
         fecha_inicial, fecha_final = resultado_fechas[0]
     else:
         app.logger.info("No se pudo interpretar las fechas de la pregunta.")
         return "No se pudo interpretar las fechas de la pregunta."
 
-    # Registro de información
     app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
     app.logger.info("Fecha final interpretada: %s", fecha_final)
     app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
 
-    # Si las fechas son None, maneja ese caso
     if fecha_inicial is None or fecha_final is None:
         app.logger.info("No se encontraron fechas en la pregunta.")
         return "No se encontraron fechas en la pregunta."
 
-    # Preparar y enviar la solicitud
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
     payload = {
@@ -121,16 +113,9 @@ def obtener_eventos(pregunta, chatbot_id):
         response.raise_for_status()
 
         eventos_data = response.json()
-
-        # Convertir los eventos a string para limpieza
         eventos_string = json.dumps(eventos_data['events'])
-        eventos_string = eventos_string.replace('\xa0', ' ')
-        eventos_string = eventos_string.encode('utf-8', 'ignore').decode('utf-8')
-        eventos_string = eventos_string.replace('"', '').replace('\\', '')
-        eventos_string = eventos_string.replace('[', '').replace(']', '')
-        eventos_string = eventos_string.replace('{', '').replace('}', '')
-        eventos_string = eventos_string.replace(',', '. ')  # Convertir comas en puntos para una lectura más natural
-
+        eventos_string = eventos_string.replace('\xa0', ' ').encode('utf-8', 'ignore').decode('utf-8')
+        eventos_string = eventos_string.replace('"', '').replace('\\', '').replace('[', '').replace(']', '').replace('{', '').replace('}', '').replace(',', '. ')
         return eventos_string
 
     except requests.exceptions.RequestException as e:
