@@ -1,19 +1,19 @@
 import re
 import openai
+import os
 from dateutil import parser
 import dateparser
-import os
+import requests
+import json
 
 def encontrar_fechas_con_regex(texto):
     """
     Encuentra fechas en el texto utilizando expresiones regulares.
     Devuelve una lista de todas las fechas encontradas.
     """
-    # Ejemplo de patrón de fecha (día/mes/año, mes/día/año, etc.)
     patrones_fecha = [
         r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
         r"\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b"
-        # Puedes añadir más patrones según sea necesario
     ]
     
     fechas_encontradas = []
@@ -32,53 +32,50 @@ def interpretar_fecha_con_nlp(fecha_texto):
     return None
 
 def interpretar_intencion_y_fechas(texto):
-    
+    """
+    Interpreta la intención y las fechas del texto utilizando el modelo de OpenAI,
+    y devuelve las fechas en formato MySQL.
+    """
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
         respuesta = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "You are a helpful assistant capable of understanding dates in any language."},
                 {"role": "user", "content": texto},
             ]
         )
 
         texto_interpretado = respuesta.choices[0].message['content']
 
-        # Utiliza regex para encontrar fechas en el texto interpretado
         fechas_regex = encontrar_fechas_con_regex(texto_interpretado)
-
-        # Convierte las fechas a formato MySQL
         fechas_procesadas = [interpretar_fecha_con_nlp(fecha) for fecha in fechas_regex]
 
-        # Filtrar None y devolver fechas únicas
-        return list(set([fecha for fecha in fechas_procesadas if fecha]))
+        fechas_unicas = list(set([fecha for fecha in fechas_procesadas if fecha]))
+
+        fecha_inicial = fechas_unicas[0] if fechas_unicas else None
+        fecha_final = fechas_unicas[-1] if len(fechas_unicas) > 1 else fecha_inicial
+
+        return fecha_inicial, fecha_final
 
     except Exception as e:
-        return []
-
-# Ejemplo de uso
-# fechas = interpretar_intencion_y_fechas("Quiero saber los eventos en Nueva York el próximo mes.", tu_openai_api_key)
-# print(fechas)
-
+        return None, None
 
 def obtener_eventos(pregunta, chatbot_id):
-    fechas = interpretar_intencion_y_fechas(pregunta)
+    """
+    Obtiene eventos basados en una pregunta, interpretando las fechas y la intención.
+    """
+    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
 
-    if not fechas:
+    if fecha_inicial is None or fecha_final is None:
         return "No se pudo interpretar las fechas de la pregunta."
-
-    # Suponiendo que siempre necesitamos dos fechas, inicio y fin.
-    # Si solo se encuentra una fecha, se puede usar la misma para 'start' y 'end',
-    # o manejarlo de otra manera según la lógica de negocio.
-    start, end = fechas[0], fechas[-1] if len(fechas) > 1 else fechas[0]
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
     payload = {
-        "start": start,
-        "end": end,
+        "start": fecha_inicial,
+        "end": fecha_final,
         "chatbot_id": chatbot_id
     }
 
@@ -95,7 +92,7 @@ def obtener_eventos(pregunta, chatbot_id):
         return eventos_concatenados
 
     except requests.exceptions.RequestException as e:
-        # app.logger.error(f"Error en la solicitud HTTP: {e}")
+        # Reemplazar con el manejo de errores adecuado para tu aplicación
         return f"Error en la solicitud HTTP: {e}"
 
 
