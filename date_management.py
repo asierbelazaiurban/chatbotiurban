@@ -55,7 +55,7 @@ def interpretar_intencion_y_fechas(texto):
         respuesta = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant. You must provide us with the dates, including intentions such as today or next month or within two days or next year, etc., and provide us with that part with the intentionality."},
+                {"role": "system", "content": "Tu eres un asistente, Me tienes que devolver solo las fehcas que encuentres en las preguntas, esto incluye intencionalidad o cosas como dos dias en adelante, el proximo año etc.."},
                 {"role": "user", "content": texto},
             ]
         )
