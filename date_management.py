@@ -118,9 +118,14 @@ def obtener_eventos(pregunta, chatbot_id):
 
         eventos = eventos_data.get('eventos', [])
         if eventos:
-            # Concatenar todos los eventos en un solo string
-            eventos_concatenados = ' '.join(eventos)
-            eventos_concatenados = eventos_concatenados.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
+            # Limpiar y concatenar todos los eventos en un solo string
+            eventos_limpios = []
+            for evento in eventos:
+                evento_limpio = html.unescape(evento)  # Convertir entidades HTML a texto
+                evento_limpio = evento_limpio.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
+                eventos_limpios.append(evento_limpio)
+            
+            eventos_concatenados = ' '.join(eventos_limpios)
             app.logger.info("Eventos concatenados: %s", eventos_concatenados)
             return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
         else:
