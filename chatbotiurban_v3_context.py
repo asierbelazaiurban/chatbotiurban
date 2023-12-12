@@ -344,38 +344,27 @@ def extraer_palabras_clave(pregunta):
 ####### Utils busqueda en Json #######
 
 # Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
+# Función para convertir elementos del dataset a texto (esquema básico)
 def convertir_a_texto(item):
-    """
-    Convierte un elemento de dataset en una cadena de texto.
-    Esta función asume que el 'item' puede ser un diccionario, una lista, o un texto simple.
-    """
     if isinstance(item, dict):
-        # Concatena los valores del diccionario si 'item' es un diccionario
         return ' '.join(str(value) for value in item.values())
     elif isinstance(item, list):
-        # Concatena los elementos de la lista si 'item' es una lista
         return ' '.join(str(element) for element in item)
     elif isinstance(item, str):
-        # Devuelve el string si 'item' ya es una cadena de texto
         return item
     else:
-        # Convierte el 'item' a cadena si es de otro tipo de dato
         return str(item)
 
-
+# Función para cargar el dataset
 def cargar_dataset(chatbot_id, base_dataset_dir):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
-    app.logger.info(f"Dataset con ruta {dataset_file_path}")
-
     try:
         with open(dataset_file_path, 'r') as file:
             data = json.load(file)
-            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
             return [convertir_a_texto(item) for item in data.values()]
     except Exception as e:
-        app.logger.error(f"Error al cargar el dataset: {e}")
+        print(f"Error al cargar el dataset: {e}")
         return []
-
 
 def preprocess_query(query):
     tokens = word_tokenize(query.lower())
@@ -387,42 +376,22 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 def encontrar_respuesta(pregunta, datos, vectorizer, contexto, longitud_minima=200):
-    # Enriquecer la pregunta con el contexto si este no está vacío
     pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
     pregunta_procesada = preprocess_query(pregunta_enriquecida)
-
-    # Procesamiento y búsqueda de similitud como antes
     encoded_query = vectorizer.transform([pregunta_procesada])
-    similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
+    similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
-    respuesta_amplia = ""
     for indice in indices_ordenados:
         if similarity_scores[indice] > 0.1:  # Umbral ajustable
-            respuesta_amplia += " " + datos[indice]
-            if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
-                break
+            respuesta = datos[indice]
+            if len(respuesta.split()) >= longitud_minima:
+                return respuesta
+    return None
 
-    # Devolver la respuesta o una respuesta por defecto si no se encuentra ninguna adecuada
-    return respuesta_amplia.strip() if respuesta_amplia else seleccionar_respuesta_por_defecto()
+def generar_preguntas_sugeridas(datos, n_preguntas=5):
+    return random.sample(datos, n_preguntas) if len(datos) > n_preguntas else datos
 
-
-def seleccionar_respuesta_por_defecto():
-    # Devuelve una respuesta por defecto
-    return random.choice(respuestas_por_defecto)
-
-respuestas_por_defecto = [
-    "Lamentamos no poder encontrar una respuesta precisa. Para más información, contáctanos en info@iurban.es.",
-    "No hemos encontrado una coincidencia exacta, pero estamos aquí para ayudar. Escríbenos a info@iurban.es para más detalles.",
-    "Aunque no encontramos una respuesta específica, nuestro equipo está listo para asistirte. Envía tus preguntas a info@iurban.es.",
-    "Parece que no tenemos una respuesta directa, pero no te preocupes. Para más asistencia, comunícate con nosotros en info@iurban.es.",
-    "No pudimos encontrar una respuesta clara a tu pregunta. Si necesitas más información, contáctanos en info@iurban.es.",
-    "Disculpa, no encontramos una respuesta adecuada. Para más consultas, por favor, escribe a info@iurban.es.",
-    "Sentimos no poder ofrecerte una respuesta exacta. Para obtener más ayuda, contacta con info@iurban.es.",
-    "No hemos podido encontrar una respuesta precisa a tu pregunta. Por favor, contacta con info@iurban.es para más información.",
-    "Lo sentimos, no tenemos una respuesta directa a tu consulta. Para más detalles, envía un correo a info@iurban.es.",
-    "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
-]
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
@@ -492,24 +461,27 @@ def ask():
                 if encontrada_en_json:
                     ultima_respuesta = respuesta_preestablecida
                     fuente_respuesta = "preestablecida"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta): # Esta función necesita ser definida
+                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id) # Esta función necesita ser definida
                     fuente_respuesta = "eventos"
                 else:
                     dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+                        vectorizer = TfidfVectorizer() # Asegúrate de que esta línea esté correctamente colocada
+                        encoded_data, _ = encode_data(datos_del_dataset)
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
 
                     if respuesta_del_dataset:
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
                     else:
-                        ultima_respuesta = seleccionar_respuesta_por_defecto()
-                        fuente_respuesta = "respuesta_por_defecto"
+                        preguntas_sugeridas = generar_preguntas_sugeridas(datos_del_dataset)
+                        return jsonify({'preguntas_sugeridas': preguntas_sugeridas})
 
                 # Mejorar la respuesta con OpenAI si es necesario y no es una respuesta por defecto
+                # Asegúrate de que la función mejorar_respuesta_generales_con_openai esté correctamente definida y configurada
                 if fuente_respuesta != "ninguna" and fuente_respuesta != "respuesta_por_defecto":
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,

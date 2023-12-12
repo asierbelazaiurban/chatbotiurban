@@ -20,6 +20,7 @@ def encontrar_fechas_con_regex(texto):
 
     return fechas_encontradas
 
+
 def interpretar_fecha_con_nlp(fecha_texto):
     fecha = dateparser.parse(fecha_texto)
     if fecha:
@@ -95,8 +96,6 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         return f"Error en la solicitud HTTP: {e}"
 
-# Ejemplo de uso
-# resultado = obtener_eventos("¿Cuáles son los eventos próximos en Nueva York?", tu_chatbot_id)
-# print(resultado)
+
 
 
