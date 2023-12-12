@@ -5,15 +5,13 @@ from dateutil import parser
 import dateparser
 import requests
 import json
+from datetime import datetime
 
 def encontrar_fechas_con_regex(texto):
-    """
-    Encuentra fechas en el texto utilizando expresiones regulares.
-    Devuelve una lista de todas las fechas encontradas.
-    """
     patrones_fecha = [
-        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
-        r"\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b"
+        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",  # dd/mm/yyyy o mm/dd/yyyy
+        r"\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b",  # yyyy/mm/dd
+        r"\b\d{4}\b"                            # yyyy
     ]
     
     fechas_encontradas = []
@@ -23,19 +21,12 @@ def encontrar_fechas_con_regex(texto):
     return fechas_encontradas
 
 def interpretar_fecha_con_nlp(fecha_texto):
-    """
-    Interpreta una fecha dada en texto utilizando NLP.
-    """
     fecha = dateparser.parse(fecha_texto)
     if fecha:
         return fecha.strftime('%Y-%m-%d')
     return None
 
 def interpretar_intencion_y_fechas(texto):
-    """
-    Interpreta la intención y las fechas del texto utilizando el modelo de OpenAI,
-    y devuelve las fechas en formato MySQL.
-    """
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
@@ -50,22 +41,32 @@ def interpretar_intencion_y_fechas(texto):
         texto_interpretado = respuesta.choices[0].message['content']
 
         fechas_regex = encontrar_fechas_con_regex(texto_interpretado)
-        fechas_procesadas = [interpretar_fecha_con_nlp(fecha) for fecha in fechas_regex]
+        fechas_procesadas = []
 
-        fechas_unicas = list(set([fecha for fecha in fechas_procesadas if fecha]))
+        for fecha in fechas_regex:
+            if re.match(r"\b\d{4}\b", fecha):  # Solo año
+                fecha_inicio = f"{fecha}-01-01"
+                fecha_fin = f"{fecha}-12-31"
+                fechas_procesadas.extend([fecha_inicio, fecha_fin])
+            else:
+                fecha_procesada = interpretar_fecha_con_nlp(fecha)
+                if fecha_procesada:
+                    fechas_procesadas.append(fecha_procesada)
 
-        fecha_inicial = fechas_unicas[0] if fechas_unicas else None
-        fecha_final = fechas_unicas[-1] if len(fechas_unicas) > 1 else fecha_inicial
+        if fechas_procesadas:
+            return min(fechas_procesadas), max(fechas_procesadas)
+        else:
+            # Intenta interpretar con NLP si no se encontraron fechas con regex
+            fecha_procesada = interpretar_fecha_con_nlp(texto_interpretado)
+            if fecha_procesada:
+                return fecha_procesada, fecha_procesada
 
-        return fecha_inicial, fecha_final
+        return None, None
 
     except Exception as e:
         return None, None
 
 def obtener_eventos(pregunta, chatbot_id):
-    """
-    Obtiene eventos basados en una pregunta, interpretando las fechas y la intención.
-    """
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
 
     if fecha_inicial is None or fecha_final is None:
@@ -92,7 +93,10 @@ def obtener_eventos(pregunta, chatbot_id):
         return eventos_concatenados
 
     except requests.exceptions.RequestException as e:
-        # Reemplazar con el manejo de errores adecuado para tu aplicación
         return f"Error en la solicitud HTTP: {e}"
+
+# Ejemplo de uso
+# resultado = obtener_eventos("¿Cuáles son los eventos próximos en Nueva York?", tu_chatbot_id)
+# print(resultado)
 
 
