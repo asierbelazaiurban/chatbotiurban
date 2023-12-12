@@ -56,7 +56,12 @@ def interpretar_intencion_y_fechas(texto, fecha_actual):
         app.logger.error("Excepción encontrada: %s", e)
         return None, None
 
-def obtener_eventos(pregunta, chatbot_id, fecha_actual):
+from datetime import datetime
+
+def obtener_eventos(pregunta, chatbot_id):
+    # Obtén la fecha actual dentro de la función
+    fecha_actual = datetime.now()
+
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta, fecha_actual)
     app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
     app.logger.info("Fecha final interpretada: %s", fecha_final)
@@ -98,4 +103,7 @@ def obtener_eventos(pregunta, chatbot_id, fecha_actual):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
+
+# Continúa con el resto de tu código de Flask...
+
 
