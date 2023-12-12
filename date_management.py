@@ -97,7 +97,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
     if fecha_inicial is None or fecha_final is None:
         app.logger.info("No se pudo interpretar las fechas de la pregunta.")
-        return {"chatbot_id": chatbot_id, "events": ""}
+        return {"chatbot_id": chatbot_id, "events": "No se pudo interpretar las fechas de la pregunta."}
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
@@ -117,15 +117,15 @@ def obtener_eventos(pregunta, chatbot_id):
         app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
         eventos = eventos_data.get('eventos', [])
-        if not eventos:
+        if eventos:
+            # Concatenar todos los eventos en un solo string
+            eventos_concatenados = ' '.join(eventos)
+            eventos_concatenados = eventos_concatenados.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
+            app.logger.info("Eventos concatenados: %s", eventos_concatenados)
+            return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
+        else:
             app.logger.info("No se han encontrado eventos en las fechas especificadas.")
-            return {"chatbot_id": chatbot_id, "events": ""}
-
-        # Concatenar todos los eventos en un solo string
-        eventos_concatenados = ' '.join(eventos)
-        eventos_concatenados = eventos_concatenados.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
-        app.logger.info("Eventos concatenados: %s", eventos_concatenados)
-        return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
+            return {"chatbot_id": chatbot_id, "events": "No se han encontrado eventos en las fechas especificadas."}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
