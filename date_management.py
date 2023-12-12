@@ -10,6 +10,7 @@ from flask import Flask
 from datetime import datetime
 from langdetect import detect
 from dateutil.relativedelta import relativedelta
+from dateparser.search import search_dates
 
 app = Flask(__name__)
 
@@ -53,7 +54,7 @@ def interpretar_intencion_y_fechas(texto, fecha_actual):
 
 def extraer_referencias_temporales(texto):
     idioma = detect(texto)
-    fechas_encontradas = dateparser.search.search_dates(texto, languages=[idioma])
+    fechas_encontradas = search_dates(texto, languages=[idioma])
     if fechas_encontradas:
         return [fecha[1] for fecha in fechas_encontradas]
     return []
