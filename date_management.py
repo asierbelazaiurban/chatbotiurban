@@ -7,6 +7,15 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask
+import html  
+app = Flask(__name__)
+
+# Asumiendo que la función interpretar_intencion_y_fechas ya está definida en tu código
+
+def obtener_eventos(pregunta, chatbot_id):
+    fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
+    app.logger.info("Fecha inicial interpretada: %s",
+
 
 app = Flask(__name__)
 
@@ -120,7 +129,7 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_string = json.dumps(eventos_data, ensure_ascii=False)
         eventos_string = html.unescape(eventos_string)
 
-        # Eliminar 'chatbot_id', reemplazar 'events' por un punto y eliminar caracteres específicos
+        # Eliminar 'chatbot_id', cambiar 'events' por un punto y eliminar caracteres específicos
         eventos_string = eventos_string.replace(f'"chatbot_id":"{chatbot_id}",', '')
         eventos_string = eventos_string.replace('"events":', '.')
         eventos_string = eventos_string.translate(str.maketrans('', '', '{}[]'))
@@ -131,7 +140,6 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
-
 
 
 
