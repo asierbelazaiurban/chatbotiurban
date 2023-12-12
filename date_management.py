@@ -80,6 +80,7 @@ def interpretar_intencion_y_fechas(texto):
     except Exception as e:
         app.logger.error("Excepción encontrada: %s", e)
         return None, None
+        
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
