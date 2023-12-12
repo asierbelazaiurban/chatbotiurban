@@ -100,9 +100,10 @@ def interpretar_intencion_y_fechas(texto):
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
-    app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
+    app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)  # Asegúrate de que esta línea se cierra correctamente
     app.logger.info("Fecha final interpretada: %s", fecha_final)
     app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
+
 
     if fecha_inicial is None or fecha_final is None:
         app.logger.info("No se pudo interpretar las fechas de la pregunta.")
@@ -115,7 +116,6 @@ def obtener_eventos(pregunta, chatbot_id):
         "end": fecha_final,
         "chatbot_id": chatbot_id
     }
-    
 
     try:
         app.logger.info("Enviando solicitud HTTP a: %s", url)
@@ -141,6 +141,5 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
-
 
 
