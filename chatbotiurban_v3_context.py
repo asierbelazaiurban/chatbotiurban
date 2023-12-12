@@ -190,13 +190,13 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
-import os
 import openai
+import os
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta=None, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id="", eventos=None, preestablecida=None):
-    # Asegurarse de que la pregunta esté presente
-    if not pregunta:
-        app.logger.info("La pregunta no ha sido proporcionada. Se requiere para procesar la mejora.")
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
+    # Verificar si hay pregunta y respuesta
+    if not pregunta or not respuesta:
+        app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
         return None
 
     # Configurar la clave API de OpenAI
@@ -221,23 +221,21 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta=None, new_prompt=
             app.logger.info(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
     # Utilizar new_prompt_by_id si no viene vacío, de lo contrario usar new_prompt proporcionado
-    new_prompt = new_prompt_by_id if new_prompt_by_id else new_prompt
+    if new_prompt_by_id:
+        new_prompt = new_prompt_by_id
+    elif new_prompt:
+        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        try:
+            with open(prompt_file_path_direct, 'r') as file:
+                new_prompt_direct = file.read()
+            new_prompt = new_prompt_direct
+            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
+        except Exception as e:
+            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
 
-    # Verificar si hay contexto adicional
-    contexto_adicional = contexto_adicional if contexto_adicional else ""
-
-    # Si hay un valor preestablecido, usarlo para mejorar la respuesta
-    if preestablecida:
-        respuesta = preestablecida
-
-    # Tratar eventos como una respuesta si está presente
-    elif eventos:
-        respuesta = eventos
-
-    # Si no hay respuesta, eventos o preestablecida, devolver error
-    if not respuesta:
-        app.logger.info("No se ha proporcionado suficiente información para mejorar la respuesta.")
-        return None
+    # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
+    if not contexto_adicional:
+        contexto_adicional = "";
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
@@ -250,7 +248,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta=None, new_prompt=
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"{contexto_adicional}\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}"
+    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -269,7 +267,6 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta=None, new_prompt=
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
-
 
 
 
@@ -496,8 +493,6 @@ def ask():
                     fuente_respuesta = "preestablecida"
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    app.logger.info("ultima_respuestaen eventos")
-                    app.logger.info(ultima_respuesta)
                     fuente_respuesta = "eventos"
                 else:
                     dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
@@ -522,9 +517,7 @@ def ask():
                         contexto_adicional=contexto,
                         temperature=0.7,
                         model_gpt="gpt-4",
-                        chatbot_id=chatbot_id,
-                        eventos = ultima_respuesta,
-                        preestablecida = ultima_respuesta
+                        chatbot_id=chatbot_id
                     )
 
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
