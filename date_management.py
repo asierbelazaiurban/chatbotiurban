@@ -98,7 +98,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
     if fecha_inicial is None or fecha_final is None:
         app.logger.info("No se pudo interpretar las fechas de la pregunta.")
-        return {"chatbot_id": chatbot_id, "events": "No se pudo interpretar las fechas de la pregunta."}
+        return "No se pudo interpretar las fechas de la pregunta."
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
@@ -117,16 +117,20 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_data = response.json()
         app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
-        # Concatenar los eventos y limpiarlos para que sean legibles
-        eventos_string = '. '.join(eventos_data['events'])  # Concatenar los eventos con un punto y espacio
-        eventos_string = eventos_string.replace('\xa0', ' ')  # Reemplazar espacios no rompibles
-        eventos_string = eventos_string.encode('utf-8', 'ignore').decode('utf-8')  # Eliminar caracteres no UTF-8
-        eventos_string = eventos_string.replace('"', '')  # Eliminar comillas
-        eventos_string = eventos_string.replace('\\', '')  # Eliminar barras invertidas
+        # Convertir los eventos a string para limpieza
+        eventos_string = json.dumps(eventos_data['events'])
+        
+        # Limpieza del string
+        eventos_string = eventos_string.replace('\xa0', ' ')
+        eventos_string = eventos_string.encode('utf-8', 'ignore').decode('utf-8')
+        eventos_string = eventos_string.replace('"', '').replace('\\', '')
+        eventos_string = eventos_string.replace('[', '').replace(']', '')
+        eventos_string = eventos_string.replace('{', '').replace('}', '')
+        eventos_string = eventos_string.replace(',', '. ')  # Convertir comas en puntos para una lectura más natural
 
         app.logger.info("Eventos en formato string legible: %s", eventos_string)
-        return {"chatbot_id": chatbot_id, "events": eventos_string}
+        return eventos_string
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
-        return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
+        return "Error al obtener eventos: " + str(e)
