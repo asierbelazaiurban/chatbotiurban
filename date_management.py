@@ -2,6 +2,7 @@ import re
 import openai
 from dateutil import parser
 import dateparser
+import os
 
 def encontrar_fechas_con_regex(texto):
     """
@@ -31,6 +32,7 @@ def interpretar_fecha_con_nlp(fecha_texto):
     return None
 
 def interpretar_intencion_y_fechas(texto):
+    
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
