@@ -120,7 +120,6 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_string = eventos_string.replace('{', '').replace('}', '')
         eventos_string = eventos_string.replace(',', '. ')  # Convertir comas en puntos para una lectura más natural
 
-        app.logger.info("Eventos en formato string legible: %s", eventos_string)
         return eventos_string
 
     except requests.exceptions.RequestException as e:
