@@ -113,26 +113,22 @@ def obtener_eventos(pregunta, chatbot_id):
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
 
-        try:
-            eventos_data = response.json()
-            app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
-        except json.JSONDecodeError as e:
-            app.logger.error("Error al decodificar la respuesta JSON: %s", e)
-            return {"chatbot_id": chatbot_id, "events": "", "error": "Respuesta no es JSON"}
+        eventos_data = response.json()
+        app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
         eventos = eventos_data.get('eventos', [])
         if not eventos:
             app.logger.info("No se han encontrado eventos en las fechas especificadas.")
             return {"chatbot_id": chatbot_id, "events": ""}
 
-        eventos_concatenados = ' '.join(eventos)
+        # Concatenar todos los eventos en un solo string largo
+        eventos_concatenados = ' '.join(eventos).replace('\n', ' ').replace('\r', '')
         app.logger.info("Eventos concatenados: %s", eventos_concatenados)
         return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
-
 
 
 
