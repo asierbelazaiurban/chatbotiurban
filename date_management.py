@@ -125,11 +125,11 @@ def obtener_eventos(pregunta, chatbot_id):
                 app.logger.info("Eventos concatenados: %s", eventos_concatenados)
                 return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
             else:
-                app.logger.info("No se han encontrado eventos en las fechas especificadas.")
-                return {"chatbot_id": chatbot_id, "events": "No se han encontrado eventos en las fechas especificadas."}
+                app.logger.info("Se encontraron eventos, pero la lista está vacía.")
+                return {"chatbot_id": chatbot_id, "events": "Se encontraron eventos, pero la lista está vacía."}
         else:
-            app.logger.info("La clave 'events' no está presente en la respuesta JSON o no es una lista.")
-            return {"chatbot_id": chatbot_id, "events": "La clave 'events' no está presente en la respuesta JSON o no es una lista."}
+            app.logger.info("La clave 'events' no está presente en la respuesta JSON.")
+            return {"chatbot_id": chatbot_id, "events": "La clave 'events' no está presente en la respuesta JSON."}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
