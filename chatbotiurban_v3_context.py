@@ -377,7 +377,6 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         return []
 
 
-
 def preprocess_query(query):
     tokens = word_tokenize(query.lower())
     return ' '.join(tokens)
@@ -418,7 +417,6 @@ respuestas_por_defecto = [
     "Lo sentimos, no tenemos una respuesta directa a tu consulta. Para más detalles, envía un correo a info@iurban.es.",
     "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
 ]
-
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
@@ -461,7 +459,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### Inicio Endpoints #######
 
-
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
@@ -503,12 +500,11 @@ def ask():
                         ultima_respuesta = respuesta_del_dataset
                         fuente_respuesta = "dataset"
                     else:
-                        # Aquí se invoca seleccionar_respuesta_por_defecto si no hay respuesta del dataset
                         ultima_respuesta = seleccionar_respuesta_por_defecto()
                         fuente_respuesta = "respuesta_por_defecto"
 
-                # Mejorar la respuesta con OpenAI si es necesario
-                if fuente_respuesta != "ninguna":
+                # Mejorar la respuesta con OpenAI si es necesario y no es una respuesta por defecto
+                if fuente_respuesta != "ninguna" and fuente_respuesta != "respuesta_por_defecto":
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
                         respuesta=ultima_respuesta,
@@ -532,6 +528,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/uploads', methods=['POST'])
