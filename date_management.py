@@ -99,5 +99,3 @@ def obtener_eventos(pregunta, chatbot_id, fecha_actual):
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
 
-# Aquí podrías añadir tus rutas de Flask y otras funcionalidades necesarias.
-
