@@ -1,16 +1,27 @@
 import re
 import openai
 import os
-from dateutil import parser
 import dateparser
 import requests
 import json
-from datetime import datetime
-from flask import current_app as app
-
+import logging
+from logging.handlers import RotatingFileHandler
 from flask import Flask
 
 app = Flask(__name__)
+
+# Configuración del Logger
+if not app.debug:
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    file_handler = RotatingFileHandler('logs/chatbot.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Chatbot startup')
 
 def encontrar_fechas_con_regex(texto):
     patrones_fecha = [
