@@ -1,3 +1,4 @@
+import re
 import openai
 import os
 import dateparser
@@ -8,6 +9,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask
 from datetime import datetime
 from langdetect import detect
+from dateparser.search import search_dates
 
 app = Flask(__name__)
 
@@ -28,7 +30,7 @@ def get_openai_response(texto):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     if not openai.api_key:
         raise ValueError("OPENAI_API_KEY is not set in environment variables")
-    instruccion_gpt4 = ("Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.")
+    instruccion_gpt4 = ("""Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.""")
     respuesta = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -38,25 +40,13 @@ def get_openai_response(texto):
     )
     return respuesta.choices[0].message['content']
 
-def interpretar_intencion_y_fechas(texto, fecha_actual):
-    # Obtener respuesta de GPT-4
-    respuesta_gpt4 = get_openai_response(texto)
-
-    # Procesar la respuesta de GPT-4 para extraer fechas
-    idioma = detect(respuesta_gpt4)  # Detectar el idioma del texto
-    fechas_interpretadas = dateparser.search.search_dates(respuesta_gpt4, languages=[idioma])
-
-    # Lista para almacenar las fechas interpretadas como tuplas (fecha_inicial, fecha_final)
-    fechas_resultantes = []
-
-    if fechas_interpretadas:
-        for _, fecha in fechas_interpretadas:
-            # Formatear la fecha interpretada y añadirla a la lista
-            fecha_formateada = fecha.strftime('%Y-%m-%d')
-            fechas_resultantes.append((fecha_formateada, fecha_formateada))
-
-    return fechas_resultantes
-
+def interpretar_referencias_temporales(texto):
+    idioma = detect(texto)
+    fechas = dateparser.search.search_dates(texto, languages=[idioma])
+    if fechas:
+        return [(fecha[1].strftime('%Y-%m-%d'), fecha[1].strftime('%Y-%m-%d')) for fecha in fechas]
+    else:
+        return None
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_actual = datetime.now()
@@ -98,6 +88,5 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
-
 
 
