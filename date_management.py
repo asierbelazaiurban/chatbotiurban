@@ -109,7 +109,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
     try:
         app.logger.info("Enviando solicitud HTTP a: %s", url)
-        app.logger.info("Payload de la solicitud: %s", payload)
+        app.logger.info("Payload de la solicitud: %s", json.dumps(payload))
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
 
@@ -117,20 +117,20 @@ def obtener_eventos(pregunta, chatbot_id):
         app.logger.info("Datos JSON de la respuesta: %s", eventos_data)
 
         eventos = eventos_data.get('eventos', [])
-        if eventos:
+        if eventos and isinstance(eventos, list):  # Asegurarse de que eventos es una lista y no está vacía
             # Limpiar y concatenar todos los eventos en un solo string
             eventos_limpios = []
             for evento in eventos:
                 evento_limpio = html.unescape(evento)  # Convertir entidades HTML a texto
                 evento_limpio = evento_limpio.replace('\n', ' ').replace('\r', '').replace('\xa0', ' ')
                 eventos_limpios.append(evento_limpio)
-            
+
             eventos_concatenados = ' '.join(eventos_limpios)
             app.logger.info("Eventos concatenados: %s", eventos_concatenados)
             return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
         else:
-            app.logger.info("No se han encontrado eventos en las fechas especificadas.")
-            return {"chatbot_id": chatbot_id, "events": "No se han encontrado eventos en las fechas especificadas."}
+            app.logger.info("No se han encontrado eventos en las fechas especificadas o la respuesta no es una lista.")
+            return {"chatbot_id": chatbot_id, "events": "No se han encontrado eventos en las fechas especificadas o la respuesta no es una lista."}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
