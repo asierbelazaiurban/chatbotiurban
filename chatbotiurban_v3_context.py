@@ -387,19 +387,25 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 def encontrar_respuesta(pregunta, datos, vectorizer, contexto, longitud_minima=200):
-    pregunta_procesada = preprocess_query(pregunta)
+    # Enriquecer la pregunta con el contexto si este no está vacío
+    pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
+    pregunta_procesada = preprocess_query(pregunta_enriquecida)
+
+    # Procesamiento y búsqueda de similitud como antes
     encoded_query = vectorizer.transform([pregunta_procesada])
     similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
     respuesta_amplia = ""
     for indice in indices_ordenados:
-        if similarity_scores[indice] > 0.1:
+        if similarity_scores[indice] > 0.1:  # Umbral ajustable
             respuesta_amplia += " " + datos[indice]
             if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
                 break
 
+    # Devolver la respuesta o una respuesta por defecto si no se encuentra ninguna adecuada
     return respuesta_amplia.strip() if respuesta_amplia else seleccionar_respuesta_por_defecto()
+
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto
