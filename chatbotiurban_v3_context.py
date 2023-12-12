@@ -14,6 +14,7 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 from time import sleep
 from urllib.parse import urlparse, urljoin
+import random
 
 # Librerías de terceros
 import chardet
@@ -53,6 +54,7 @@ import nltk
 from nltk.tokenize import word_tokenize
 nltk.download('stopwords')
 nltk.download('punkt')
+
 
 
 tqdm.pandas()
@@ -341,9 +343,6 @@ def extraer_palabras_clave(pregunta):
 
 ####### Utils busqueda en Json #######
 
-
-####### Utils busqueda en Json #######
-
 # Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
 def convertir_a_texto(item):
     """
@@ -377,55 +376,64 @@ def cargar_dataset(chatbot_id, base_dataset_dir):
         app.logger.error(f"Error al cargar el dataset: {e}")
         return []
 
+def preprocess_query(query):
+    # Tokeniza y convierte a minúsculas la consulta
+    tokens = word_tokenize(query.lower())
+    return ' '.join(tokens)
+
 def encode_data(data):
+    # Codifica los datos usando TF-IDF
     vectorizer = TfidfVectorizer()
-    encoded_data = vectorizer.fit_transform(data)
+    encoded_data = vectorizer.fit_tra
     return encoded_data, vectorizer
 
-def preprocess_query(query):
-    tokens = word_tokenize(query.lower())
-    processed_query = ' '.join(tokens)
-    return processed_query
+respuestas_por_defecto = [
+    "Lamentamos no poder encontrar una respuesta precisa. Para más información, contáctanos en info@iurban.es.",
+    "No hemos encontrado una coincidencia exacta, pero estamos aquí para ayudar. Escríbenos a info@iurban.es para más detalles.",
+    "Aunque no encontramos una respuesta específica, nuestro equipo está listo para asistirte. Envía tus preguntas a info@iurban.es.",
+    "Parece que no tenemos una respuesta directa, pero no te preocupes. Para más asistencia, comunícate con nosotros en info@iurban.es.",
+    "No pudimos encontrar una respuesta clara a tu pregunta. Si necesitas más información, contáctanos en info@iurban.es.",
+    "Disculpa, no encontramos una respuesta adecuada. Para más consultas, por favor, escribe a info@iurban.es.",
+    "Sentimos no poder ofrecerte una respuesta exacta. Para obtener más ayuda, contacta con info@iurban.es.",
+    "No hemos podido encontrar una respuesta precisa a tu pregunta. Por favor, contacta con info@iurban.es para más información.",
+    "Lo sentimos, no tenemos una respuesta directa a tu consulta. Para más detalles, envía un correo a info@iurban.es.",
+    "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
+]
 
-import nltk
-from nltk.tokenize import word_tokenize
-nltk.download('punkt')
-
-def encontrar_respuesta(pregunta, datos, longitud_minima=200):
+def encontrar_respuesta(pregunta, datos, vectorizer, contexto, longitud_minima=200):
     try:
         # Preprocesar la pregunta
         pregunta_procesada = preprocess_query(pregunta)
-
-        # Codificar los datos
-        encoded_data, vectorizer = encode_data(datos)
 
         # Codificar la pregunta
         encoded_query = vectorizer.transform([pregunta_procesada])
 
         # Calcular la similitud
-        similarity_scores = cosine_similarity(encoded_data, encoded_query).flatten()
+        similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
 
         # Ordenar los índices de los documentos por similitud
         indices_ordenados = similarity_scores.argsort()[::-1]
 
         respuesta_amplia = ""
         for indice in indices_ordenados:
-            if similarity_scores[indice] > 0:
+            if similarity_scores[indice] > 0.1:  # Ajusta este umbral según sea necesario
                 respuesta_amplia += " " + datos[indice]
                 if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
                     break
 
-        if len(respuesta_amplia) > 0:
-            app.logger.info("Respuesta ampliada encontrada.")
-            return respuesta_amplia.strip()
+        # Si no se encuentra una respuesta adecuada, selecciona una respuesta por defecto
+        if len(respuesta_amplia.strip()) == 0:
+            return random.choice(respuestas_por_defecto)
         else:
-            app.logger.info("No se encontró ninguna coincidencia.")
-            return "No se encontró ninguna coincidencia."
+            return respuesta_amplia.strip()
 
     except Exception as e:
         app.logger.error(f"Error en encontrar_respuesta_amplia: {e}")
-        raise e
+        return random.choice(respuestas_por_defecto)
 
+def seleccionar_respuesta_por_defecto():
+    # Devuelve una respuesta por defecto
+    return random.choice(respuestas_por_defecto)
 
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
