@@ -1,45 +1,76 @@
-from datetime import datetime, timedelta
-import requests
-import json
+import re
+import openai
 from dateutil import parser
-import spacy
-from flask import Flask
+import dateparser
 
-app = Flask(__name__)
+def encontrar_fechas_con_regex(texto):
+    """
+    Encuentra fechas en el texto utilizando expresiones regulares.
+    Devuelve una lista de todas las fechas encontradas.
+    """
+    # Ejemplo de patrón de fecha (día/mes/año, mes/día/año, etc.)
+    patrones_fecha = [
+        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
+        r"\b\d{2,4}[/-]\d{1,2}[/-]\d{1,2}\b"
+        # Puedes añadir más patrones según sea necesario
+    ]
+    
+    fechas_encontradas = []
+    for patron in patrones_fecha:
+        fechas_encontradas.extend(re.findall(patron, texto))
 
-def extraer_fechas_con_contexto(pregunta):
-    nlp = spacy.load('en_core_web_sm')
-    doc = nlp(pregunta)
-    fechas = []
-    for ent in doc.ents:
-        if ent.label_ == 'DATE':
-            try:
-                fecha = parser.parse(ent.text)
-                fechas.append(fecha)
-            except ValueError:
-                app.logger.error(f"Error al parsear fecha: {ent.text}")
-                continue
-    return fechas
+    return fechas_encontradas
 
-def aplicar_logica_fechas(fechas):
-    if len(fechas) == 0:
-        # Si no hay fechas, usar la fecha actual y +4 días
-        start = datetime.now()
-        end = start + timedelta(days=4)
-    elif len(fechas) == 1:
-        # Si hay una fecha, se asume como start y end es start + 3 días
-        start = fechas[0]
-        end = start + timedelta(days=3)
-    else:
-        # Si hay dos o más fechas, se toman las primeras dos y se ordenan
-        fechas.sort()
-        start, end = fechas[0], fechas[1]
+def interpretar_fecha_con_nlp(fecha_texto):
+    """
+    Interpreta una fecha dada en texto utilizando NLP.
+    """
+    fecha = dateparser.parse(fecha_texto)
+    if fecha:
+        return fecha.strftime('%Y-%m-%d')
+    return None
 
-    return start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
+def interpretar_intencion_y_fechas(texto):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    try:
+        respuesta = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": texto},
+            ]
+        )
+
+        texto_interpretado = respuesta.choices[0].message['content']
+
+        # Utiliza regex para encontrar fechas en el texto interpretado
+        fechas_regex = encontrar_fechas_con_regex(texto_interpretado)
+
+        # Convierte las fechas a formato MySQL
+        fechas_procesadas = [interpretar_fecha_con_nlp(fecha) for fecha in fechas_regex]
+
+        # Filtrar None y devolver fechas únicas
+        return list(set([fecha for fecha in fechas_procesadas if fecha]))
+
+    except Exception as e:
+        return []
+
+# Ejemplo de uso
+# fechas = interpretar_intencion_y_fechas("Quiero saber los eventos en Nueva York el próximo mes.", tu_openai_api_key)
+# print(fechas)
+
 
 def obtener_eventos(pregunta, chatbot_id):
-    fechas = extraer_fechas_con_contexto(pregunta)
-    start, end = aplicar_logica_fechas(fechas)
+    fechas = interpretar_intencion_y_fechas(pregunta)
+
+    if not fechas:
+        return "No se pudo interpretar las fechas de la pregunta."
+
+    # Suponiendo que siempre necesitamos dos fechas, inicio y fin.
+    # Si solo se encuentra una fecha, se puede usar la misma para 'start' y 'end',
+    # o manejarlo de otra manera según la lógica de negocio.
+    start, end = fechas[0], fechas[-1] if len(fechas) > 1 else fechas[0]
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
@@ -56,14 +87,13 @@ def obtener_eventos(pregunta, chatbot_id):
 
         eventos = eventos_data.get('eventos', [])
         if not eventos:
-            # Si no hay eventos, devuelve un mensaje específico
-            return "No se han encontrado eventos en las fechas, por favor especifique a una fecha concreta"
+            return "No se han encontrado eventos en las fechas especificadas."
 
         eventos_concatenados = ' '.join(eventos)
         return eventos_concatenados
 
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Error en la solicitud HTTP: {e}")
-        return None
+        # app.logger.error(f"Error en la solicitud HTTP: {e}")
+        return f"Error en la solicitud HTTP: {e}"
 
 
