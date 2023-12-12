@@ -97,7 +97,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
     if fecha_inicial is None or fecha_final is None:
         app.logger.info("No se pudo interpretar las fechas de la pregunta.")
-        return "No se pudo interpretar las fechas de la pregunta."
+        return {"chatbot_id": chatbot_id, "events": ""}
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
@@ -111,21 +111,25 @@ def obtener_eventos(pregunta, chatbot_id):
         app.logger.info("Enviando solicitud HTTP a: %s", url)
         app.logger.info("Payload de la solicitud: %s", payload)
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-        response.raise_for_status()  # Esto lanzará una excepción si el código de estado HTTP no es 200
+        response.raise_for_status()
         eventos_data = response.json()
 
         eventos = eventos_data.get('eventos', [])
         if not eventos:
             app.logger.info("No se han encontrado eventos en las fechas especificadas.")
-            return "No se han encontrado eventos en las fechas especificadas."
+            return {"chatbot_id": chatbot_id, "events": ""}
 
+        # Concatenar todos los eventos en un solo string
         eventos_concatenados = ' '.join(eventos)
-        app.logger.info("Eventos encontrados: %s", eventos_concatenados)
-        return eventos_concatenados
+        app.logger.info("eventos_concatenados")
+        app.logger.info(eventos_concatenados)
+
+        return {"chatbot_id": chatbot_id, "events": eventos_concatenados}
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
-        return f"Error en la solicitud HTTP: {e}"
+        return {"chatbot_id": chatbot_id, "events": "", "error": str(e)}
+
 
 
 
