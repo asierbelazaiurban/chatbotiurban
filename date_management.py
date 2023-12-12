@@ -6,6 +6,7 @@ import dateparser
 import requests
 import json
 from datetime import datetime
+from flask import current_app as app
 
 def encontrar_fechas_con_regex(texto):
     patrones_fecha = [
@@ -18,13 +19,16 @@ def encontrar_fechas_con_regex(texto):
     for patron in patrones_fecha:
         fechas_encontradas.extend(re.findall(patron, texto))
 
+    app.logger.info("Fechas encontradas con regex: %s", fechas_encontradas)
     return fechas_encontradas
 
 
 def interpretar_fecha_con_nlp(fecha_texto):
     fecha = dateparser.parse(fecha_texto)
     if fecha:
-        return fecha.strftime('%Y-%m-%d')
+        fecha_format = fecha.strftime('%Y-%m-%d')
+        app.logger.info("Fecha interpretada con NLP: %s", fecha_format)
+        return fecha_format
     return None
 
 def interpretar_intencion_y_fechas(texto):
@@ -32,7 +36,7 @@ def interpretar_intencion_y_fechas(texto):
 
     try:
         respuesta = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant capable of understanding dates in any language."},
                 {"role": "user", "content": texto},
@@ -54,6 +58,7 @@ def interpretar_intencion_y_fechas(texto):
                 if fecha_procesada:
                     fechas_procesadas.append(fecha_procesada)
 
+        app.logger.info("Fechas procesadas: %s", fechas_procesadas)
         if fechas_procesadas:
             return min(fechas_procesadas), max(fechas_procesadas)
         else:
@@ -65,10 +70,15 @@ def interpretar_intencion_y_fechas(texto):
         return None, None
 
     except Exception as e:
+        app.logger.error("Excepción encontrada: %s", e)
         return None, None
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
+    app.logger.info("fecha_inicial")
+    app.logger.info(fecha_inicial)
+    app.logger.info("fecha fecha_final")
+    app.logger.info(fecha_final)
 
     if fecha_inicial is None or fecha_final is None:
         return "No se pudo interpretar las fechas de la pregunta."
@@ -94,7 +104,12 @@ def obtener_eventos(pregunta, chatbot_id):
         return eventos_concatenados
 
     except requests.exceptions.RequestException as e:
+        app.logger.error("Error en la solicitud HTTP: %s", e)
         return f"Error en la solicitud HTTP: {e}"
+
+# Ejemplo de uso
+respuesta = obtener_eventos("Eventos para el 2024", "tu_chatbot_id")
+app.logger.info(respuesta)
 
 
 
