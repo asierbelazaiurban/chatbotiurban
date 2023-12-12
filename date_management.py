@@ -8,6 +8,10 @@ import json
 from datetime import datetime
 from flask import current_app as app
 
+from flask import Flask
+
+app = Flask(__name__)
+
 def encontrar_fechas_con_regex(texto):
     patrones_fecha = [
         r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",  # dd/mm/yyyy o mm/dd/yyyy
@@ -107,9 +111,6 @@ def obtener_eventos(pregunta, chatbot_id):
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return f"Error en la solicitud HTTP: {e}"
 
-# Ejemplo de uso
-respuesta = obtener_eventos("Eventos para el 2024", "tu_chatbot_id")
-app.logger.info(respuesta)
 
 
 
