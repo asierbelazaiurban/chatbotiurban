@@ -51,44 +51,35 @@ def interpretar_intencion_y_fechas(texto):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
+        # Utiliza OpenAI GPT-4 para interpretar la intención y el contexto
         respuesta = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant capable of understanding dates in any language."},
+                {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": texto},
             ]
         )
 
         texto_interpretado = respuesta.choices[0].message['content']
+        app.logger.info("Texto interpretado: %s", texto_interpretado)
 
-        fechas_regex = encontrar_fechas_con_regex(texto_interpretado)
-        fechas_procesadas = []
+        # Utiliza dateparser para interpretar las fechas
+        settings = {'PREFER_DATES_FROM': 'future', 'RELATIVE_BASE': datetime.datetime.now()}
+        fecha_interpretada = dateparser.parse(texto_interpretado, settings=settings)
+        if fecha_interpretada:
+            fecha_format = fecha_interpretada.strftime('%Y-%m-%d')
+            return fecha_format, fecha_format
 
-        for fecha in fechas_regex:
-            if re.match(r"\b\d{4}\b", fecha):  # Solo año
-                fecha_inicio = f"{fecha}-01-01"
-                fecha_fin = f"{fecha}-12-31"
-                fechas_procesadas.extend([fecha_inicio, fecha_fin])
-            else:
-                fecha_procesada = interpretar_fecha_con_nlp(fecha)
-                if fecha_procesada:
-                    fechas_procesadas.append(fecha_procesada)
-
-        app.logger.info("Fechas procesadas: %s", fechas_procesadas)
-        if fechas_procesadas:
-            return min(fechas_procesadas), max(fechas_procesadas)
-        else:
-            # Intenta interpretar con NLP si no se encontraron fechas con regex
-            fecha_procesada = interpretar_fecha_con_nlp(texto_interpretado)
-            if fecha_procesada:
-                return fecha_procesada, fecha_procesada
+        # Usa interpretar_fecha_con_nlp si dateparser no encuentra una fecha
+        fecha_nlp = interpretar_fecha_con_nlp(texto_interpretado)
+        if fecha_nlp:
+            return fecha_nlp, fecha_nlp
 
         return None, None
 
     except Exception as e:
         app.logger.error("Excepción encontrada: %s", e)
         return None, None
-
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_inicial, fecha_final = interpretar_intencion_y_fechas(pregunta)
