@@ -482,6 +482,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
+    fuente_respuesta = "ninguna"
 
     try:
         data = request.get_json()
