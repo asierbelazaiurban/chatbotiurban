@@ -383,20 +383,20 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longitud_minima=200):
-    logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
+    app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
     datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    logger.info("Enriqueciendo y preprocesando la pregunta")
+    app.logger.info("Enriqueciendo y preprocesando la pregunta")
     pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
     pregunta_procesada = preprocess_query(pregunta_enriquecida)
 
-    logger.info("Codificando la pregunta y calculando similitudes")
+    app.logger.info("Codificando la pregunta y calculando similitudes")
     encoded_query = vectorizer.transform([pregunta_procesada])
     similarity_scores = cosine_similarity(encoded_query, vectorizer.transform(datos)).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
     respuesta_tf_idf = ""
-    logger.info("Buscando respuesta usando TF-IDF")
+    app.logger.info("Buscando respuesta usando TF-IDF")
     for indice in indices_ordenados:
         if similarity_scores[indice] > 0.01:  # Umbral muy bajo
             respuesta_tf_idf += " " + datos[indice]
@@ -424,7 +424,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longi
     elif respuesta_tf_idf.strip():
         return respuesta_tf_idf.strip()
     else:
-        logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
+        app.logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
         return "Respuesta por defecto o una función que la genere"
 
 def seleccionar_respuesta_por_defecto():
@@ -543,7 +543,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-        
+
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
