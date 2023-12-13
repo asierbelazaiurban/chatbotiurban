@@ -1,4 +1,4 @@
-##!/usr/bin/env python
+#!/usr/bin/env python
 # coding: utf-8
 
 # Librerías estándar de Python
@@ -14,7 +14,6 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 from time import sleep
 from urllib.parse import urlparse, urljoin
-import random
 
 # Librerías de terceros
 import chardet
@@ -28,7 +27,7 @@ import requests
 import torch
 from bs4 import BeautifulSoup
 from datasets import Dataset, load_dataset
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, current_app as app
 from gensim.models import Word2Vec
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -41,17 +40,13 @@ from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassificat
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
 from werkzeug.datastructures import FileStorage
-
-# Módulos locales
-from date_management import *
-from clean_data_for_scraping import *
-from process_docs import process_file
-
-from flask import current_app as app
 import unidecode
 
-import nltk
-from nltk.tokenize import word_tokenize
+# Módulos locales
+from clean_data_for_scraping import *
+from date_management import *
+from process_docs import process_file
+
 nltk.download('stopwords')
 nltk.download('punkt')
 
@@ -363,18 +358,12 @@ def convertir_a_texto(item):
         return str(item)
 
 
-def cargar_dataset(chatbot_id, base_dataset_dir):
-    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
-    app.logger.info(f"Dataset con ruta {dataset_file_path}")
 
-    try:
-        with open(dataset_file_path, 'r') as file:
-            data = json.load(file)
-            app.logger.info(f"Dataset cargado con éxito desde {dataset_file_path}")
-            return [convertir_a_texto(item) for item in data.values()]
-    except Exception as e:
-        app.logger.error(f"Error al cargar el dataset: {e}")
-        return []
+def cargar_dataset(base_dataset_dir, chatbot_id):
+    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+    with open(dataset_file_path, 'r') as file:
+        data = json.load(file)
+    return data  # Asume que 'data' es una lista de diccionarios con 'pregunta' y 'respuesta'
 
 
 def preprocess_query(query):
