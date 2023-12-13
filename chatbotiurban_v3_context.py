@@ -482,7 +482,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### Inicio Endpoints #######
 
- @app.route('/ask', methods=['POST'])
+@app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
 
