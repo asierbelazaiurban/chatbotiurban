@@ -439,8 +439,8 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     else:
         indice_coincidencia = resultados[0]
         palabras = datos[indice_coincidencia].split()
-        inicio = max(0, indice_coincidencia - 100)
-        fin = min(len(palabras), indice_coincidencia + 100)
+        inicio = max(0, indice_coincidencia - 50)
+        fin = min(len(palabras), indice_coincidencia + 50)
         contexto_ampliado = ' '.join(palabras[inicio:fin])
         return contexto_ampliado
 
@@ -544,13 +544,9 @@ def ask():
                 else:
                     app.logger.info("Entrando en la sección del dataset")
                     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    app.logger.info("dataset_file_path")
-                    app.logger.info(dataset_file_path)
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
-
-                        app.logger.info(datos_del_dataset)
 
                         # Crear y entrenar el vectorizer
                         vectorizer = TfidfVectorizer()
