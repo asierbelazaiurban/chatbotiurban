@@ -245,10 +245,10 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
                       "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
                       "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-                      "proporciona el contacto: info@iurban.es.")
+                      "proporciona el contacto: info@iurban.es. No me respondas nada relacionado con la codificación")
 
     # Construir el prompt base
-    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto y No me respondas nada relacionado con la codificación"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
