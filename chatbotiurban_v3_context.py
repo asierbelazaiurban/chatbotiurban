@@ -375,7 +375,7 @@ def encode_data(data):
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto):
+def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto):
     app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
     datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
@@ -385,7 +385,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto):
 
     app.logger.info("Codificando la pregunta y calculando similitudes")
     encoded_query = vectorizer.transform([pregunta_procesada])
-    similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
+    similarity_scores = cosine_similarity(encoded_query, vectorizer.transform(datos)).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
     respuesta_tf_idf = ""
@@ -486,7 +486,6 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
-        fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -499,59 +498,45 @@ def ask():
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
                 if encontrada_en_json:
-                    app.logger.info("Respuesta encontrada en las respuestas preestablecidas")
                     ultima_respuesta = respuesta_preestablecida
                     fuente_respuesta = "preestablecida"
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    app.logger.info("Entrando en la sección de eventos")
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     fuente_respuesta = "eventos"
                 else:
                     app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                    dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
-                            app.logger.info(f"Dataset cargado para el chatbot_id {chatbot_id}")
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+
+                        # Crear y entrenar el vectorizer
+                        vectorizer = TfidfVectorizer()
+                        prepared_data = [' '.join(item['dialogue']) for item in datos_del_dataset.values()]
+                        vectorizer.fit(prepared_data)
+
+                        # Llamar a encontrar_respuesta con el vectorizer
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
 
                         if respuesta_del_dataset:
-                            app.logger.info("Respuesta encontrada en el dataset")
                             ultima_respuesta = respuesta_del_dataset
                             fuente_respuesta = "dataset"
                         else:
-                            app.logger.info("Seleccionando una respuesta por defecto")
                             ultima_respuesta = seleccionar_respuesta_por_defecto()
                             fuente_respuesta = "respuesta_por_defecto"
-
-                # Mejorar la respuesta con OpenAI si es necesario
-                if fuente_respuesta not in ["ninguna", "respuesta_por_defecto"]:
-                    app.logger.info("Mejorando la respuesta con OpenAI")
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
-                        pregunta=ultima_pregunta,
-                        respuesta=ultima_respuesta,
-                        new_prompt="",
-                        contexto_adicional=contexto,
-                        temperature=0.7,
-                        model_gpt="gpt-4",
-                        chatbot_id=chatbot_id
-                    )
-
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
-                app.logger.info("Respondiendo con una respuesta existente")
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
             app.logger.warning("Formato de solicitud incorrecto")
             return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+
     except Exception as e:
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-
 
 
 @app.route('/uploads', methods=['POST'])
