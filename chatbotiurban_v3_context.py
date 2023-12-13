@@ -253,7 +253,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
-        new_prompt = ("Limitate a mas de no 100 palabras. Actúa como un guía turístico experto, "
+        new_prompt = ("Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
                       "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
                       "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
                       "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
@@ -422,8 +422,6 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
     return data
 
 # Encontrar respuesta
-
-
 def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     # Convertir los datos del dataset a texto
     datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
@@ -454,15 +452,14 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
 
         # Verificar que el contexto_texto sea una lista de cadenas de texto
         if isinstance(contexto_texto, list) and all(isinstance(item, str) for item in contexto_texto):
-            # Concatenar el texto para formar la respuesta
-            contexto_ampliado = ' '.join(contexto_texto)
+            # Concatenar el texto para formar la respuesta, limitando a 100 palabras
+            respuesta_concatenada = ' '.join(contexto_texto)
+            palabras_respuesta = respuesta_concatenada.split()[:100]
+            contexto_ampliado = ' '.join(palabras_respuesta)
             return contexto_ampliado
         else:
             app.logger.error("La estructura de los resultados no es como se esperaba.")
             return "Ocurrió un error al procesar la respuesta. La estructura de los resultados es incorrecta."
-
-
-
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
