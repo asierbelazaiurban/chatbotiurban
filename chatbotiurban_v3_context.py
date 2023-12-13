@@ -187,9 +187,6 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
-import openai
-import os
-
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     # Verificar si hay pregunta y respuesta
     if not pregunta or not respuesta:
@@ -511,7 +508,7 @@ def ask():
                     fuente_respuesta = "eventos"
                 else:
                     app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
