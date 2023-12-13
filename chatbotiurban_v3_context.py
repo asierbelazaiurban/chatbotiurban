@@ -482,14 +482,14 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### Inicio Endpoints #######
 
-@app.route('/ask', methods=['POST'])
+ @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
 
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
-        fuente_respuesta = "ninguna"  # Inicializar fuente_respuesta
+        fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -502,27 +502,34 @@ def ask():
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
                 if encontrada_en_json:
+                    app.logger.info("Respuesta encontrada en las respuestas preestablecidas")
                     ultima_respuesta = respuesta_preestablecida
                     fuente_respuesta = "preestablecida"
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                    app.logger.info("Entrando en la sección de eventos")
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     fuente_respuesta = "eventos"
                 else:
-                    dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
+                    app.logger.info("Entrando en la sección del dataset")
+                    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
+                            app.logger.info(f"Dataset cargado para el chatbot_id {chatbot_id}")
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
 
                         if respuesta_del_dataset:
+                            app.logger.info("Respuesta encontrada en el dataset")
                             ultima_respuesta = respuesta_del_dataset
                             fuente_respuesta = "dataset"
                         else:
+                            app.logger.info("Seleccionando una respuesta por defecto")
                             ultima_respuesta = seleccionar_respuesta_por_defecto()
                             fuente_respuesta = "respuesta_por_defecto"
 
                 # Mejorar la respuesta con OpenAI si es necesario
                 if fuente_respuesta not in ["ninguna", "respuesta_por_defecto"]:
+                    app.logger.info("Mejorando la respuesta con OpenAI")
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
                         respuesta=ultima_respuesta,
@@ -536,6 +543,7 @@ def ask():
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
+                app.logger.info("Respondiendo con una respuesta existente")
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
@@ -545,6 +553,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 
