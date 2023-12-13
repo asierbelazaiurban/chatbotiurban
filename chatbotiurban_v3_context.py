@@ -26,6 +26,7 @@ import nltk
 import numpy as np
 import torch
 from nltk.corpus import stopwords
+from nltk.util import ngrams
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
