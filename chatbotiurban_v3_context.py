@@ -377,23 +377,27 @@ def encode_data(data):
     return encoded_data, vectorizer
 
 def encontrar_respuesta(pregunta, dataset, vectorizer, contexto, longitud_minima=200):
-    # Convertir el 'dialogue' de cada entrada del dataset en texto
+    app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
     datos = [convertir_a_texto(item['dialogue']) for item in dataset.values()]
 
+    app.logger.info("Enriqueciendo y preprocesando la pregunta")
     pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
     pregunta_procesada = preprocess_query(pregunta_enriquecida)
 
+    app.logger.info("Codificando la pregunta y calculando similitudes")
     encoded_query = vectorizer.transform([pregunta_procesada])
     similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
     respuesta_tf_idf = ""
+    app.logger.info("Buscando respuesta usando TF-IDF")
     for indice in indices_ordenados:
         if similarity_scores[indice] > 0.01:  # Umbral muy bajo
             respuesta_tf_idf += " " + datos[indice]
             if len(word_tokenize(respuesta_tf_idf)) >= longitud_minima:
                 break
 
+    app.logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
     modelo_nlp = pipeline('question-answering', model='distilbert-base-uncased-distilled-squad')
     mejor_respuesta_nlp = ''
     max_score = 0
@@ -403,6 +407,7 @@ def encontrar_respuesta(pregunta, dataset, vectorizer, contexto, longitud_minima
             max_score = resultado_nlp['score']
             mejor_respuesta_nlp = resultado_nlp['answer']
 
+    app.logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
     if max_score > 0.01:
         palabras = word_tokenize(mejor_respuesta_nlp)
         indice_inicio = palabras.index(palabras[0])
@@ -413,8 +418,8 @@ def encontrar_respuesta(pregunta, dataset, vectorizer, contexto, longitud_minima
     elif respuesta_tf_idf.strip():
         return respuesta_tf_idf.strip()
     else:
+        app.logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
         return seleccionar_respuesta_por_defecto()
-
 
         
 def seleccionar_respuesta_por_defecto():
