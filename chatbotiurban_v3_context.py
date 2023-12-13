@@ -487,6 +487,7 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        fuente_respuesta = "ninguna"  # Inicializar fuente_respuesta
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -497,6 +498,7 @@ def ask():
 
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+
                 if encontrada_en_json:
                     ultima_respuesta = respuesta_preestablecida
                     fuente_respuesta = "preestablecida"
@@ -517,8 +519,8 @@ def ask():
                             ultima_respuesta = seleccionar_respuesta_por_defecto()
                             fuente_respuesta = "respuesta_por_defecto"
 
-                # Mejorar la respuesta con OpenAI si es necesario y no es una respuesta por defecto
-                if fuente_respuesta != "ninguna" and fuente_respuesta != "respuesta_por_defecto":
+                # Mejorar la respuesta con OpenAI si es necesario
+                if fuente_respuesta not in ["ninguna", "respuesta_por_defecto"]:
                     ultima_respuesta = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta,
                         respuesta=ultima_respuesta,
