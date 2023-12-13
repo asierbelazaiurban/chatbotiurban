@@ -403,7 +403,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longi
             if len(word_tokenize(respuesta_tf_idf)) >= longitud_minima:
                 break
 
-    logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
+    app.logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
     modelo_nlp = pipeline('question-answering', model='distilbert-base-uncased-distilled-squad')
     mejor_respuesta_nlp = ''
     max_score = 0
@@ -413,7 +413,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longi
             max_score = resultado_nlp['score']
             mejor_respuesta_nlp = resultado_nlp['answer']
 
-    logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
+    app.logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
     if max_score > 0.01:
         palabras = word_tokenize(mejor_respuesta_nlp)
         indice_inicio = palabras.index(palabras[0])
