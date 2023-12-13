@@ -490,20 +490,13 @@ def ask():
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-            
-            # Manejar la última pregunta y respuesta
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
 
-            # Generar contexto
-            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" 
-                                 for par in pares_pregunta_respuesta[:-1]])
+            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                respuesta_del_dataset = None
-                fuente_respuesta = None
-
                 if encontrada_en_json:
                     ultima_respuesta = respuesta_preestablecida
                     fuente_respuesta = "preestablecida"
@@ -515,15 +508,14 @@ def ask():
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
-                        
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
 
-                    if respuesta_del_dataset:
-                        ultima_respuesta = respuesta_del_dataset
-                        fuente_respuesta = "dataset"
-                    else:
-                        ultima_respuesta = seleccionar_respuesta_por_defecto()
-                        fuente_respuesta = "respuesta_por_defecto"
+                        if respuesta_del_dataset:
+                            ultima_respuesta = respuesta_del_dataset
+                            fuente_respuesta = "dataset"
+                        else:
+                            ultima_respuesta = seleccionar_respuesta_por_defecto()
+                            fuente_respuesta = "respuesta_por_defecto"
 
                 # Mejorar la respuesta con OpenAI si es necesario y no es una respuesta por defecto
                 if fuente_respuesta != "ninguna" and fuente_respuesta != "respuesta_por_defecto":
@@ -545,7 +537,6 @@ def ask():
         else:
             app.logger.warning("Formato de solicitud incorrecto")
             return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
-
     except Exception as e:
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
