@@ -37,7 +37,6 @@ modelo = api.load("glove-wiki-gigaword-50")
 
 # Procesamiento de Datos y Modelos
 import pandas as pd
-from gensim.downloader import api as gensim_api
 from gensim.models import Word2Vec
 from datasets import Dataset, load_dataset
 
