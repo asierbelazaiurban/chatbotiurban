@@ -92,6 +92,8 @@ def obtener_eventos(pregunta, chatbot_id):
         eventos_string = json.dumps(eventos_data.get('events', []))
         eventos_string = eventos_string.replace('\xa0', ' ').encode('utf-8', 'ignore').decode('utf-8')
         eventos_string = eventos_string.replace('"', '').replace('\\', '').replace('[', '').replace(']', '').replace('{', '').replace('}', '').replace(',', '. ')
+
+        app.logger.info(eventos_string)
         return eventos_string
 
     except requests.exceptions.RequestException as e:
