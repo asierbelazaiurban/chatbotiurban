@@ -428,15 +428,30 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     ranked_results, ranked_scores = perform_search(vectorizer.transform(datos), encoded_query)
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
 
-    # Si no se encuentran resultados relevantes, selecciona una respuesta por defecto
+    # Si no se encuentran resultados relevantes, selecciona una respuesta por defecto y tradúcela
     if not resultados:
-        return seleccionar_respuesta_por_defecto()
+        respuesta_por_defecto = seleccionar_respuesta_por_defecto()
+        return traducir_texto_con_openai(respuesta_por_defecto, "Spanish")
     else:
-        return resultados
+        return resultados[0]  # Devuelve el resultado más relevante
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
     return random.choice(respuestas_por_defecto)
+
+def traducir_texto_con_openai(texto, idioma_destino):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+    try:
+        prompt = f"Traduce este texto al {idioma_destino}: {texto}"
+        response = openai.Completion.create(
+            model="gpt-4",
+            prompt=prompt,
+            max_tokens=60
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        app.logger.info(f"Error al traducir texto con OpenAI: {e}")
+        return texto  # Devuelve el texto original si falla la traducción
 
 respuestas_por_defecto = [
     "Lamentamos no poder encontrar una respuesta precisa. Para más información, contáctanos en info@iurban.es.",
