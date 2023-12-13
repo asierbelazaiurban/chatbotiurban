@@ -436,6 +436,8 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     ranked_results, ranked_scores = perform_search(encoded_data, encoded_query)
     # Recuperar los resultados
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
+    app.logger.info("resultados")
+    app.logger.info(resultados)
     
     # Manejar los resultados
     if not resultados:
