@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Librerías estándar de Python
+# ---------------------------
+# Librerías Estándar de Python
+# ---------------------------
+# Utilidades básicas y manejo de archivos
 import json
 import logging
 import os
@@ -15,51 +18,56 @@ from logging.handlers import RotatingFileHandler
 from time import sleep
 from urllib.parse import urlparse, urljoin
 
-# Librerías de terceros
-import chardet
-import evaluate
-import gensim.downloader as api
+# ---------------------------
+# Librerías de Terceros
+# ---------------------------
+# Procesamiento de Lenguaje Natural y Aprendizaje Automático
 import nltk
 import numpy as np
-import openai
-import pandas as pd
-import requests
 import torch
-from bs4 import BeautifulSoup
-from datasets import Dataset, load_dataset
-from flask import Flask, request, jsonify, current_app as app
-from gensim.models import Word2Vec
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-from peft import PeftConfig, PeftModel, TaskType, LoraConfig
-from sentence_transformers import SentenceTransformer, util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from tqdm import tqdm
 from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
-from transformers import pipeline
+from sentence_transformers import SentenceTransformer, util
+
+# Procesamiento de Datos y Modelos
+import pandas as pd
+from gensim.downloader import api as gensim_api
+from gensim.models import Word2Vec
+from datasets import Dataset, load_dataset
+
+# Web Scraping y Solicitudes HTTP
+import requests
+from bs4 import BeautifulSoup
+
+# Marco de Trabajo Web
+from flask import Flask, request, jsonify, current_app as app
+from werkzeug.datastructures import FileStorage
+
+# Utilidades y Otras Librerías
+import chardet
+import evaluate
+import tqdm
+import unidecode
+from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
-from werkzeug.datastructures import FileStorage
-import unidecode
 
-# Módulos locales
+# ---------------------------
+# Módulos Locales
+# ---------------------------
 from clean_data_for_scraping import *
 from date_management import *
 from process_docs import process_file
 
-
-import traceback
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from nltk.tokenize import word_tokenize
-
-
+# ---------------------------
+# Configuración Adicional
+# ---------------------------
+# Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
 nltk.download('punkt')
-
-
-
 
 tqdm.pandas()
 
@@ -347,88 +355,86 @@ def extraer_palabras_clave(pregunta):
 ####### Utils busqueda en Json #######
 
 # Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
+
+
+# Función auxiliar para mapear etiquetas POS a WordNet POS
+def get_wordnet_pos(token):
+    tag = nltk.pos_tag([token])[0][1][0].upper()
+    tag_dict = {"J": wordnet.ADJ, "N": wordnet.NOUN, "V": wordnet.VERB, "R": wordnet.ADV}
+    return tag_dict.get(tag, wordnet.NOUN)
+
+# Codificación TF-IDF
+def encode_data(data):
+    vectorizer = TfidfVectorizer()
+    encoded_data = vectorizer.fit_transform(data)
+    return encoded_data, vectorizer
+
+# Procesamiento de consultas de usuario
+def preprocess_query(query, n=1):
+    tokens = nltk.word_tokenize(query)
+    ngrams_list = list(ngrams(tokens, n))
+    processed_query = ' '.join([' '.join(grams) for grams in ngrams_list])
+    return processed_query.lower()
+
+# Búsqueda de similitud
+def perform_search(encoded_data, encoded_query):
+    similarity_scores = cosine_similarity(encoded_data, encoded_query)
+    ranked_results = np.argsort(similarity_scores, axis=0)[::-1]
+    ranked_scores = np.sort(similarity_scores, axis=0)[::-1]
+    return ranked_results.flatten(), ranked_scores.flatten()
+
+# Recuperación de resultados
+def retrieve_results(data, ranked_results, ranked_scores, context=1, min_words=20):
+    results = []
+    data_len = len(data)
+    unique_results = set()
+    for idx, score in zip(ranked_results, ranked_scores):
+        start = max(0, idx - context)
+        end = min(data_len, idx + context + 1)
+        context_data = data[start:end]
+        context_str = " ".join(context_data)
+        if len(context_str.split()) >= min_words:
+            if context_str not in unique_results:
+                results.append((context_data, score))
+                unique_results.add(context_str)
+    return results
+
+# Convertir elemento del dataset a texto
 def convertir_a_texto(item):
-    """
-    Convierte un elemento de dataset en una cadena de texto.
-    Esta función asume que el 'item' puede ser un diccionario, una lista, o un texto simple.
-    """
     if isinstance(item, dict):
-        # Concatena los valores del diccionario si 'item' es un diccionario
         return ' '.join(str(value) for value in item.values())
     elif isinstance(item, list):
-        # Concatena los elementos de la lista si 'item' es una lista
         return ' '.join(str(element) for element in item)
     elif isinstance(item, str):
-        # Devuelve el string si 'item' ya es una cadena de texto
         return item
     else:
-        # Convierte el 'item' a cadena si es de otro tipo de dato
         return str(item)
 
-
-
+# Cargar dataset
 def cargar_dataset(base_dataset_dir, chatbot_id):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
     with open(dataset_file_path, 'r') as file:
         data = json.load(file)
     return data
 
-def preprocess_query(query):
-    tokens = word_tokenize(query.lower())
-    return ' '.join(tokens)
+# Encontrar respuesta
 
-def encode_data(data):
-    vectorizer = TfidfVectorizer()
-    encoded_data = vectorizer.fit_transform(data)
-    return encoded_data, vectorizer
 
-def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longitud_minima=200):
-    app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
+def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-
-    app.logger.info("Enriqueciendo y preprocesando la pregunta")
-    pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
-    pregunta_procesada = preprocess_query(pregunta_enriquecida)
-
-    app.logger.info("Codificando la pregunta y calculando similitudes")
+    pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta, n=n)
     encoded_query = vectorizer.transform([pregunta_procesada])
-    similarity_scores = cosine_similarity(encoded_query, vectorizer.transform(datos)).flatten()
-    indices_ordenados = similarity_scores.argsort()[::-1]
+    ranked_results, ranked_scores = perform_search(vectorizer.transform(datos), encoded_query)
+    resultados = retrieve_results(datos, ranked_results, ranked_scores)
 
-    respuesta_tf_idf = ""
-    app.logger.info("Buscando respuesta usando TF-IDF")
-    for indice in indices_ordenados:
-        if similarity_scores[indice] > 0.01:  # Umbral muy bajo
-            respuesta_tf_idf += " " + datos[indice]
-            if len(word_tokenize(respuesta_tf_idf)) >= longitud_minima:
-                break
-
-    app.logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
-    modelo_nlp = pipeline('question-answering', model='distilbert-base-uncased-distilled-squad')
-    mejor_respuesta_nlp = ''
-    max_score = 0
-    for respuesta_potencial in datos:
-        resultado_nlp = modelo_nlp({'question': pregunta_procesada, 'context': respuesta_potencial})
-        if resultado_nlp['score'] > max_score:
-            max_score = resultado_nlp['score']
-            mejor_respuesta_nlp = resultado_nlp['answer']
-
-    app.logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
-    if max_score > 0.01:
-        palabras = word_tokenize(mejor_respuesta_nlp)
-        indice_inicio = palabras.index(palabras[0])
-        indice_final = palabras.index(palabras[-1])
-        palabras_adyacentes = palabras[max(0, indice_inicio - 50):min(len(palabras), indice_final + 50)]
-        respuesta_completa = ' '.join(palabras_adyacentes)
-        return respuesta_completa
-    elif respuesta_tf_idf.strip():
-        return respuesta_tf_idf.strip()
+    # Si no se encuentran resultados relevantes, selecciona una respuesta por defecto
+    if not resultados:
+        return seleccionar_respuesta_por_defecto()
     else:
-        app.logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
-        return "Respuesta por defecto o una función que la genere"
+        return resultados
 
 def seleccionar_respuesta_por_defecto():
-    # Devuelve una respuesta por defecto
+    # Devuelve una respuesta por defecto de la lista
     return random.choice(respuestas_por_defecto)
 
 respuestas_por_defecto = [

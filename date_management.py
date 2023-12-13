@@ -98,6 +98,6 @@ def obtener_eventos(pregunta, chatbot_id):
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
 
-# Código para ejecutar la
+
 
 
