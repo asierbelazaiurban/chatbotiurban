@@ -547,6 +547,8 @@ def ask():
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
 
+                        app.logger.info(datos_del_dataset)
+
                         # Crear y entrenar el vectorizer
                         vectorizer = TfidfVectorizer()
                         prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
