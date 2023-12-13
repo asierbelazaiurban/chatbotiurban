@@ -544,6 +544,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+        
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
