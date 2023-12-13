@@ -33,11 +33,13 @@ from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassificat
 from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
 
-modelo = api.load("glove-wiki-gigaword-50")
+# Descarga de paquetes necesarios de NLTK
+nltk.download('stopwords')
+nltk.download('punkt')
 
 # Procesamiento de Datos y Modelos
 import pandas as pd
-from tqdm import tqdm
+from tqdm import tqdm  # Importación única de tqdm
 from gensim.models import Word2Vec
 from datasets import Dataset, load_dataset
 
@@ -52,7 +54,6 @@ from werkzeug.datastructures import FileStorage
 # Utilidades y Otras Librerías
 import chardet
 import evaluate
-import tqdm
 import unidecode
 from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
@@ -68,12 +69,12 @@ from process_docs import process_file
 # ---------------------------
 # Configuración Adicional
 # ---------------------------
-# Descarga de paquetes necesarios de NLTK
+
+modelo = api.load("glove-wiki-gigaword-50")
+
+
 nltk.download('stopwords')
 nltk.download('punkt')
-
-tqdm.pandas()
-
 app = Flask(__name__)
 
 
