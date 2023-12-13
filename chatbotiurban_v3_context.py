@@ -37,6 +37,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from tqdm import tqdm
 from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
+from transformers import pipeline
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
 from werkzeug.datastructures import FileStorage
@@ -49,6 +50,7 @@ from process_docs import process_file
 
 nltk.download('stopwords')
 nltk.download('punkt')
+
 
 
 
@@ -363,8 +365,7 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
     dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
     with open(dataset_file_path, 'r') as file:
         data = json.load(file)
-    return data  # Asume que 'data' es una lista de diccionarios con 'pregunta' y 'respuesta'
-
+    return data
 
 def preprocess_query(query):
     tokens = word_tokenize(query.lower())
@@ -375,27 +376,47 @@ def encode_data(data):
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
-def encontrar_respuesta(pregunta, datos, vectorizer, contexto, longitud_minima=200):
-    # Enriquecer la pregunta con el contexto si este no está vacío
+def encontrar_respuesta(pregunta, dataset, vectorizer, contexto, longitud_minima=200):
+    # Convertir el 'dialogue' de cada entrada del dataset en texto
+    datos = [convertir_a_texto(item['dialogue']) for item in dataset.values()]
+
     pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
     pregunta_procesada = preprocess_query(pregunta_enriquecida)
 
-    # Procesamiento y búsqueda de similitud como antes
     encoded_query = vectorizer.transform([pregunta_procesada])
     similarity_scores = cosine_similarity(vectorizer.transform(datos), encoded_query).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
-    respuesta_amplia = ""
+    respuesta_tf_idf = ""
     for indice in indices_ordenados:
-        if similarity_scores[indice] > 0.1:  # Umbral ajustable
-            respuesta_amplia += " " + datos[indice]
-            if len(word_tokenize(respuesta_amplia)) >= longitud_minima:
+        if similarity_scores[indice] > 0.01:  # Umbral muy bajo
+            respuesta_tf_idf += " " + datos[indice]
+            if len(word_tokenize(respuesta_tf_idf)) >= longitud_minima:
                 break
 
-    # Devolver la respuesta o una respuesta por defecto si no se encuentra ninguna adecuada
-    return respuesta_amplia.strip() if respuesta_amplia else seleccionar_respuesta_por_defecto()
+    modelo_nlp = pipeline('question-answering', model='distilbert-base-uncased-distilled-squad')
+    mejor_respuesta_nlp = ''
+    max_score = 0
+    for respuesta_potencial in datos:
+        resultado_nlp = modelo_nlp({'question': pregunta_procesada, 'context': respuesta_potencial})
+        if resultado_nlp['score'] > max_score:
+            max_score = resultado_nlp['score']
+            mejor_respuesta_nlp = resultado_nlp['answer']
+
+    if max_score > 0.01:
+        palabras = word_tokenize(mejor_respuesta_nlp)
+        indice_inicio = palabras.index(palabras[0])
+        indice_final = palabras.index(palabras[-1])
+        palabras_adyacentes = palabras[max(0, indice_inicio - 100):min(len(palabras), indice_final + 100)]
+        respuesta_completa = ' '.join(palabras_adyacentes)
+        return respuesta_completa
+    elif respuesta_tf_idf.strip():
+        return respuesta_tf_idf.strip()
+    else:
+        return seleccionar_respuesta_por_defecto()
 
 
+        
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto
     return random.choice(respuestas_por_defecto)
