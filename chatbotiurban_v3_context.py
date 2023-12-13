@@ -376,7 +376,7 @@ def encode_data(data):
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto):
     app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
     datos = [convertir_a_texto(item['dialogue']) for item in dataset.values()]
 
