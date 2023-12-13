@@ -506,7 +506,7 @@ def ask():
                     fuente_respuesta = "eventos"
                 else:
                     app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join('data/uploads/datasets', f'{chatbot_id}.json')
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json') 
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
