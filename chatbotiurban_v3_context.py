@@ -543,6 +543,8 @@ def ask():
                 else:
                     app.logger.info("Entrando en la sección del dataset")
                     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                    app.logger.info("dataset_file_path")
+                    app.logger.info(dataset_file_path)
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
