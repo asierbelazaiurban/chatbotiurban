@@ -290,8 +290,6 @@ def buscar_en_openai_relacion_con_eventos(frase):
 
     # Texto fijo a concatenar
     texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. la frase es: "
-
-    # Concatenar el texto fijo con la frase
     frase_combinada = texto_fijo + frase
 
     # Establecer la clave de API de OpenAI
@@ -299,7 +297,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # Ajusta el modelo según lo necesario
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": ""},
                 {"role": "user", "content": frase_combinada}
@@ -310,13 +308,17 @@ def buscar_en_openai_relacion_con_eventos(frase):
         respuesta = response.choices[0].message['content'].strip().lower()
         respuesta = unidecode.unidecode(respuesta).replace(".", "")
 
-        app.logger.info("Respuesta es ")
-        app.logger.info(respuesta)
+        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
         if respuesta == "si":
+            app.logger.info("La respuesta es sí, relacionada con eventos")
             return True
         elif respuesta == "no":
+            app.logger.info("La respuesta es no, no relacionada con eventos")
             return False
+        else:
+            app.logger.info("La respuesta no es ni sí ni no")
+            return None
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return None
