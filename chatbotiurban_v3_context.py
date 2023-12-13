@@ -239,16 +239,17 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
-        new_prompt = ("Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
+        new_prompt = ("Mantén la coherencia con la pregunta y, si la respuesta, indica 'No tengo información "
+                      "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
                       "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
                       "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
                       "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
                       "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
                       "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-                      "proporciona el contacto: info@iurban.es. No me respondas nada relacionado con la codificación")
+                      "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto y No me respondas nada relacionado con la codificación"
+    prompt_base = f"{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
