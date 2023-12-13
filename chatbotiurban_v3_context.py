@@ -48,6 +48,13 @@ from clean_data_for_scraping import *
 from date_management import *
 from process_docs import process_file
 
+
+import traceback
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from nltk.tokenize import word_tokenize
+
+
 nltk.download('stopwords')
 nltk.download('punkt')
 
@@ -482,17 +489,16 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
-    fuente_respuesta = "ninguna"
 
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
-
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
@@ -506,14 +512,14 @@ def ask():
                     fuente_respuesta = "eventos"
                 else:
                     app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json') 
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
 
                         # Crear y entrenar el vectorizer
                         vectorizer = TfidfVectorizer()
-                        prepared_data = [' '.join(item['dialogue']) for item in datos_del_dataset.values()]
+                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
                         vectorizer.fit(prepared_data)
 
                         # Llamar a encontrar_respuesta con el vectorizer
@@ -538,7 +544,6 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
