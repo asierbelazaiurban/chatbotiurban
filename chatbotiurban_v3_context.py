@@ -436,8 +436,6 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     ranked_results, ranked_scores = perform_search(encoded_data, encoded_query)
     # Recuperar los resultados
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
-    app.logger.info("resultados")
-    app.logger.info(resultados)
     
     # Manejar los resultados
     if not resultados:
@@ -445,20 +443,25 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
         respuesta_por_defecto = seleccionar_respuesta_por_defecto()
         return traducir_texto_con_openai(respuesta_por_defecto, "Spanish")
     else:
-        # Obtener el índice de la mejor coincidencia
-        indice_mejor_coincidencia, _ = resultados[0]
-        # Asegurar que el índice sea un entero
-        if isinstance(indice_mejor_coincidencia, int):
-            # Extraer el contexto ampliado como respuesta
-            palabras = datos[indice_mejor_coincidencia].split()
-            inicio = max(0, indice_mejor_coincidencia - 50)
-            fin = min(len(palabras), indice_mejor_coincidencia + 50)
-            contexto_ampliado = ' '.join(palabras[inicio:fin])
-            return contexto_ampliado
+        # Asumiendo que cada elemento en resultados es una tupla (indice, puntuacion)
+        # Verifica primero si esto es cierto
+        if isinstance(resultados[0], tuple) and len(resultados[0]) == 2:
+            indice_mejor_coincidencia, _ = resultados[0]
+            # Verificar que el índice sea un entero
+            if isinstance(indice_mejor_coincidencia, int):
+                # Extraer el contexto ampliado como respuesta
+                palabras = datos[indice_mejor_coincidencia].split()
+                inicio = max(0, indice_mejor_coincidencia - 50)
+                fin = min(len(palabras), indice_mejor_coincidencia + 50)
+                contexto_ampliado = ' '.join(palabras[inicio:fin])
+                return contexto_ampliado
+            else:
+                app.logger.error("El índice de la mejor coincidencia no es un entero.")
+                return "Ocurrió un error al procesar la respuesta."
         else:
-            # Manejar el caso en que el índice no es un entero
-            app.logger.error("El índice de la mejor coincidencia no es un entero.")
-            return "Ocurrió un error al procesar la respuesta."
+            app.logger.error("La estructura de los resultados no es como se esperaba.")
+            return "Ocurrió un error al procesar la respuesta. La estructura de los resultados es incorrecta."
+
 
 
 
