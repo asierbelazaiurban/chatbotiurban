@@ -429,6 +429,8 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     encoded_query = vectorizer.transform([pregunta_procesada])
     ranked_results, ranked_scores = perform_search(vectorizer.transform(datos), encoded_query)
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
+    app.logger.info("resultados")
+    app.logger.info(resultados)
 
     if not resultados:
         respuesta_por_defecto = seleccionar_respuesta_por_defecto()
@@ -552,6 +554,7 @@ def ask():
 
                         # Llamar a encontrar_respuesta con el vectorizer
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
+                        app.logger.info(respuesta_del_dataset)
 
                         if respuesta_del_dataset:
                             ultima_respuesta = respuesta_del_dataset
