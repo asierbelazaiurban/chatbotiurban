@@ -539,11 +539,27 @@ def ask():
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     fuente_respuesta = "eventos"
                 else:
-                    # Aquí podrías incluir tu lógica adicional para manejar otros casos, como buscar en un dataset
+                    app.logger.info("Entrando en la sección del dataset")
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                    if os.path.exists(dataset_file_path):
+                        with open(dataset_file_path, 'r') as file:
+                            datos_del_dataset = json.load(file)
 
-                    # En caso de no encontrar una respuesta adecuada
-                    ultima_respuesta = seleccionar_respuesta_por_defecto()
-                    fuente_respuesta = "respuesta_por_defecto"
+                        # Crear y entrenar el vectorizer
+                        vectorizer = TfidfVectorizer()
+                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+                        vectorizer.fit(prepared_data)
+
+                        # Llamar a encontrar_respuesta con el vectorizer
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
+
+                        if respuesta_del_dataset:
+                            ultima_respuesta = respuesta_del_dataset
+                            fuente_respuesta = "dataset"
+                        else:
+                            ultima_respuesta = seleccionar_respuesta_por_defecto()
+                            fuente_respuesta = "respuesta_por_defecto"
+
 
                 # Mejora de la respuesta con OpenAI
                 ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
