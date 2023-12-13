@@ -249,7 +249,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...) saltate esa parte y sigue con el resto{contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
