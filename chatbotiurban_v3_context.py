@@ -31,6 +31,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
 from sentence_transformers import SentenceTransformer, util
+from gensim import downloader as gensim_api
 
 # Procesamiento de Datos y Modelos
 import pandas as pd
