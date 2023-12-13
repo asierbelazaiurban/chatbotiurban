@@ -530,7 +530,8 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longi
     else:
         logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
         return "Respuesta por defecto o una función que la genere"
-        
+
+
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
