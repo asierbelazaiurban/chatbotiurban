@@ -376,7 +376,7 @@ def encode_data(data):
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
-def encontrar_respuesta(pregunta, dataset, vectorizer, contexto, longitud_minima=200):
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
     app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
     datos = [convertir_a_texto(item['dialogue']) for item in dataset.values()]
 
@@ -421,7 +421,7 @@ def encontrar_respuesta(pregunta, dataset, vectorizer, contexto, longitud_minima
         app.logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
         return seleccionar_respuesta_por_defecto()
 
-        
+
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto
     return random.choice(respuestas_por_defecto)
@@ -515,6 +515,7 @@ def ask():
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
+                        
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
 
                     if respuesta_del_dataset:
