@@ -418,7 +418,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longi
         palabras = word_tokenize(mejor_respuesta_nlp)
         indice_inicio = palabras.index(palabras[0])
         indice_final = palabras.index(palabras[-1])
-        palabras_adyacentes = palabras[max(0, indice_inicio - 100):min(len(palabras), indice_final + 100)]
+        palabras_adyacentes = palabras[max(0, indice_inicio - 50):min(len(palabras), indice_final + 50)]
         respuesta_completa = ' '.join(palabras_adyacentes)
         return respuesta_completa
     elif respuesta_tf_idf.strip():
