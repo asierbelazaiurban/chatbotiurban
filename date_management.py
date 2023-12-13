@@ -1,14 +1,11 @@
 import openai
 import os
-import dateparser
 import requests
 import json
 import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask
 from datetime import datetime
-from langdetect import detect
-from dateparser.search import search_dates
 import re
 
 app = Flask(__name__)
@@ -26,11 +23,13 @@ def configure_logger():
 
 configure_logger()
 
-def get_openai_response(texto):
+def get_openai_response(texto, fecha_actual):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     if not openai.api_key:
         raise ValueError("OPENAI_API_KEY is not set in environment variables")
-    instruccion_gpt4 = ("Tu tarea es identificar las referencias temporales en la pregunta del usuario, que puede estar en cualquier idioma. Busca expresiones como 'mañana', 'el próximo año', 'el finde', 'la semana que viene', etc., y devuelve estas referencias temporales tal como se mencionan, sin convertirlas a fechas específicas. Tu respuesta debe incluir solo las referencias temporales identificadas, sin fechas adicionales.")
+
+    instruccion_gpt4 = ("Tu tarea es identificar las referencias temporales en la pregunta del usuario y convertirlas a fechas específicas en formato MySQL, utilizando la fecha actual como referencia. Ejemplos de referencias temporales incluyen 'dentro de dos días', 'el finde', 'la semana que viene', 'mañana', 'en 2024', etc. La fecha actual es: " + fecha_actual.strftime("%Y-%m-%d"))
+
     respuesta = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
@@ -39,52 +38,41 @@ def get_openai_response(texto):
         ]
     )
 
-    # Asegúrate de inicializar respuesta_texto con el contenido de la respuesta
     respuesta_texto = respuesta.choices[0].message['content']
+    app.logger.info("Respuesta de OpenAI: %s", respuesta_texto)
 
-    # Ahora puedes usar respuesta_texto en tu código
-    numeros_encontrados = re.findall(r'\d+', respuesta_texto)
-    for numero in numeros_encontrados:
-        numero_en_texto = str(numero)
-        respuesta_texto = respuesta_texto.replace(numero, numero_en_texto)
+    # Extraer fechas del texto
+    fechas_encontradas = re.findall(r'\d{4}-\d{2}-\d{2}', respuesta_texto)
+    app.logger.info("Fechas encontradas en el texto: %s", fechas_encontradas)
 
-    app.logger.info("respuesta_texto")     
+    return fechas_encontradas
 
-    app.logger.info(respuesta_texto)  
+def asegurarse_el_formato_mysql(texto, fecha_actual):
+    fechas_encontradas = get_openai_response(texto, fecha_actual)
+    app.logger.info("Fechas encontradas: %s", fechas_encontradas)
 
-    return respuesta_texto
+    fecha_inicial = fecha_final = None
+    if fechas_encontradas:
+        fecha_inicial = fechas_encontradas[0]
+        fecha_final = fechas_encontradas[1] if len(fechas_encontradas) > 1 else fecha_inicial
 
+    app.logger.info("Fecha inicial (MySQL): %s", fecha_inicial)
+    app.logger.info("Fecha final (MySQL): %s", fecha_final)
 
-def interpretar_intencion_y_fechas(texto, fecha_actual):
-    # Obtener respuesta de GPT-4
-    respuesta_gpt4 = get_openai_response(texto)
-    idioma = detect(respuesta_gpt4)
-    fechas_interpretadas = search_dates(respuesta_gpt4, languages=[idioma])
-
-    fechas_resultantes = []
-    if fechas_interpretadas:
-        for _, fecha in fechas_interpretadas:
-            fecha_formateada = fecha.strftime('%Y-%m-%d')
-            fechas_resultantes.append((fecha_formateada, fecha_formateada))
-
-    return fechas_resultantes
+    return fecha_inicial, fecha_final
 
 def obtener_eventos(pregunta, chatbot_id):
     fecha_actual = datetime.now()
-    resultado_fechas = interpretar_intencion_y_fechas(pregunta, fecha_actual)
-    if resultado_fechas and len(resultado_fechas) > 0:
-        fecha_inicial, fecha_final = resultado_fechas[0]
-    else:
-        app.logger.info("No se pudo interpretar las fechas de la pregunta.")
-        return "No se pudo interpretar las fechas de la pregunta."
+    fecha_inicial, fecha_final = asegurarse_el_formato_mysql(pregunta, fecha_actual)
 
-    app.logger.info("Fecha inicial interpretada: %s", fecha_inicial)
-    app.logger.info("Fecha final interpretada: %s", fecha_final)
+    app.logger.info("Fecha inicial obtenida: %s", fecha_inicial)
+    app.logger.info("Fecha final obtenida: %s", fecha_final)
+
+    if not fecha_inicial or not fecha_final:
+        app.logger.info("No se encontraron fechas válidas en la pregunta.")
+        return "No se encontraron fechas válidas en la pregunta."
+
     app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
-
-    if fecha_inicial is None or fecha_final is None:
-        app.logger.info("No se encontraron fechas en la pregunta.")
-        return "No se encontraron fechas en la pregunta."
 
     url = 'https://experimental.ciceroneweb.com/api/search-event-chatbot'
     headers = {'Content-Type': 'application/json'}
@@ -101,7 +89,7 @@ def obtener_eventos(pregunta, chatbot_id):
         response.raise_for_status()
 
         eventos_data = response.json()
-        eventos_string = json.dumps(eventos_data['events'])
+        eventos_string = json.dumps(eventos_data.get('events', []))
         eventos_string = eventos_string.replace('\xa0', ' ').encode('utf-8', 'ignore').decode('utf-8')
         eventos_string = eventos_string.replace('"', '').replace('\\', '').replace('[', '').replace(']', '').replace('{', '').replace('}', '').replace(',', '. ')
         return eventos_string
@@ -109,5 +97,7 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
+
+# Código para ejecutar la
 
 
