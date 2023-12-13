@@ -382,28 +382,28 @@ def encode_data(data):
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
 
-def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto):
-    app.logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
+def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longitud_minima=200):
+    logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
     datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    app.logger.info("Enriqueciendo y preprocesando la pregunta")
+    logger.info("Enriqueciendo y preprocesando la pregunta")
     pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
     pregunta_procesada = preprocess_query(pregunta_enriquecida)
 
-    app.logger.info("Codificando la pregunta y calculando similitudes")
+    logger.info("Codificando la pregunta y calculando similitudes")
     encoded_query = vectorizer.transform([pregunta_procesada])
     similarity_scores = cosine_similarity(encoded_query, vectorizer.transform(datos)).flatten()
     indices_ordenados = similarity_scores.argsort()[::-1]
 
     respuesta_tf_idf = ""
-    app.logger.info("Buscando respuesta usando TF-IDF")
+    logger.info("Buscando respuesta usando TF-IDF")
     for indice in indices_ordenados:
         if similarity_scores[indice] > 0.01:  # Umbral muy bajo
             respuesta_tf_idf += " " + datos[indice]
             if len(word_tokenize(respuesta_tf_idf)) >= longitud_minima:
                 break
 
-    app.logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
+    logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
     modelo_nlp = pipeline('question-answering', model='distilbert-base-uncased-distilled-squad')
     mejor_respuesta_nlp = ''
     max_score = 0
@@ -413,7 +413,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto):
             max_score = resultado_nlp['score']
             mejor_respuesta_nlp = resultado_nlp['answer']
 
-    app.logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
+    logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
     if max_score > 0.01:
         palabras = word_tokenize(mejor_respuesta_nlp)
         indice_inicio = palabras.index(palabras[0])
@@ -424,9 +424,8 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto):
     elif respuesta_tf_idf.strip():
         return respuesta_tf_idf.strip()
     else:
-        app.logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
-        return seleccionar_respuesta_por_defecto()
-
+        logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
+        return "Respuesta por defecto o una función que la genere"
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto
@@ -486,52 +485,65 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### Inicio Endpoints #######
 
-def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, longitud_minima=200):
-    logger.info("Convirtiendo el 'dialogue' de cada entrada del dataset en texto")
-    datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+@app.route('/ask', methods=['POST'])
+def ask():
+    app.logger.info("Solicitud recibida en /ask")
 
-    logger.info("Enriqueciendo y preprocesando la pregunta")
-    pregunta_enriquecida = pregunta + " " + contexto if contexto else pregunta
-    pregunta_procesada = preprocess_query(pregunta_enriquecida)
+    try:
+        data = request.get_json()
+        chatbot_id = data.get('chatbot_id', 'default_id')
+        fuente_respuesta = "ninguna"
 
-    logger.info("Codificando la pregunta y calculando similitudes")
-    encoded_query = vectorizer.transform([pregunta_procesada])
-    similarity_scores = cosine_similarity(encoded_query, vectorizer.transform(datos)).flatten()
-    indices_ordenados = similarity_scores.argsort()[::-1]
+        if 'pares_pregunta_respuesta' in data:
+            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
+            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
-    respuesta_tf_idf = ""
-    logger.info("Buscando respuesta usando TF-IDF")
-    for indice in indices_ordenados:
-        if similarity_scores[indice] > 0.01:  # Umbral muy bajo
-            respuesta_tf_idf += " " + datos[indice]
-            if len(word_tokenize(respuesta_tf_idf)) >= longitud_minima:
-                break
+            if ultima_respuesta == "":
+                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
-    logger.info("Iniciando procesamiento NLP para encontrar una mejor respuesta")
-    modelo_nlp = pipeline('question-answering', model='distilbert-base-uncased-distilled-squad')
-    mejor_respuesta_nlp = ''
-    max_score = 0
-    for respuesta_potencial in datos:
-        resultado_nlp = modelo_nlp({'question': pregunta_procesada, 'context': respuesta_potencial})
-        if resultado_nlp['score'] > max_score:
-            max_score = resultado_nlp['score']
-            mejor_respuesta_nlp = resultado_nlp['answer']
+                if encontrada_en_json:
+                    ultima_respuesta = respuesta_preestablecida
+                    fuente_respuesta = "preestablecida"
+                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                    fuente_respuesta = "eventos"
+                else:
+                    app.logger.info("Entrando en la sección del dataset")
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                    if os.path.exists(dataset_file_path):
+                        with open(dataset_file_path, 'r') as file:
+                            datos_del_dataset = json.load(file)
 
-    logger.info("Evaluando y devolviendo la mejor respuesta encontrada")
-    if max_score > 0.01:
-        palabras = word_tokenize(mejor_respuesta_nlp)
-        indice_inicio = palabras.index(palabras[0])
-        indice_final = palabras.index(palabras[-1])
-        palabras_adyacentes = palabras[max(0, indice_inicio - 100):min(len(palabras), indice_final + 100)]
-        respuesta_completa = ' '.join(palabras_adyacentes)
-        return respuesta_completa
-    elif respuesta_tf_idf.strip():
-        return respuesta_tf_idf.strip()
-    else:
-        logger.info("No se encontró una respuesta adecuada, seleccionando una por defecto")
-        return "Respuesta por defecto o una función que la genere"
+                        # Crear y entrenar el vectorizer
+                        vectorizer = TfidfVectorizer()
+                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+                        vectorizer.fit(prepared_data)
 
+                        # Llamar a encontrar_respuesta con el vectorizer
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
 
+                        if respuesta_del_dataset:
+                            ultima_respuesta = respuesta_del_dataset
+                            fuente_respuesta = "dataset"
+                        else:
+                            ultima_respuesta = seleccionar_respuesta_por_defecto()
+                            fuente_respuesta = "respuesta_por_defecto"
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
+
+            else:
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
+
+        else:
+            app.logger.warning("Formato de solicitud incorrecto")
+            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error en /ask: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+        
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
