@@ -430,6 +430,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     encoded_query = vectorizer.transform([pregunta_procesada])
     ranked_results, ranked_scores = perform_search(vectorizer.transform(datos), encoded_query)
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
+    app.logger.info(resultados)
 
     # Si no se encuentran resultados relevantes, selecciona una respuesta por defecto y tradúcela
     if not resultados:
@@ -555,6 +556,11 @@ def ask():
                         else:
                             ultima_respuesta = seleccionar_respuesta_por_defecto()
                             fuente_respuesta = "respuesta_por_defecto"
+
+                # Mejorar respuesta con OpenAI
+                ultima_respuesta_mejorada = mejorar_respuesta_con_openai(ultima_respuesta, ultima_pregunta, chatbot_id)
+                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
@@ -568,7 +574,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
+        
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
