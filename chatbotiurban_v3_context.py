@@ -429,14 +429,18 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     encoded_query = vectorizer.transform([pregunta_procesada])
     ranked_results, ranked_scores = perform_search(vectorizer.transform(datos), encoded_query)
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
-    app.logger.info(resultados)
 
-    # Si no se encuentran resultados relevantes, selecciona una respuesta por defecto y tradúcela
     if not resultados:
         respuesta_por_defecto = seleccionar_respuesta_por_defecto()
         return traducir_texto_con_openai(respuesta_por_defecto, "Spanish")
     else:
-        return resultados[0]  # Devuelve el resultado más relevante
+        indice_coincidencia = resultados[0]
+        palabras = datos[indice_coincidencia].split()
+        inicio = max(0, indice_coincidencia - 100)
+        fin = min(len(palabras), indice_coincidencia + 100)
+        contexto_ampliado = ' '.join(palabras[inicio:fin])
+        return contexto_ampliado
+
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
@@ -535,30 +539,24 @@ def ask():
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     fuente_respuesta = "eventos"
                 else:
-                    app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
+                    # Aquí podrías incluir tu lógica adicional para manejar otros casos, como buscar en un dataset
 
-                        # Crear y entrenar el vectorizer
-                        vectorizer = TfidfVectorizer()
-                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                        vectorizer.fit(prepared_data)
+                    # En caso de no encontrar una respuesta adecuada
+                    ultima_respuesta = seleccionar_respuesta_por_defecto()
+                    fuente_respuesta = "respuesta_por_defecto"
 
-                        # Llamar a encontrar_respuesta con el vectorizer
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-
-                        if respuesta_del_dataset:
-                            ultima_respuesta = respuesta_del_dataset
-                            fuente_respuesta = "dataset"
-                        else:
-                            ultima_respuesta = seleccionar_respuesta_por_defecto()
-                            fuente_respuesta = "respuesta_por_defecto"
-
-                # Mejorar respuesta con OpenAI
-                ultima_respuesta_mejorada = mejorar_respuesta_con_openai(ultima_respuesta, ultima_pregunta, chatbot_id)
+                # Mejora de la respuesta con OpenAI
+                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                    pregunta=ultima_pregunta, 
+                    respuesta=ultima_respuesta, 
+                    new_prompt="", 
+                    contexto_adicional=contexto, 
+                    temperature="", 
+                    model_gpt="", 
+                    chatbot_id=chatbot_id
+                )
                 ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+                fuente_respuesta = "mejorada"
 
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
