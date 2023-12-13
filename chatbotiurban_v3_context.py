@@ -427,38 +427,40 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
 def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
     # Convertir los datos del dataset a texto
     datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+
     # Preprocesar la pregunta
     pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta, n=n)
+
     # Codificar la pregunta y los datos con el vectorizer
     encoded_query = vectorizer.transform([pregunta_procesada])
     encoded_data = vectorizer.transform(datos)
+
     # Realizar la búsqueda de similitud
     ranked_results, ranked_scores = perform_search(encoded_data, encoded_query)
+
     # Recuperar los resultados
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
     app.logger.info("resultados")
     app.logger.info(resultados)
-    
+
     # Manejar los resultados
     if not resultados:
         # Si no hay resultados, seleccionar una respuesta por defecto
         respuesta_por_defecto = seleccionar_respuesta_por_defecto()
         return traducir_texto_con_openai(respuesta_por_defecto, "Spanish")
     else:
-        # Obtener el índice de la mejor coincidencia
-        indice_mejor_coincidencia, _ = resultados[0]
-        # Asegurar que el índice sea un entero
-        if isinstance(indice_mejor_coincidencia, int):
-            # Extraer el contexto ampliado como respuesta
-            palabras = datos[indice_mejor_coincidencia].split()
-            inicio = max(0, indice_mejor_coincidencia - 50)
-            fin = min(len(palabras), indice_mejor_coincidencia + 50)
-            contexto_ampliado = ' '.join(palabras[inicio:fin])
+        # Asumiendo que cada elemento en resultados es una tupla (contexto_texto, puntuacion)
+        contexto_texto, puntuacion = resultados[0]
+
+        # Verificar que el contexto_texto sea una lista de cadenas de texto
+        if isinstance(contexto_texto, list) and all(isinstance(item, str) for item in contexto_texto):
+            # Concatenar el texto para formar la respuesta
+            contexto_ampliado = ' '.join(contexto_texto)
             return contexto_ampliado
         else:
-            # Manejar el caso en que el índice no es un entero
-            app.logger.error("El índice de la mejor coincidencia no es un entero.")
-            return "Ocurrió un error al procesar la respuesta."
+            app.logger.error("La estructura de los resultados no es como se esperaba.")
+            return "Ocurrió un error al procesar la respuesta. La estructura de los resultados es incorrecta."
+
 
 
 
