@@ -7,7 +7,7 @@ from logging import FileHandler
 from nltk.util import ngrams
 from flask import Flask
 import nltk
-from sklearn.metrics.pairwise import 
+from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 # Luego puedes usar cosine_similarity como se requiera en tu código
