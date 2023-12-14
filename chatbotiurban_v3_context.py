@@ -104,6 +104,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
+BASE_PROMPTS_DIR = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
