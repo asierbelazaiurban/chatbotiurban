@@ -434,7 +434,6 @@ def identificar_saludo_despedida(frase):
         return False
 
 
-
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
     palabras = word_tokenize(pregunta)
