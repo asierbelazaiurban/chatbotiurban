@@ -365,10 +365,10 @@ def identificar_saludo_despedida(frase):
         # Procesar la respuesta
         if "saludo" in respuesta:
             app.logger.info("La frase es un saludo")
-            return f"{frase} + bienvenido a nuestro agente virtual. Estoy aqui para ayudarte."
+            return f"{frase}, bienvenido a nuestro agente virtual. Estoy aqui para ayudarte."
         elif "despedida" in respuesta:
             app.logger.info("La frase es una despedida")
-            return f"{frase} + esperamos verte pronto de nuevo. Un saludo!"
+            return f"{frase}, esperamos verte pronto de nuevo. Un saludo!"
         else:
             app.logger.info("La frase no es un saludo ni una despedida")
             return None
@@ -573,82 +573,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 @app.route('/ask', methods=['POST'])
 def ask():
-    app.logger.info("Solicitud recibida en /ask")
-
-    try:
-        data = request.get_json()
-        chatbot_id = data.get('chatbot_id', 'default_id')
-        fuente_respuesta = "ninguna"
-
-        if 'pares_pregunta_respuesta' in data:
-            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
-            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
-
-            if ultima_respuesta == "":
-                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-
-                if encontrada_en_json:
-                    ultima_respuesta = respuesta_preestablecida
-                    fuente_respuesta = "preestablecida"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    fuente_respuesta = "eventos"
-                else:
-                    app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
-
-                        # Crear y entrenar el vectorizer
-                        vectorizer = TfidfVectorizer()
-                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                        vectorizer.fit(prepared_data)
-
-                        # Llamar a encontrar_respuesta con el vectorizer
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        app.logger.info(respuesta_del_dataset)
-
-                        if respuesta_del_dataset:
-                            ultima_respuesta = respuesta_del_dataset
-                            fuente_respuesta = "dataset"
-                        else:
-                            ultima_respuesta = seleccionar_respuesta_por_defecto()
-                            fuente_respuesta = "respuesta_por_defecto"
-
-
-                # Mejora de la respuesta con OpenAI
-                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                    pregunta=ultima_pregunta, 
-                    respuesta=ultima_respuesta, 
-                    new_prompt="", 
-                    contexto_adicional=contexto, 
-                    temperature="", 
-                    model_gpt="", 
-                    chatbot_id=chatbot_id
-                )
-                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-                fuente_respuesta = "mejorada"
-
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
-
-            else:
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
-
-        else:
-            app.logger.warning("Formato de solicitud incorrecto")
-            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
-
-    except Exception as e:
-        app.logger.error(f"Error en /ask: {e}")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/ask_hola', methods=['POST'])
-def ask_hola():
     app.logger.info("Solicitud recibida en /ask")
 
     try:
