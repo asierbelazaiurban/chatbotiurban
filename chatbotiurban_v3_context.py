@@ -339,6 +339,46 @@ def buscar_en_openai_relacion_con_eventos(frase):
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return None
 
+def identificar_saludo_despedida(frase):
+    app.logger.info("Determinando si la frase es un saludo o despedida")
+
+    # Texto fijo a concatenar
+    texto_fijo = "Necesito saber si la frase que te paso es un saludo, una despedida o ninguna de estas opciones. La frase es: "
+    frase_combinada = texto_fijo + frase
+
+    # Establecer la clave de API de OpenAI
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": ""},
+                {"role": "user", "content": frase_combinada}
+            ]
+        )
+
+        # Interpretar la respuesta
+        respuesta = response.choices[0].message['content'].strip().lower()
+        respuesta = unidecode.unidecode(respuesta).replace(".", "")
+
+        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
+
+        # Procesar la respuesta
+        if "saludo" in respuesta:
+            app.logger.info("La frase es un saludo")
+            return f"{frase} + bienvenido"
+        elif "despedida" in respuesta:
+            app.logger.info("La frase es una despedida")
+            return f"{frase} + esperamos verte pronto de nuevo"
+        else:
+            app.logger.info("La frase no es un saludo ni una despedida")
+            return None
+    except Exception as e:
+        app.logger.error(f"Error al procesar la solicitud: {e}")
+        return None
+
+
 
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
@@ -549,6 +589,10 @@ def ask():
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
+                respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                if respuesta_saludo_despedida:
+                    return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_despedida'})
+
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
                 if encontrada_en_json:
@@ -564,12 +608,10 @@ def ask():
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
 
-                        # Crear y entrenar el vectorizer
                         vectorizer = TfidfVectorizer()
                         prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
                         vectorizer.fit(prepared_data)
 
-                        # Llamar a encontrar_respuesta con el vectorizer
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
                         app.logger.info(respuesta_del_dataset)
 
@@ -580,8 +622,6 @@ def ask():
                             ultima_respuesta = seleccionar_respuesta_por_defecto()
                             fuente_respuesta = "respuesta_por_defecto"
 
-
-                # Mejora de la respuesta con OpenAI
                 ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                     pregunta=ultima_pregunta, 
                     respuesta=ultima_respuesta, 
@@ -607,6 +647,9 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+# Asegúrate de definir la función identificar_saludo_despedida y las demás funciones y variables necesarias.
+
 
 
 @app.route('/uploads', methods=['POST'])
