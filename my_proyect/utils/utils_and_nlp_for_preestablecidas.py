@@ -4,6 +4,7 @@ from flask import Flask
 # Logging para registrar eventos y errores
 import logging
 from logging import FileHandler
+from requests.exceptions import RequestException
 
 # Manejo de archivos y rutas
 import os
