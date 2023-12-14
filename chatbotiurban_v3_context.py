@@ -395,6 +395,9 @@ def identificar_saludo_despedida(frase):
         "Hasta luego, esperamos verle de nuevo para planificar su próximo destino o para otras consultas."
     ]
 
+    # Crear un objeto traductor
+    translator = Translator()
+
     try:
         # Enviar la frase directamente a OpenAI
         response = openai.ChatCompletion.create(
@@ -411,14 +414,24 @@ def identificar_saludo_despedida(frase):
 
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
-        # Si la respuesta es 'saludo' o 'despedida', devolver True; de lo contrario, False
-        return respuesta in ["saludo", "despedida"]
+        # Detectar el idioma de la frase
+        lang = translator.detect(frase).lang
+
+        # Seleccionar y traducir una respuesta aleatoria si es un saludo o despedida
+        if respuesta == "saludo":
+            respuesta_elegida = random.choice(respuestas_saludo)
+            return translator.translate(respuesta_elegida, dest=lang).text
+        elif respuesta == "despedida":
+            respuesta_elegida = random.choice(respuestas_despedida)
+            return translator.translate(respuesta_elegida, dest=lang).text
+        else:
+            return False
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return False
 
 
-
+        
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
     palabras = word_tokenize(pregunta)
@@ -763,8 +776,6 @@ def ask_hola():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-
 
 
 @app.route('/uploads', methods=['POST'])
