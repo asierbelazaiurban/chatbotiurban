@@ -210,24 +210,14 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
-    # Verificar si hay pregunta y respuesta
-    if not pregunta or not respuesta:
-        app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
-        return None
-
-    # Configurar la clave API de OpenAI
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta_original, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    app.logger.info("Entrando en OpenAI")
 
     # Definir las rutas base para los prompts
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
 
-    # Inicializar la variable para almacenar el new_prompt obtenido por chatbot_id
+    # Intentar cargar el prompt específico desde los prompts, según chatbot_id
     new_prompt_by_id = None
-
-    # Intentar cargar el new_prompt desde los prompts, según chatbot_id
     if chatbot_id:
         prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
@@ -235,9 +225,9 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                 new_prompt_by_id = file.read()
             app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
         except Exception as e:
-            app.logger.info(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
-    # Utilizar new_prompt_by_id si no viene vacío, de lo contrario usar new_prompt proporcionado
+    # Cargar un prompt directamente si está especificado
     if new_prompt_by_id:
         new_prompt = new_prompt_by_id
     elif new_prompt:
@@ -250,41 +240,48 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         except Exception as e:
             app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
 
-    # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
-    if not contexto_adicional:
-        contexto_adicional = "";
-
-    # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
-    if not new_prompt:
-        new_prompt = ("Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
-                      "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
-                      "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
-                      "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
-                      "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
-                      "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-                      "proporciona el contacto: info@iurban.es.")
+    # Verificar si hay contexto adicional. Si no hay, usar una cadena vacía
+    contexto_adicional = contexto_adicional if contexto_adicional else ""
 
     # Construir el prompt base
-    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
-    app.logger.info(prompt_base)
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\nContexto adicional: {contexto_adicional}\n--\n{new_prompt}. Responde siempre en el idioma del contexto o en el de la pregunta, nunca permitas que se de una pregunta y una respuesta en diferente idioma, ten mucho cuidado con eso"
 
-    # Generar la respuesta mejorada
+    # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
             model=model_gpt if model_gpt else "gpt-4",
             messages=[
                 {"role": "system", "content": prompt_base},
-                {"role": "user", "content": respuesta}
+                {"role": "user", "content": respuesta_original}
             ],
-            temperature=float(temperature) if temperature else 0.5
+            temperature=float(temperature) if temperature else 0.7
         )
-        improved_response = response.choices[0].message['content'].strip()
-        app.logger.info("Respuesta generada con éxito.")
-        return improved_response
+        respuesta_mejorada = response.choices[0].message['content'].strip()
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
+    # Intentar traducir la respuesta mejorada
+    app.logger.info("pregunta")
+    app.logger.info(pregunta)
+    app.logger.info("respuesta_mejorada")
+    app.logger.info(respuesta_mejorada)
+    try:
+        respuesta_traducida = openai.ChatCompletion.create(
+            model=model_gpt if model_gpt else "gpt-4",
+            messages=[
+                {"role": "system", "content": f"El idioma original es {pregunta}. Traduce, literalmente {respuesta_mejorada}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {pregunta} y :{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy importante"},
+                {"role": "user", "content": respuesta_mejorada}
+            ],
+            temperature=float(temperature) if temperature else 0.7
+        )
+        respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
+    except Exception as e:
+        app.logger.error(f"Error al traducir la respuesta: {e}")
+
+    app.logger.info("respuesta_mejorada final")
+    app.logger.info(respuesta_mejorada)
+    return respuesta_mejorada
 
 
 def generar_contexto_con_openai(historial):
