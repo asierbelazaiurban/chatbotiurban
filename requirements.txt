@@ -1,33 +1,8 @@
-pip install chardet
-pip install numpy
-pip install Flask
-pip install requests
-pip install beautifulsoup4
-pip install json5  
-pip install urllib3  
-pip install random2  
-pip install gensim
-pip install nltk
-pip install torch
-pip install transformers
-pip install openai
-pip install pandas
-pip install tqdm
-pip install evaluate  
-pip install peft  
-pip install trl  
-pip install safetensors
-python -m nltk.downloader popular
-pip install scikit-learn
-pip install Werkzeug
-pip install python-docx
-pip install python-docx PyPDF2 pandas python-pptx
-pip install sentence-transformers
-pip install unidecode
-pip install requests openai python-dateutil dateparser
-pip install dateparser langdetect
-pip install python-dateutil
-pip uninstall gensim
-pip install gensim
-pip install --upgrade tqdm
-pip install nlkt
+faiss-cpu
+numpy
+tensorflow
+flask
+openai
+requests
+jsonify
+grpcio==1.58.0
