@@ -339,6 +339,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return None
 
+
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
 
