@@ -12,6 +12,7 @@ import time
 from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 from urllib.parse import urlparse, urljoin
+from requests.exceptions import RequestException
 
 # Bibliotecas de terceros
 import chardet
