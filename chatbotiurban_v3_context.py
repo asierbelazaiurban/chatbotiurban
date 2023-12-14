@@ -341,13 +341,6 @@ def buscar_en_openai_relacion_con_eventos(frase):
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return None
 
-
-import openai
-import os
-import unidecode
-import random
-from googletrans import Translator
-
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
 
@@ -711,10 +704,10 @@ def ask_hola():
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
-                es_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
-                if es_saludo_despedida:
-                    respuesta_saludo_despedida = random.choice(respuestas_saludo if es_saludo_despedida == "saludo" else respuestas_despedida)
+                respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                if respuesta_saludo_despedida != False:
                     return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_despedida'})
+
 
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
