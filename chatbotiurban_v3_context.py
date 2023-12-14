@@ -415,7 +415,7 @@ def identificar_saludo_despedida(frase):
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
         # Detectar el idioma de la frase
-        lang = translator.detect(frase).lang
+        detected_language = GoogleTranslator.detect_language(frase)
 
         # Seleccionar una respuesta aleatoria si es un saludo o despedida
         if respuesta == "saludo":
@@ -426,8 +426,8 @@ def identificar_saludo_despedida(frase):
             return False
 
         # Traducir la respuesta si el idioma no es español
-        if lang != 'es':
-            translated = translator.translate(respuesta_elegida, dest=lang).text
+        if detected_language != 'es':
+            translated = GoogleTranslator(source='auto', target=detected_language).translate(respuesta_elegida)
             return translated
         else:
             return respuesta_elegida
