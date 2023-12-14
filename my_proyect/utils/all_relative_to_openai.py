@@ -1,6 +1,6 @@
 from flask import Flask
 import logging
-from logging import 
+from logging import FileHandler, Formatter, StreamHandler
 import os
 import json
 import nltk
