@@ -162,8 +162,56 @@ def clean_and_transform_data(data):
     return cleaned_data
 
 
-def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_prompt=None, contexto_adicional=None):
+def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Definir las rutas base para los prompts
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+
+    # Intentar cargar el prompt específico desde los prompts, según chatbot_id
+    new_prompt_by_id = None
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+        try:
+            with open(prompt_file_path, 'r') as file:
+                new_prompt_by_id = file.read()
+            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+        except Exception as e:
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+
+    # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
+    new_prompt = new_prompt_by_id if new_prompt_by_id else (
+        "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
+        "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
+        "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
+        "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
+        "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
+        "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
+        "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
+        "proporciona el contacto: info@iurban.es."
+    )
+
+    # Construir el prompt base
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
+
+    # Intentar generar la respuesta mejorada
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": respuesta_original}
+            ]
+        )
+        return response.choices[0].message['content'].strip()
+    except Exception as e:
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        return None
+
+
+
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
+   openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     # Definir las rutas base para los prompts
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
@@ -232,6 +280,8 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_p
     app.logger.info("respuesta_mejorada final")
     app.logger.info(respuesta_mejorada)
     return respuesta_mejorada
+
+
 
 
 def generar_contexto_con_openai(historial):
