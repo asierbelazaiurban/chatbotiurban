@@ -20,6 +20,8 @@ from nltk.util import ngrams
 # Scikit-learn para procesamiento de datos y machine learning
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+
 
 # NumPy para manejo de datos y cálculos
 import numpy as np
