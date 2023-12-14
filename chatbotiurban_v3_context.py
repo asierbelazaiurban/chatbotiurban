@@ -162,7 +162,10 @@ def clean_and_transform_data(data):
     return cleaned_data
 
 
-def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
+import openai
+import os
+
+def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_prompt=None, contexto_adicional=None, idioma_pregunta=None, idioma_respuesta=None):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     # Definir las rutas base para los prompts
@@ -179,20 +182,24 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         except Exception as e:
             app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
-    # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
-    new_prompt = new_prompt_by_id if new_prompt_by_id else (
-        "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
-        "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
-        "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
-        "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
-        "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
-        "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
-        "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-        "proporciona el contacto: info@iurban.es."
-    )
+    # Cargar un prompt directamente si está especificado
+    if new_prompt_by_id:
+        new_prompt = new_prompt_by_id
+    elif new_prompt:
+        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        try:
+            with open(prompt_file_path_direct, 'r') as file:
+                new_prompt_direct = file.read()
+            new_prompt = new_prompt_direct
+            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
+        except Exception as e:
+            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
+
+    # Verificar si hay contexto adicional. Si no hay, usar una cadena vacía
+    contexto_adicional = contexto_adicional if contexto_adicional else ""
 
     # Construir el prompt base
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Responde siempre en el idioma del contexto o en el de la pregunta, nunca permitas que se de una pregunta y una respuesta en diferente idioma, ten mucho cuidado con eso"
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\nContexto adicional: {contexto_adicional}\n--\n{new_prompt}. Responde siempre en el idioma del contexto o en el de la pregunta, nunca permitas que se de una pregunta y una respuesta en diferente idioma, ten mucho cuidado con eso"
 
     # Intentar generar la respuesta mejorada
     try:
@@ -203,10 +210,29 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
                 {"role": "user", "content": respuesta_original}
             ]
         )
-        return response.choices[0].message['content'].strip()
+        respuesta_mejorada = response.choices[0].message['content'].strip()
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
+    # Traducir la respuesta mejorada al idioma de la pregunta original si es necesario
+    if idioma_respuesta and idioma_pregunta and idioma_respuesta != idioma_pregunta:
+        try:
+            respuesta_traducida = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                {"role": "system", "content": f"El idioma original es {pregunta}. Traduce, literalmente {respuesta_mejorada}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {pregunta} y :{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy imoprtante"},            
+                {"role": "user", "content": respuesta_mejorada}
+                ]
+            )
+            respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
+        except Exception as e:
+            app.logger.error(f"Error al traducir la respuesta: {e}")
+
+    return respuesta_mejorada
+
+# Puedes usar esta función pasando la respuesta original, la pregunta, un ID de chatbot, un prompt personalizado, contexto adicional y los idiomas de la pregunta y la respuesta si son conocidos.
+
 
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
@@ -614,85 +640,8 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 
 ####### Inicio Endpoints #######
-
 @app.route('/ask', methods=['POST'])
 def ask():
-    app.logger.info("Solicitud recibida en /ask")
-
-    try:
-        data = request.get_json()
-        chatbot_id = data.get('chatbot_id', 'default_id')
-        fuente_respuesta = "ninguna"
-
-        if 'pares_pregunta_respuesta' in data:
-            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
-            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
-
-            if ultima_respuesta == "":
-                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-
-                if encontrada_en_json:
-                    ultima_respuesta = respuesta_preestablecida
-                    fuente_respuesta = "preestablecida"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    fuente_respuesta = "eventos"
-                else:
-                    app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
-
-                        # Crear y entrenar el vectorizer
-                        vectorizer = TfidfVectorizer()
-                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                        vectorizer.fit(prepared_data)
-
-                        # Llamar a encontrar_respuesta con el vectorizer
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        app.logger.info(respuesta_del_dataset)
-
-                        if respuesta_del_dataset:
-                            ultima_respuesta = respuesta_del_dataset
-                            fuente_respuesta = "dataset"
-                        else:
-                            ultima_respuesta = seleccionar_respuesta_por_defecto()
-                            fuente_respuesta = "respuesta_por_defecto"
-
-
-                # Mejora de la respuesta con OpenAI
-                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                    pregunta=ultima_pregunta, 
-                    respuesta=ultima_respuesta, 
-                    new_prompt="", 
-                    contexto_adicional=contexto, 
-                    temperature="", 
-                    model_gpt="", 
-                    chatbot_id=chatbot_id
-                )
-                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-                fuente_respuesta = "mejorada"
-
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
-
-            else:
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
-
-        else:
-            app.logger.warning("Formato de solicitud incorrecto")
-            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
-
-    except Exception as e:
-        app.logger.error(f"Error en /ask: {e}")
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/ask_hola', methods=['POST'])
-def ask_hola():
     app.logger.info("Solicitud recibida en /ask")
 
     try:
