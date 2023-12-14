@@ -33,7 +33,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
 from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 
 # Descarga de paquetes necesarios de NLTK
