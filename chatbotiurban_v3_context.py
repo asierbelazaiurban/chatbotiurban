@@ -343,25 +343,22 @@ def buscar_en_openai_relacion_con_eventos(frase):
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
 
-    # Texto fijo a concatenar
-    texto_fijo = "Necesito saber si la frase que te paso es un saludo, una despedida o ninguna de estas opciones. La frase es: "
-    frase_combinada = texto_fijo + frase
-
     # Establecer la clave de API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
+        # Enviar la frase directamente a OpenAI
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": ""},
-                {"role": "user", "content": frase_combinada}
+                {"role": "system", "content": "Identifica si la siguiente frase es un saludo o una despedida, sin información adicional. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
+                {"role": "user", "content": frase}
             ]
         )
 
         # Interpretar la respuesta
         respuesta = response.choices[0].message['content'].strip().lower()
-        respuesta = unidecode.unidecode(respuesta).replace(".", "")
+        respuesta = unidecode.unidecode(respuesta)
 
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
@@ -725,7 +722,7 @@ def ask_hola():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-# Asegúrate de definir la función identificar_saludo_despedida y las demás funciones y variables necesarias.
+
 
 
 @app.route('/uploads', methods=['POST'])
