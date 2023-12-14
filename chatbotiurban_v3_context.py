@@ -389,8 +389,6 @@ def identificar_saludo_despedida(frase):
         respuesta = response.choices[0].message['content'].strip().lower()
         respuesta = unidecode.unidecode(respuesta)
 
-        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
-
         # Seleccionar una respuesta aleatoria si es un saludo o despedida
         if respuesta == "saludo":
             respuesta_elegida = random.choice(respuestas_saludo)
@@ -399,32 +397,26 @@ def identificar_saludo_despedida(frase):
         else:
             return False
 
-        app.logger.info("frase")  
-        app.logger.info(frase) 
-
-        app.logger.info("respuesta_elegida")  
-        app.logger.info(respuesta_elegida)     
-
-        # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada al idioma de la pregunta original
+        # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": f"Traduce, literalmente, asegurate de que sea una traducción literal de: '{respuesta_elegida}' la siguiente frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma, nunca permitas que se de una pregunta y una respuesta en diferente idioma, ten mucho cuidado con eso"},
-                {"role": "user", "content": respuesta_elegida},
-                {"role": "user", "content": frase}
+                {"role": "system", "content": f"Traduce, literalmente, asegurate de que sea una traducción literal de '{respuesta_elegida}'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si la frase ya está en el idioma de la pregunta, mantenla sin cambios. Si ya esta en el mismo idoma devuleve '{respuesta_elegida}' tal cual no le añadas nada. Simplemente no hagas nada con ella y devuévela igual, este en el idioma que esté. Repítela tal cual. No agregues comentarios ni observaciones, solo la traducción literal o la frase repetida si es el mismo idioma, ten cuidado con aplicar todo esto por favor. Es muy importante solo traducir o dejarla tal cual si es el mismo idioma, sin observaciones muy muy imoprtante"},
+                {"role": "user", "content": respuesta_elegida}
             ]
         )
 
         respuesta_traducida = traduccion_response.choices[0].message['content'].strip()
 
-        app.logger.info("respuesta_traducida GPT")  
-        app.logger.info(respuesta_traducida)  
-        return respuesta_traducida
+        # Si GPT-4 indica que no es necesario traducir, devolver la respuesta original
+        if "no es necesario traducirla" in respuesta_traducida.lower():
+            return respuesta_elegida
+        else:
+            return respuesta_traducida
 
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return False
-
 
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
