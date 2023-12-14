@@ -32,6 +32,9 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 #######  #######
 
+# Configurar la aplicación Flask (si estás usando Flask)
+app = Flask(__name__)
+
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
