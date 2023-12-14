@@ -9,6 +9,7 @@ from flask import Flask
 import nltk
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+from requests.exceptions import RequestException
 
 # Luego puedes usar cosine_similarity como se requiera en tu código
 

@@ -13,6 +13,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import openai
 import random
+from requests.exceptions import RequestException
 nltk.download('popular')  # Descarga recursos populares incluyendo 'punkt', 'averaged_perceptron_tagger', etc.
 nltk.download('wordnet')  # Necesario para el mapeo de etiquetas POS a WordNet POS
 
