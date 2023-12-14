@@ -162,10 +162,7 @@ def clean_and_transform_data(data):
     return cleaned_data
 
 
-import openai
-import os
-
-def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_prompt=None, contexto_adicional=None, idioma_pregunta=None, idioma_respuesta=None):
+def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_prompt=None, contexto_adicional=None):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     # Definir las rutas base para los prompts
@@ -215,23 +212,20 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_p
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
-    # Traducir la respuesta mejorada al idioma de la pregunta original si es necesario
-    if idioma_respuesta and idioma_pregunta and idioma_respuesta != idioma_pregunta:
-        try:
-            respuesta_traducida = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[
-                {"role": "system", "content": f"El idioma original es {pregunta}. Traduce, literalmente {respuesta_mejorada}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {pregunta} y :{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy imoprtante"},            
+    # Intentar traducir la respuesta mejorada
+    try:
+        respuesta_traducida = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": f"El idioma original es {pregunta}. Traduce, literalmente {respuesta_mejorada}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {pregunta} y :{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy imoprtante"},
                 {"role": "user", "content": respuesta_mejorada}
-                ]
-            )
-            respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
-        except Exception as e:
-            app.logger.error(f"Error al traducir la respuesta: {e}")
+            ]
+        )
+        respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
+    except Exception as e:
+        app.logger.error(f"Error al traducir la respuesta: {e}")
 
     return respuesta_mejorada
-
-# Puedes usar esta función pasando la respuesta original, la pregunta, un ID de chatbot, un prompt personalizado, contexto adicional y los idiomas de la pregunta y la respuesta si son conocidos.
 
 
 
