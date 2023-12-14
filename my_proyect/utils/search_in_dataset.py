@@ -2,6 +2,7 @@ import nltk
 import os
 import unidecode
 import openai
+from logging import FileHandler
 from flask import Flask
 
 app = Flask(__name__)
