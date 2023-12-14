@@ -349,54 +349,34 @@ def identificar_saludo_despedida(frase):
 
     # Respuestas de saludo
     respuestas_saludo = [
-        "Bienvenido, ¿en qué podemos ayudarle hoy, desde planificar su viaje hasta sugerencias de destinos?",
-        "Hola, gracias por contactarnos. ¿Cómo puedo asistirle en sus planes de viaje u otras consultas?",
-        "Buenos días, es un placer atenderle en todas sus necesidades de viaje.",
-        "Saludos cordiales, ¿cómo podemos hacer su experiencia de viaje más especial?",
-        "Hola, estamos listos para ayudarle con su próxima aventura o cualquier otra pregunta.",
-        "Bienvenido, ¿cómo podemos servirle en la planificación de su viaje u otras inquietudes?",
-        "Hola, gracias por elegirnos. ¿Qué información necesita para su viaje?",
-        "Buen día, aquí estamos para ayudarle en su viaje soñado y más.",
-        "Saludos, ¿lista para explorar el mundo o necesita alguna otra información?",
-        "Hola, ¿en qué podemos ayudarle hoy, desde viajes hasta recomendaciones de actividades?",
-        "Buenos días, ¿listo para una nueva aventura o hay algo más en lo que podemos ayudar?",
-        "Saludos, estamos aquí para guiarle en su próximo viaje o responder cualquier otra pregunta.",
-        "Hola, déjenos hacer de su viaje una experiencia inolvidable o consulte cualquier otra duda.",
-        "Bienvenido, estamos emocionados de ayudarle en la planificación de su viaje y más.",
-        "Saludos, ¿en qué podemos asistirle hoy, sea en viajes o en otros temas?",
-        "Buenos días, permítanos ser su guía en esta aventura y responder cualquier otra inquietud.",
-        "Hola, es un placer atender sus necesidades de viaje y otras consultas.",
-        "Saludos, ¿cómo podemos ayudarle hoy en su viaje o en otras áreas?",
-        "Bienvenido, háganos saber sus planes de viaje o cualquier otra consulta.",
-        "Hola, estamos aquí para ayudarle a descubrir el mundo y responder sus preguntas."
+        "¡Hola! ¿Cómo puedo ayudarte hoy?",
+        "Bienvenido, ¿en qué puedo asistirte?",
+        "Buenos días, ¿cómo puedo hacer tu día más especial?",
+        "Saludos, ¿hay algo en lo que pueda ayudarte?",
+        "Hola, estoy aquí para responder tus preguntas.",
+        "¡Bienvenido! Estoy aquí para ayudarte con tus consultas.",
+        "Hola, ¿listo para comenzar?",
+        "¡Qué alegría verte! ¿Cómo puedo ayudarte hoy?",
+        "Buen día, ¿hay algo específico que necesitas?",
+        "Hola, estoy aquí para responder todas tus preguntas."
     ]
 
     # Respuestas de despedida
     respuestas_despedida = [
-        "Gracias por contactarnos, esperamos asistirle pronto en sus planes de viaje y más.",
-        "Hasta luego, estamos a su disposición para futuros viajes y cualquier otra consulta.",
-        "Adiós, y gracias por pensar en nosotros para su viaje y otras necesidades.",
-        "Fue un placer ayudarle, que tenga un buen día y estamos aquí para cualquier otra consulta.",
-        "Hasta pronto, esperamos servirle en su próxima aventura o en lo que necesite.",
-        "Adiós, y que tenga un viaje maravilloso. Estamos aquí para más consultas.",
-        "Gracias por su tiempo, estamos aquí para cuando nos necesite, en viajes o en otros temas.",
-        "Hasta la próxima, siempre a su servicio para viajes y más.",
-        "Que tenga un excelente día, gracias por contactarnos para su viaje y otras inquietudes.",
-        "Nos despedimos deseándole un viaje seguro y placentero, y estamos aquí para más ayuda.",
-        "Hasta luego, esperamos verle pronto de nuevo para más asistencia.",
-        "Adiós, estaremos esperando su próxima consulta, sea de viajes o de otro tipo.",
-        "Gracias por su consulta, que tenga un gran día y recuerde que estamos aquí para ayudar.",
-        "Esperamos haber sido de ayuda, ¡buen viaje y estamos a su disposición para más!",
-        "Hasta la próxima, gracias por confiar en nosotros para su viaje y otras necesidades.",
-        "Adiós, y recuerde que estamos aquí para ayudarle en sus viajes y más.",
-        "Gracias por elegirnos, esperamos atenderle de nuevo en viajes y otras consultas.",
-        "Fue un placer asistirle, hasta la próxima para más ayuda en viajes y otros servicios.",
-        "Adiós, y gracias por su interés en nuestros servicios de viaje y más.",
-        "Hasta luego, esperamos verle de nuevo para planificar su próximo destino o para otras consultas."
+        "Ha sido un placer ayudarte, ¡que tengas un buen día!",
+        "Adiós, y espero haber sido útil para ti.",
+        "Hasta pronto, que tengas una maravillosa experiencia.",
+        "Gracias por contactarnos, ¡que tengas un día increíble!",
+        "Despidiéndome, espero que disfrutes mucho tu día.",
+        "Ha sido un gusto asistirte, ¡que todo te vaya bien!",
+        "Adiós, no dudes en volver si necesitas más ayuda.",
+        "Que tengas un gran día, ha sido un placer ayudarte.",
+        "Espero que tengas un día inolvidable, adiós.",
+        "Hasta la próxima, que tu día esté lleno de momentos maravillosos."
     ]
 
     try:
-        # Enviar la frase directamente a OpenAI
+        # Enviar la frase directamente a OpenAI para determinar si es un saludo o despedida
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -405,14 +385,13 @@ def identificar_saludo_despedida(frase):
             ]
         )
 
+
         # Interpretar la respuesta
         respuesta = response.choices[0].message['content'].strip().lower()
         respuesta = unidecode.unidecode(respuesta)
 
-        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
-
-        # Detectar el idioma de la frase
-        detected_language = GoogleTranslator.detect_language(frase)
+        app.logger.info("respuesta GPT4")
+        app.logger.info(respuesta)
 
         # Seleccionar una respuesta aleatoria si es un saludo o despedida
         if respuesta == "saludo":
@@ -422,12 +401,22 @@ def identificar_saludo_despedida(frase):
         else:
             return False
 
-        # Traducir la respuesta si el idioma no es español
-        if detected_language != 'es':
-            translated = GoogleTranslator(source='auto', target=detected_language).translate(respuesta_elegida)
-            return translated
-        else:
-            return respuesta_elegida
+
+        app.logger.info("respuesta_elegida")
+        app.logger.info(respuesta_elegida)
+
+        # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
+        traduccion_response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy imoprtante"},
+                {"role": "user", "content": respuesta_elegida}
+            ]
+        )
+
+
+        respuesta_traducida = traduccion_response.choices[0].message['content'].strip()
+        return respuesta_traducida
 
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
