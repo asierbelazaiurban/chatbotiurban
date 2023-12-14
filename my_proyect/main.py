@@ -1,57 +1,40 @@
-#!/usr/bin/env python
+##!/usr/bin/env python
 # coding: utf-8
 
-# Flask y herramientas relacionadas para la aplicación web
-from flask import Flask, request, jsonify
-
-# Manejo de archivos y rutas
-import os
+# Bibliotecas estándar de Python
 import json
-
-# Logging para registrar eventos y errores
 import logging
-from logging import FileHandler
-from logging.handlers import RotatingFileHandler
-
-# Procesamiento de texto y NLP
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-nltk.download('punkt')
-nltk.download('stopwords')
-from sklearn.feature_extraction.text import TfidfVectorizer
-
-# Solicitudes web y scraping
-import requests
-from bs4 import BeautifulSoup
-
-# Manejo de datos y cálculos
-import numpy as np
-
-# Interacción con OpenAI GPT
-import openai
-
-# Herramientas adicionales para tareas específicas
-import subprocess
+import os
 import random
 import re
+import subprocess
 import time
-import traceback
+from logging import FileHandler
+from logging.handlers import RotatingFileHandler
 from urllib.parse import urlparse, urljoin
 
-# Configuración de Flask y Logging
-app = Flask(__name__)
-
-# Utilidades y Otras Librerías
+# Bibliotecas de terceros
 import chardet
-import evaluate
-import unidecode
-from peft import PeftConfig, PeftModel, TaskType, LoraConfig
-from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
-from trl.core import LengthSampler
 import gensim.downloader as api
-from nltk.util import ngrams
-
+import nltk
+import numpy as np
+import openai
+import pandas as pd
+import requests
+import torch
+from bs4 import BeautifulSoup
+from flask import Flask, request, jsonify
+from gensim.models import Word2Vec
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+from peft import PeftModel, PeftConfig, LoraConfig, TaskType
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from tqdm import tqdm
+from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification, AutoModelForSeq2SeqLM, GenerationConfig
+from trl import PPOTrainer, PPOConfig, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
+from trl.core import LengthSampler
+from werkzeug.datastructures import FileStorage
 # ---------------------------
 # Módulos Locales
 # ---------------------------
