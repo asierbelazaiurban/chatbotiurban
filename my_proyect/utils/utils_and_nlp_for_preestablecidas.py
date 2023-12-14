@@ -7,6 +7,11 @@ from nltk.corpus import stopwords
 from sentence_transformers import SentenceTransformer, util
 import json
 from flask import Flask
+import logging
+from logging import FileHandler
+
+# El resto de tu código...
+file_handler = FileHandler('logs/chatbotiurban.log')
 
 ####### Configuración logs #######
 
