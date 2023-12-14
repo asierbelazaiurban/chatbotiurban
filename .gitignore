@@ -1,3 +1,7 @@
 # Excluir la carpeta 'data'
 data/
+# Excluir la carpeta 'logs'
+logs/
+.DS_Store
+.DS_Store
 .DS_Store
