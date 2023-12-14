@@ -416,9 +416,7 @@ def identificar_saludo_despedida(frase):
 
 
         respuesta_traducida = traduccion_response.choices[0].message['content'].strip()
-        app.logger.info("respuesta_traducida")
-        app.logger.info(respuesta_traducida)
-
+        return respuesta_traducida
 
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
