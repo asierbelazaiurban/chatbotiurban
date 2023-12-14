@@ -34,7 +34,6 @@ from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassificat
 from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
 from googletrans import Translator
-from google.cloud import translate_v2 as translate
 
 
 # Descarga de paquetes necesarios de NLTK
@@ -396,7 +395,8 @@ def identificar_saludo_despedida(frase):
         "Hasta luego, esperamos verle de nuevo para planificar su próximo destino o para otras consultas."
     ]
 
-    translate_client = translate.Client()
+    # Inicializar el traductor de googletrans
+    translator = Translator()
 
     try:
         # Enviar la frase directamente a OpenAI
@@ -415,8 +415,7 @@ def identificar_saludo_despedida(frase):
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
         # Detectar el idioma de la frase
-        result = translate_client.detect_language(frase)
-        lang = result['language']
+        lang = translator.detect(frase).lang
 
         # Seleccionar una respuesta aleatoria si es un saludo o despedida
         if respuesta == "saludo":
@@ -428,14 +427,15 @@ def identificar_saludo_despedida(frase):
 
         # Traducir la respuesta si el idioma no es español
         if lang != 'es':
-            translated = translate_client.translate(respuesta_elegida, target_language=lang)
-            return translated['translatedText']
+            translated = translator.translate(respuesta_elegida, dest=lang).text
+            return translated
         else:
             return respuesta_elegida
 
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return False
+
 
 
 def extraer_palabras_clave(pregunta):
