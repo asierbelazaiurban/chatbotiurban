@@ -395,9 +395,6 @@ def identificar_saludo_despedida(frase):
         "Hasta luego, esperamos verle de nuevo para planificar su próximo destino o para otras consultas."
     ]
 
-    # Inicializar el traductor de googletrans
-    translator = Translator()
-
     try:
         # Enviar la frase directamente a OpenAI
         response = openai.ChatCompletion.create(
