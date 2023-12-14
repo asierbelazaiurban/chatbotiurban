@@ -1,11 +1,21 @@
-import os
 from flask import Flask
 import logging
-from logging import FileHandler
+from logging import 
+import os
+import json
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.corpus import wordnet
+from nltk.util import ngrams
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 import openai
-import unidecode
+import random
+nltk.download('popular')  # Descarga recursos populares incluyendo 'punkt', 'averaged_perceptron_tagger', etc.
+nltk.download('wordnet')  # Necesario para el mapeo de etiquetas POS a WordNet POS
 
-from flask import Flask
 
 app = Flask(__name__)
 ####### Configuración logs #######

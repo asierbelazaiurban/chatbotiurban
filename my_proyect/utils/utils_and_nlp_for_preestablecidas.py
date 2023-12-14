@@ -1,14 +1,39 @@
-import os
-import logging
-import requests
-from requests.exceptions import RequestException
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from sentence_transformers import SentenceTransformer, util
-import json
+# Flask y herramientas relacionadas para la aplicación web
 from flask import Flask
+
+# Logging para registrar eventos y errores
 import logging
 from logging import FileHandler
+
+# Manejo de archivos y rutas
+import os
+import json
+
+# NLTK para procesamiento de lenguaje natural
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
+from nltk.tag import pos_tag
+from nltk.corpus import wordnet
+from nltk.util import ngrams
+
+# Scikit-learn para procesamiento de datos y machine learning
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# NumPy para manejo de datos y cálculos
+import numpy as np
+
+# OpenAI para interacciones con el modelo GPT
+import openai
+
+# Utilidades adicionales
+import random
+
+# Descargas de NLTK (asegúrate de hacer esto en una parte del código que se ejecute una vez)
+nltk.download('popular')  # Descarga recursos populares
+nltk.download('wordnet')  # Necesario para el mapeo de etiquetas POS a WordNet POS
+
 
 # El resto de tu código...
 file_handler = FileHandler('logs/chatbotiurban.log')
