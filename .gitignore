@@ -1,5 +1,7 @@
 # Excluir la carpeta 'data'
-data/
+my_proyect/data/
+# Excluir la carpeta 'logs'
+my_proyect/logs/
 .DS_Store
 .DS_Store
 .DS_Store
