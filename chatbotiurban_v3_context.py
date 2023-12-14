@@ -34,6 +34,7 @@ from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassificat
 from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
 from googletrans import Translator
+from google.cloud import translate_v2 as translate
 
 
 # Descarga de paquetes necesarios de NLTK
@@ -395,8 +396,7 @@ def identificar_saludo_despedida(frase):
         "Hasta luego, esperamos verle de nuevo para planificar su próximo destino o para otras consultas."
     ]
 
-    # Crear un objeto traductor
-    translator = Translator()
+    translate_client = translate.Client()
 
     try:
         # Enviar la frase directamente a OpenAI
@@ -415,23 +415,29 @@ def identificar_saludo_despedida(frase):
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
         # Detectar el idioma de la frase
-        lang = translator.detect(frase).lang
+        result = translate_client.detect_language(frase)
+        lang = result['language']
 
-        # Seleccionar y traducir una respuesta aleatoria si es un saludo o despedida
+        # Seleccionar una respuesta aleatoria si es un saludo o despedida
         if respuesta == "saludo":
             respuesta_elegida = random.choice(respuestas_saludo)
-            return translator.translate(respuesta_elegida, dest=lang).text
         elif respuesta == "despedida":
             respuesta_elegida = random.choice(respuestas_despedida)
-            return translator.translate(respuesta_elegida, dest=lang).text
         else:
             return False
+
+        # Traducir la respuesta si el idioma no es español
+        if lang != 'es':
+            translated = translate_client.translate(respuesta_elegida, target_language=lang)
+            return translated['translatedText']
+        else:
+            return respuesta_elegida
+
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
         return False
 
 
-        
 def extraer_palabras_clave(pregunta):
     # Tokenizar la pregunta
     palabras = word_tokenize(pregunta)
