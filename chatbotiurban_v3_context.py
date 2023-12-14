@@ -166,9 +166,6 @@ def clean_and_transform_data(data):
 def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Definir las rutas base para los prompts
-    BASE_PROMPTS_DIR = "data/uploads/prompts/"
-
     # Intentar cargar el prompt específico desde los prompts, según chatbot_id
     new_prompt_by_id = None
     if chatbot_id:
@@ -214,8 +211,6 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
    openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Definir las rutas base para los prompts
-    BASE_PROMPTS_DIR = "data/uploads/prompts/"
 
     # Intentar cargar el prompt específico desde los prompts, según chatbot_id
     new_prompt_by_id = None
