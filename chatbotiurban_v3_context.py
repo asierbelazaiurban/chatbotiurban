@@ -589,10 +589,6 @@ def ask():
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
-                respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
-                if respuesta_saludo_despedida:
-                    return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_despedida'})
-
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
                 if encontrada_en_json:
@@ -608,10 +604,12 @@ def ask():
                         with open(dataset_file_path, 'r') as file:
                             datos_del_dataset = json.load(file)
 
+                        # Crear y entrenar el vectorizer
                         vectorizer = TfidfVectorizer()
                         prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
                         vectorizer.fit(prepared_data)
 
+                        # Llamar a encontrar_respuesta con el vectorizer
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
                         app.logger.info(respuesta_del_dataset)
 
@@ -622,6 +620,8 @@ def ask():
                             ultima_respuesta = seleccionar_respuesta_por_defecto()
                             fuente_respuesta = "respuesta_por_defecto"
 
+
+                # Mejora de la respuesta con OpenAI
                 ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                     pregunta=ultima_pregunta, 
                     respuesta=ultima_respuesta, 
@@ -647,9 +647,6 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
-# Asegúrate de definir la función identificar_saludo_despedida y las demás funciones y variables necesarias.
-
 
 
 @app.route('/uploads', methods=['POST'])
