@@ -400,7 +400,10 @@ def identificar_saludo_despedida(frase):
             return False
 
         app.logger.info("frase")  
-        app.logger.info(frase)    
+        app.logger.info(frase) 
+
+         app.logger.info("respuesta_elegida")  
+        app.logger.info(respuesta_elegida)     
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada al idioma de la pregunta original
         traduccion_response = openai.ChatCompletion.create(
