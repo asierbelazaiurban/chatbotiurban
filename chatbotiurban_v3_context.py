@@ -397,6 +397,10 @@ def identificar_saludo_despedida(frase):
         else:
             return False
 
+
+        app.logger.info("respuesta_elegida")
+        app.logger.info(respuesta_elegida)
+
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
             model="gpt-4",
@@ -406,13 +410,10 @@ def identificar_saludo_despedida(frase):
             ]
         )
 
-        respuesta_traducida = traduccion_response.choices[0].message['content'].strip()
+        app.logger.info("respuesta_traducida")
+        app.logger.info(respuesta_traducida)
 
-        # Si GPT-4 indica que no es necesario traducir, devolver la respuesta original
-        if "no es necesario traducirla" in respuesta_traducida.lower():
-            return respuesta_elegida
-        else:
-            return respuesta_traducida
+        respuesta_traducida = traduccion_response.choices[0].message['content'].strip()
 
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
