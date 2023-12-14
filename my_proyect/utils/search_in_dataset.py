@@ -7,6 +7,10 @@ from logging import FileHandler
 from nltk.util import ngrams
 from flask import Flask
 import nltk
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Luego puedes usar cosine_similarity como se requiera en tu código
+
 nltk.download('popular') 
 
 app = Flask(__name__)
