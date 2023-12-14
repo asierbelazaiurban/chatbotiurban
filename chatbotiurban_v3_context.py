@@ -33,6 +33,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassification, AutoTokenizer, GenerationConfig, pipeline)
 from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
+from googletrans import Translator
+
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -340,11 +342,65 @@ def buscar_en_openai_relacion_con_eventos(frase):
         return None
 
 
+import openai
+import os
+import unidecode
+import random
+from googletrans import Translator
+
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
 
     # Establecer la clave de API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Respuestas de saludo
+    respuestas_saludo = [
+        "Bienvenido, ¿en qué podemos ayudarle hoy, desde planificar su viaje hasta sugerencias de destinos?",
+        "Hola, gracias por contactarnos. ¿Cómo puedo asistirle en sus planes de viaje u otras consultas?",
+        "Buenos días, es un placer atenderle en todas sus necesidades de viaje.",
+        "Saludos cordiales, ¿cómo podemos hacer su experiencia de viaje más especial?",
+        "Hola, estamos listos para ayudarle con su próxima aventura o cualquier otra pregunta.",
+        "Bienvenido, ¿cómo podemos servirle en la planificación de su viaje u otras inquietudes?",
+        "Hola, gracias por elegirnos. ¿Qué información necesita para su viaje?",
+        "Buen día, aquí estamos para ayudarle en su viaje soñado y más.",
+        "Saludos, ¿lista para explorar el mundo o necesita alguna otra información?",
+        "Hola, ¿en qué podemos ayudarle hoy, desde viajes hasta recomendaciones de actividades?",
+        "Buenos días, ¿listo para una nueva aventura o hay algo más en lo que podemos ayudar?",
+        "Saludos, estamos aquí para guiarle en su próximo viaje o responder cualquier otra pregunta.",
+        "Hola, déjenos hacer de su viaje una experiencia inolvidable o consulte cualquier otra duda.",
+        "Bienvenido, estamos emocionados de ayudarle en la planificación de su viaje y más.",
+        "Saludos, ¿en qué podemos asistirle hoy, sea en viajes o en otros temas?",
+        "Buenos días, permítanos ser su guía en esta aventura y responder cualquier otra inquietud.",
+        "Hola, es un placer atender sus necesidades de viaje y otras consultas.",
+        "Saludos, ¿cómo podemos ayudarle hoy en su viaje o en otras áreas?",
+        "Bienvenido, háganos saber sus planes de viaje o cualquier otra consulta.",
+        "Hola, estamos aquí para ayudarle a descubrir el mundo y responder sus preguntas."
+    ]
+
+    # Respuestas de despedida
+    respuestas_despedida = [
+        "Gracias por contactarnos, esperamos asistirle pronto en sus planes de viaje y más.",
+        "Hasta luego, estamos a su disposición para futuros viajes y cualquier otra consulta.",
+        "Adiós, y gracias por pensar en nosotros para su viaje y otras necesidades.",
+        "Fue un placer ayudarle, que tenga un buen día y estamos aquí para cualquier otra consulta.",
+        "Hasta pronto, esperamos servirle en su próxima aventura o en lo que necesite.",
+        "Adiós, y que tenga un viaje maravilloso. Estamos aquí para más consultas.",
+        "Gracias por su tiempo, estamos aquí para cuando nos necesite, en viajes o en otros temas.",
+        "Hasta la próxima, siempre a su servicio para viajes y más.",
+        "Que tenga un excelente día, gracias por contactarnos para su viaje y otras inquietudes.",
+        "Nos despedimos deseándole un viaje seguro y placentero, y estamos aquí para más ayuda.",
+        "Hasta luego, esperamos verle pronto de nuevo para más asistencia.",
+        "Adiós, estaremos esperando su próxima consulta, sea de viajes o de otro tipo.",
+        "Gracias por su consulta, que tenga un gran día y recuerde que estamos aquí para ayudar.",
+        "Esperamos haber sido de ayuda, ¡buen viaje y estamos a su disposición para más!",
+        "Hasta la próxima, gracias por confiar en nosotros para su viaje y otras necesidades.",
+        "Adiós, y recuerde que estamos aquí para ayudarle en sus viajes y más.",
+        "Gracias por elegirnos, esperamos atenderle de nuevo en viajes y otras consultas.",
+        "Fue un placer asistirle, hasta la próxima para más ayuda en viajes y otros servicios.",
+        "Adiós, y gracias por su interés en nuestros servicios de viaje y más.",
+        "Hasta luego, esperamos verle de nuevo para planificar su próximo destino o para otras consultas."
+    ]
 
     try:
         # Enviar la frase directamente a OpenAI
@@ -362,13 +418,21 @@ def identificar_saludo_despedida(frase):
 
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
+        # Crear un objeto traductor
+        translator = Translator()
+
+        # Detectar el idioma de la frase
+        lang = translator.detect(frase).lang
+
         # Procesar la respuesta
         if "saludo" in respuesta:
             app.logger.info("La frase es un saludo")
-            return f"{frase}, bienvenido a nuestro agente virtual. Estoy aqui para ayudarte."
+            respuesta_elegida = random.choice(respuestas_saludo)
+            return translator.translate(respuesta_elegida, dest=lang).text
         elif "despedida" in respuesta:
             app.logger.info("La frase es una despedida")
-            return f"{frase}, esperamos verte pronto de nuevo. Un saludo!"
+            respuesta_elegida = random.choice(respuestas_despedida)
+            return translator.translate(respuesta_elegida, dest=lang).text
         else:
             app.logger.info("La frase no es un saludo ni una despedida")
             return None
@@ -573,6 +637,82 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 @app.route('/ask', methods=['POST'])
 def ask():
+    app.logger.info("Solicitud recibida en /ask")
+
+    try:
+        data = request.get_json()
+        chatbot_id = data.get('chatbot_id', 'default_id')
+        fuente_respuesta = "ninguna"
+
+        if 'pares_pregunta_respuesta' in data:
+            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
+            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+
+            if ultima_respuesta == "":
+                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+
+                if encontrada_en_json:
+                    ultima_respuesta = respuesta_preestablecida
+                    fuente_respuesta = "preestablecida"
+                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                    fuente_respuesta = "eventos"
+                else:
+                    app.logger.info("Entrando en la sección del dataset")
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                    if os.path.exists(dataset_file_path):
+                        with open(dataset_file_path, 'r') as file:
+                            datos_del_dataset = json.load(file)
+
+                        # Crear y entrenar el vectorizer
+                        vectorizer = TfidfVectorizer()
+                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+                        vectorizer.fit(prepared_data)
+
+                        # Llamar a encontrar_respuesta con el vectorizer
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
+                        app.logger.info(respuesta_del_dataset)
+
+                        if respuesta_del_dataset:
+                            ultima_respuesta = respuesta_del_dataset
+                            fuente_respuesta = "dataset"
+                        else:
+                            ultima_respuesta = seleccionar_respuesta_por_defecto()
+                            fuente_respuesta = "respuesta_por_defecto"
+
+
+                # Mejora de la respuesta con OpenAI
+                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                    pregunta=ultima_pregunta, 
+                    respuesta=ultima_respuesta, 
+                    new_prompt="", 
+                    contexto_adicional=contexto, 
+                    temperature="", 
+                    model_gpt="", 
+                    chatbot_id=chatbot_id
+                )
+                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+                fuente_respuesta = "mejorada"
+
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
+
+            else:
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
+
+        else:
+            app.logger.warning("Formato de solicitud incorrecto")
+            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+
+    except Exception as e:
+        app.logger.error(f"Error en /ask: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/ask_hola', methods=['POST'])
+def ask_hola():
     app.logger.info("Solicitud recibida en /ask")
 
     try:
