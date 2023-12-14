@@ -1,3 +1,32 @@
+import os
+from flask import Flask
+import logging
+from logging import FileHandler
+import openai
+import unidecode
+
+from flask import Flask
+
+app = Flask(__name__)
+####### Configuración logs #######
+
+if not os.path.exists('logs'):
+    os.mkdir('logs')
+
+file_handler = FileHandler('logs/chatbotiurban.log')
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.DEBUG)  # Usa DEBUG o INFO según necesites
+
+app.logger.addHandler(file_handler)
+app.logger.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consistente con file_handler.setLevel
+
+app.logger.info('Inicio de la aplicación ChatbotIUrban')
+
+
+#######  #######
+
 def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 

@@ -13,6 +13,8 @@ from logging import FileHandler
 # El resto de tu código...
 file_handler = FileHandler('logs/chatbotiurban.log')
 
+app = Flask(__name__)
+
 ####### Configuración logs #######
 
 if not os.path.exists('logs'):
@@ -33,7 +35,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 #######  #######
 
 # Configurar la aplicación Flask (si estás usando Flask)
-app = Flask(__name__)
+
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

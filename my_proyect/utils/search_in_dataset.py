@@ -4,7 +4,7 @@ import unidecode
 import openai
 from flask import Flask
 
-
+app = Flask(__name__)
 ####### Configuración logs #######
 
 if not os.path.exists('logs'):
@@ -25,7 +25,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 #######  #######
 
 # Configurar la aplicación Flask (si estás usando Flask)
-app = Flask(__name__)
+
 nltk.download('punkt')  # Para tokenización
 nltk.download('averaged_perceptron_tagger')  # Para etiquetado POS
 
