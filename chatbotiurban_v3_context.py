@@ -213,6 +213,10 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_p
         return None
 
     # Intentar traducir la respuesta mejorada
+    app.logger.info("pregunta")
+    app.logger.info(pregunta)
+    app.logger.info("respuesta_mejorada")
+    app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
             model="gpt-4",
@@ -540,8 +544,6 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
 
     # Recuperar los resultados
     resultados = retrieve_results(datos, ranked_results, ranked_scores)
-    app.logger.info("resultados")
-    app.logger.info(resultados)
 
     # Manejar los resultados
     if not resultados:
