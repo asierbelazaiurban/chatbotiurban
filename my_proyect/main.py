@@ -50,6 +50,7 @@ from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
 import gensim.downloader as api
+from nltk.util import ngrams
 
 # ---------------------------
 # Módulos Locales

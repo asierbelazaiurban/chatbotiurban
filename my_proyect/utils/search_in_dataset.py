@@ -4,7 +4,10 @@ import unidecode
 import openai
 import logging
 from logging import FileHandler
+from nltk.util import ngrams
 from flask import Flask
+import nltk
+nltk.download('popular') 
 
 app = Flask(__name__)
 ####### Configuración logs #######
