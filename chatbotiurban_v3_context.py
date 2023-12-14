@@ -402,7 +402,7 @@ def identificar_saludo_despedida(frase):
         app.logger.info("frase")  
         app.logger.info(frase) 
 
-         app.logger.info("respuesta_elegida")  
+        app.logger.info("respuesta_elegida")  
         app.logger.info(respuesta_elegida)     
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada al idioma de la pregunta original
@@ -416,6 +416,9 @@ def identificar_saludo_despedida(frase):
         )
 
         respuesta_traducida = traduccion_response.choices[0].message['content'].strip()
+
+        app.logger.info("respuesta_traducida GPT")  
+        app.logger.info(respuesta_traducida)  
         return respuesta_traducida
 
     except Exception as e:
@@ -712,7 +715,7 @@ def ask_hola():
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
 
                 if respuesta_saludo_despedida != False:
-                    return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_despedida'})
+                    return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_o_despedida'})
 
 
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
