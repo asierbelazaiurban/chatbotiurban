@@ -407,7 +407,7 @@ def identificar_saludo_despedida(frase):
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "Identifica si la siguiente frase es un saludo o una despedida, sin información adicional. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
+                {"role": "system", "content": "Identifica si la siguiente frase es exclusivamente un saludo o una despedida, sin información adicional o solicitudes. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
                 {"role": "user", "content": frase}
             ]
         )
@@ -418,27 +418,11 @@ def identificar_saludo_despedida(frase):
 
         app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
-        # Crear un objeto traductor
-        translator = Translator()
-
-        # Detectar el idioma de la frase
-        lang = translator.detect(frase).lang
-
-        # Procesar la respuesta
-        if "saludo" in respuesta:
-            app.logger.info("La frase es un saludo")
-            respuesta_elegida = random.choice(respuestas_saludo)
-            return translator.translate(respuesta_elegida, dest=lang).text
-        elif "despedida" in respuesta:
-            app.logger.info("La frase es una despedida")
-            respuesta_elegida = random.choice(respuestas_despedida)
-            return translator.translate(respuesta_elegida, dest=lang).text
-        else:
-            app.logger.info("La frase no es un saludo ni una despedida")
-            return None
+        # Si la respuesta es 'saludo' o 'despedida', devolver True; de lo contrario, False
+        return respuesta in ["saludo", "despedida"]
     except Exception as e:
         app.logger.error(f"Error al procesar la solicitud: {e}")
-        return None
+        return False
 
 
 
@@ -727,8 +711,9 @@ def ask_hola():
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
-                respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
-                if respuesta_saludo_despedida:
+                es_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                if es_saludo_despedida:
+                    respuesta_saludo_despedida = random.choice(respuestas_saludo if es_saludo_despedida == "saludo" else respuestas_despedida)
                     return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_despedida'})
 
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
