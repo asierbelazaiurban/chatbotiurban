@@ -229,6 +229,8 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id, new_p
     except Exception as e:
         app.logger.error(f"Error al traducir la respuesta: {e}")
 
+    app.logger.info("respuesta_mejorada final")
+    app.logger.info(respuesta_mejorada)
     return respuesta_mejorada
 
 
