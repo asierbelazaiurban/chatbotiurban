@@ -409,7 +409,7 @@ def identificar_saludo_despedida(frase):
         traduccion_response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": f"Traduce, literalmente, asegurate de que sea una traducción literal de  {respuesta_elegida} la siguiente frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma, nunca permitas que se de una pregunta y una respuesta en diferente idioma, ten mucho cuidado con eso"},
+                {"role": "system", "content": f"Traduce, literalmente, asegurate de que sea una traducción literal de: '{respuesta_elegida}' la siguiente frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma, nunca permitas que se de una pregunta y una respuesta en diferente idioma, ten mucho cuidado con eso"},
                 {"role": "user", "content": respuesta_elegida},
                 {"role": "user", "content": frase}
             ]
