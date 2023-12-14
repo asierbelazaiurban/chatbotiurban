@@ -285,6 +285,30 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         return None
 
 
+    # Intentar traducir la respuesta mejorada
+    app.logger.info("pregunta")
+    app.logger.info(pregunta)
+    app.logger.info("respuesta_mejorada")
+    app.logger.info(respuesta_mejorada)
+    try:
+        respuesta_traducida = openai.ChatCompletion.create(
+            model=model_gpt if model_gpt else "gpt-4",
+            messages=[
+                {"role": "system", "content": f"El idioma original es {pregunta}. Traduce, literalmente {respuesta_mejorada}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {pregunta} y :{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy importante"},
+                {"role": "user", "content": respuesta_mejorada}
+            ],
+            temperature=float(temperature) if temperature else 0.7
+        )
+        respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
+    except Exception as e:
+        app.logger.error(f"Error al traducir la respuesta: {e}")
+
+    app.logger.info("respuesta_mejorada final")
+    app.logger.info(respuesta_mejorada)
+    return respuesta_mejorada
+
+
+
 
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
