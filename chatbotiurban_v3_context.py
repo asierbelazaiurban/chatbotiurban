@@ -433,7 +433,7 @@ def identificar_saludo_despedida(frase):
         traduccion_response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal'. Traduce la frase al idioma de la pregunta original, asegurándose de que esté en el mismo idioma. Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas nada , ninguna observacion de ningun tipo ni mensaje de error, repítela tal cual. No agregues comentarios ni observaciones en ningun idioma, solo la traducción literal o la frase repetida si es el mismo idioma,sin observaciones ni otros mensajes es muy muy imoprtante"},                
+                {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_elegida}
             ]
         )
