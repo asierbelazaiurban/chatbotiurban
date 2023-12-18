@@ -762,6 +762,9 @@ def ask():
                 # Buscar en documentos PDF indexados data/uploads/pdfs/15/pdf.json
 
                 pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+                if not os.path.exists(pdf_file_path):
+                    app.logger.info(no se ha encotrado el pdf)
+                    app.logger.info("os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json'")
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
                     app.logger.info("Buscando en documentos PDF indexados")
                     with open(pdf_file_path, 'r') as file:
