@@ -690,6 +690,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 
 ####### Inicio Endpoints #######
+
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
@@ -698,6 +699,7 @@ def ask():
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
         fuente_respuesta = "ninguna"
+        contexto = ""
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -705,6 +707,9 @@ def ask():
                 pregunta = par.get('pregunta', '')
                 respuesta = par.get('respuesta', '')
                 usar_api = par.get('usar_api', 1)
+
+                if len(pares_pregunta_respuesta) > 1:
+                    contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
                 if not respuesta and usar_api:
                     respuesta_cache = encontrar_respuesta_similar(pregunta, chatbot_id)
@@ -746,6 +751,18 @@ def ask():
                                         fuente_respuesta = "respuesta_por_defecto"
 
                 if respuesta:
+                    ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                        pregunta=pregunta, 
+                        respuesta=respuesta, 
+                        new_prompt="", 
+                        contexto_adicional=contexto, 
+                        temperature="", 
+                        model_gpt="", 
+                        chatbot_id=chatbot_id
+                    )
+                    respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else respuesta
+                    fuente_respuesta = "mejorada"
+
                     guardar_en_cache(pregunta, respuesta, chatbot_id)
                     return jsonify({'respuesta': respuesta, 'fuente': fuente_respuesta})
 
@@ -759,6 +776,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/uploads', methods=['POST'])
