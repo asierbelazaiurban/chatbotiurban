@@ -820,7 +820,7 @@ def ask():
 
 
 
-
+@app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
         if 'documento' not in request.files:
