@@ -463,8 +463,63 @@ def extraer_palabras_clave(pregunta):
 
     return palabras_clave
 
- ######## Inicio Endpoints ########
 
+####### Inicio Sistema de cache #######
+
+def obtener_pares_api_simulada(chatbot_id):
+    # Simulando datos en español e inglés relacionados con Valencia
+    pares_pregunta_respuesta = [
+        # Pares en español
+        {"pregunta": "¿Cuál es la mejor época para visitar Valencia?", "respuesta": "La primavera y el otoño son ideales por su clima agradable."},
+        {"pregunta": "¿Qué playas son recomendadas en Valencia?", "respuesta": "Las playas de Malvarrosa y El Saler son muy populares."},
+        {"pregunta": "¿Valencia es una ciudad cara para turistas?", "respuesta": "Valencia es bastante asequible comparada con otras ciudades europeas."},
+        {"pregunta": "¿Hay festivales tradicionales en Valencia?", "respuesta": "Las Fallas es un famoso festival celebrado en marzo."},
+        {"pregunta": "¿Cómo es el transporte público en Valencia?", "respuesta": "El transporte público es eficiente, con una buena red de autobuses y metro."},
+        {"pregunta": "¿Qué museos son imperdibles en Valencia?", "respuesta": "El Museo de las Ciencias Príncipe Felipe y el IVAM son muy recomendados."},
+        {"pregunta": "¿Es Valencia un buen destino para familias?", "respuesta": "Sí, hay muchas actividades y lugares adaptados para niños."},
+        {"pregunta": "¿Qué tipo de comida es típica en Valencia?", "respuesta": "Además de la paella, la horchata y fartons son típicos de Valencia."},
+        {"pregunta": "¿Se puede visitar la Albufera?", "respuesta": "Sí, es una hermosa área natural perfecta para un día de excursión."},
+        {"pregunta": "¿Hay áreas verdes en Valencia?", "respuesta": "El Jardín del Turia ofrece un gran espacio verde en la ciudad."},
+        
+        # Pares en inglés
+        {"pregunta": "What is a must-see landmark in Valencia?", "respuesta": "The City of Arts and Sciences is a must-see architectural marvel."},
+        {"pregunta": "Are there historical sites in Valencia?", "respuesta": "Yes, the Valencia Cathedral and Torres de Serranos are rich in history."},
+        {"pregunta": "Can I find English-speaking guides in Valencia?", "respuesta": "Yes, many tour companies offer services in English."},
+        {"pregunta": "Is Valencia suitable for a weekend trip?", "respuesta": "Absolutely, it's perfect for a short but fulfilling visit."},
+        {"pregunta": "What's the nightlife like in Valencia?", "respuesta": "The nightlife is vibrant, with many bars and clubs in El Carmen."},
+        {"pregunta": "Are there vegan options in Valencia?", "respuesta": "Yes, there are plenty of restaurants offering vegan and vegetarian dishes."},
+        {"pregunta": "How far is the airport from the city center?", "respuesta": "It's about 10 km and easily accessible by metro or taxi."},
+        {"pregunta": "Is public transport in Valencia reliable?", "respuesta": "Yes, it's known for being punctual and well-connected."},
+        {"pregunta": "What local dishes should I try in Valencia?", "respuesta": "Paella Valenciana and Aguas de Valencia are local specialties."},
+        {"pregunta": "Is Valencia a walkable city?", "respuesta": "Yes, many of its attractions are within walking distance in the city center."} 
+    ]
+    return pares_pregunta_respuesta
+
+def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
+    pares_api = obtener_pares_api_simulada(chatbot_id)
+    if not pares_api:
+        return None
+
+    preguntas = [par['pregunta'] for par in pares_api if par['respuesta']]
+    respuestas = {par['pregunta']: par['respuesta'] for par en pares_api if par['respuesta']}
+
+    if not preguntas:
+        return None
+
+    vectorizer = TfidfVectorizer()
+    matriz_tfidf = vectorizer.fit_transform(preguntas)
+
+    pregunta_vectorizada = vectorizer.transform([pregunta_usuario])
+    similitudes = cosine_similarity(pregunta_vectorizada, matriz_tfidf)
+
+    indice_mas_similar = np.argmax(similitudes)
+    if similitudes[0, indice_mas_similar] > 0.5:
+        pregunta_similar = preguntas[indice_mas_similar]
+        return respuestas[pregunta_similar]
+    else:
+        return None
+
+####### Fin Sistema de cache #######
 
 ####### Utils busqueda en Json #######
 
@@ -642,7 +697,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### Inicio Endpoints #######
 
-@app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
 
@@ -655,6 +709,7 @@ def ask():
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+            usar_api = pares_pregunta_respuesta[-1].get('usar_api', 0)
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
@@ -664,7 +719,6 @@ def ask():
                 if respuesta_saludo_despedida != False:
                     return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_o_despedida'})
 
-
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
 
                 if encontrada_en_json:
@@ -673,8 +727,13 @@ def ask():
                 elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                     fuente_respuesta = "eventos"
-                else:
-                    app.logger.info("Entrando en la sección del dataset")
+                elif usar_api:
+                    respuesta_api = encontrar_respuesta_similar(ultima_pregunta, chatbot_id)
+                    if respuesta_api:
+                        ultima_respuesta = respuesta_api
+                        fuente_respuesta = "API"
+                
+                if ultima_respuesta == "":
                     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                     if os.path.exists(dataset_file_path):
                         with open(dataset_file_path, 'r') as file:
@@ -685,8 +744,6 @@ def ask():
                         vectorizer.fit(prepared_data)
 
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        app.logger.info(respuesta_del_dataset)
-
                         if respuesta_del_dataset:
                             ultima_respuesta = respuesta_del_dataset
                             fuente_respuesta = "dataset"
