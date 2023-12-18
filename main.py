@@ -603,32 +603,38 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
         data = json.load(file)
     return data
 
+# Procesamiento de consultas de usuario
 def preprocess_query(query):
+    # Preprocesamiento básico de la consulta
     tokens = nltk.word_tokenize(query.lower())
     stop_words = set(stopwords.words('spanish'))
-    return ' '.join([word for word in tokens if word not in stop_words and word.isalnum()])
+    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
+    return ' '.join(filtered_tokens)
 
-def extraer_y_recortar_respuesta(texto, pregunta, max_palabras):
-    # Extracción y recorte de respuesta
-    palabras_pregunta = set(pregunta.split())
-    palabras_texto = texto.split()
-    palabras_respuesta = [palabra for palabra in palabras_texto if palabra in palabras_pregunta]
-    return ' '.join(palabras_respuesta[:max_palabras])
-
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', max_palabras=50):
+# Encontrar respuesta
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
+    # Convertir los datos del dataset a texto
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+
+    # Crear y ajustar el vectorizador
     vectorizer = TfidfVectorizer()
     vectorizer.fit(datos_texto)
+
+    # Preprocesar y vectorizar la pregunta
     pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
     encoded_query = vectorizer.transform([pregunta_procesada])
+
+    # Vectorizar los datos
     encoded_data = vectorizer.transform(datos_texto)
+
+    # Realizar la búsqueda de similitud
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
+    
     if similarity_scores[0, indice_mas_similar] > 0:
-        respuesta_completa = datos_texto[indice_mas_similar]
-        return extraer_y_recortar_respuesta(respuesta_completa, pregunta, max_palabras)
-    return False
+        return datos_texto[indice_mas_similar]
 
+    return False
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
