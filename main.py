@@ -611,7 +611,7 @@ def preprocess_query(query):
     filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
     return ' '.join(filtered_tokens)
 
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', umbral_similitud=0.1):
     # Convertir los datos del dataset a texto
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
@@ -630,19 +630,22 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
 
-    if similarity_scores[0, indice_mas_similar] > 0:
-        texto = datos_texto[indice_mas_similar]
+    # Verificar si la similitud es mayor que el umbral establecido
+    if similarity_scores[0, indice_mas_similar] < umbral_similitud:
+        return False
 
-        # Tokenizar el texto
-        palabras = word_tokenize(texto)
+    texto = datos_texto[indice_mas_similar]
 
-        # Encontrar la ubicación de la palabra más relevante
-        indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada)
+    # Tokenizar el texto
+    palabras = word_tokenize(texto)
 
-        # Seleccionar 100 palabras centradas en la palabra relevante
-        inicio = max(0, indice_palabra_relevante - 50)
-        fin = min(len(palabras), indice_palabra_relevante + 50)
-        return ' '.join(palabras[inicio:fin])
+    # Encontrar la ubicación de la palabra más relevante
+    indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada)
+
+    # Seleccionar 100 palabras centradas en la palabra relevante
+    inicio = max(0, indice_palabra_relevante - 50)
+    fin = min(len(palabras), indice_palabra_relevante + 50)
+    return ' '.join(palabras[inicio:fin])
 
 def encontrar_indice_palabra_relevante(palabras, pregunta_procesada):
     # Esta función busca las palabras clave de la pregunta en el texto y devuelve el índice
