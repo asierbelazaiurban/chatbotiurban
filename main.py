@@ -104,6 +104,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
 BASE_PDFS_DIR = "data/uploads/pdfs/"
+BASE_PDFS_DIR_JSON = "data/uploads/pdfs/json/"
 BASE_CACHE_DIR =  "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
@@ -845,7 +846,7 @@ def upload_file():
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
         # Crear o actualizar el archivo JSON de indexación
-        pdf_index_file_path = os.path.join(BASE_PDFS_DIR, str(chatbot_id), 'pdf.json')
+        pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
         os.makedirs(os.path.dirname(pdf_index_file_path), exist_ok=True)
 
         pdf_entries = {}
