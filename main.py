@@ -467,7 +467,7 @@ def extraer_palabras_clave(pregunta):
 
 ####### Inicio Sistema de cache #######
 
- def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
+def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
