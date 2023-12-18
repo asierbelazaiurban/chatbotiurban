@@ -750,6 +750,7 @@ def ask():
 
                 if not respuesta and usar_api:
                     respuesta_cache = encontrar_respuesta_similar(pregunta, chatbot_id)
+                    respuesta_cache = false
                     if respuesta_cache:
                         respuesta = respuesta_cache
                         fuente_respuesta = 'cache'
