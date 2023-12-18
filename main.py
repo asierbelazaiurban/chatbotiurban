@@ -761,6 +761,14 @@ def ask():
                         ultima_respuesta = respuesta_preestablecida
                         app.logger.info("Respuesta preestablecida encontrada")
 
+                if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                    app.logger.info("Buscando en eventos relacionados")
+                    respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
+                    if respuesta_eventos and respuesta_eventos != False:
+                        fuente_respuesta = 'eventos'
+                        ultima_respuesta = respuesta_eventos
+                        app.logger.info("Respuesta de eventos relacionados encontrada")
+
                 pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
                     app.logger.info("Buscando en documentos PDF indexados")
@@ -771,14 +779,6 @@ def ask():
                         fuente_respuesta = 'Docs'
                         ultima_respuesta = respuesta_del_pdf
                         app.logger.info("Respuesta encontrada en documentos PDF")
-
-                if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    app.logger.info("Buscando en eventos relacionados")
-                    respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
-                    if respuesta_eventos and respuesta_eventos != False:
-                        fuente_respuesta = 'eventos'
-                        ultima_respuesta = respuesta_eventos
-                        app.logger.info("Respuesta de eventos relacionados encontrada")
 
                 dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                 if not ultima_respuesta and os.path.exists(dataset_file_path):
