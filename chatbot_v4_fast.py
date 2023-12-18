@@ -219,7 +219,6 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
-
     app.logger.info("Entrando en OpenAI")
 
     # Definir las rutas base para los prompts
@@ -242,14 +241,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     if new_prompt_by_id:
         new_prompt = new_prompt_by_id
     elif new_prompt:
-        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
-        try:
-            with open(prompt_file_path_direct, 'r') as file:
-                new_prompt_direct = file.read()
-            new_prompt = new_prompt_direct
-            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
-        except Exception as e:
-            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
+        new_prompt = new_prompt
 
     # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
     if not contexto_adicional:
@@ -257,7 +249,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
-        new_prompt = ("Responde con menos 50 palabras, lo mas corto posible para resumir y mejorar la respuesta. Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
+        new_prompt = ("Responde con menos de 50 palabras, lo mas corto posible para resumir y mejorar la respuesta. Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
                       "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
                       "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
                       "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
@@ -266,7 +258,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Responde como menos con 50 palabras. Obvia o quita todo lo que no tenga que ver con la pregunta como por ejemplo (close mobile menu expander, user account menu user...).El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma.Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Responde como menos con 50 palabras. Obvia o quita todo lo que no tenga que ver con la pregunta. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta}, al idioma de la pregiunta. Asegurate de que sea una traducción literal. Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma. Si hay algun tema con la codificación o caracteres, no te refieras ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -280,13 +272,19 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
             temperature=float(temperature) if temperature else 0.5
         )
         improved_response = response.choices[0].message['content'].strip()
+
+        # Limitar la respuesta a 50 palabras
+        palabras = improved_response.split()
+        if len(palabras) > 50:
+            improved_response = ' '.join(palabras[:50])
+
         app.logger.info("Respuesta generada con éxito.")
-        respuesta_mejorada = improved_response
-        return respuesta_mejorada
+        return improved_response
         
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
 
 
 
