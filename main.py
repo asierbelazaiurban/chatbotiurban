@@ -183,7 +183,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
     new_prompt = new_prompt_by_id if new_prompt_by_id else (
         "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
-        "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
+        "en este momento sobre este tema, ¿Puedes ampliarme la pregunta? o ¿Puedo ayudarte en algo mas?'. Actúa como un guía turístico experto, "
         "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
         "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
         "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "

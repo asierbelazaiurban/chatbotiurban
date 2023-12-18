@@ -70,7 +70,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
     if not fecha_inicial or not fecha_final:
         app.logger.info("No se encontraron fechas válidas en la pregunta.")
-        return "No se encontraron fechas válidas en la pregunta."
+        return False  # Retorna False si no se encuentran fechas válidas
 
     app.logger.info("ID del Chatbot utilizado: %s", chatbot_id)
 
@@ -99,7 +99,6 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return "Error al obtener eventos: " + str(e)
-
 
 
 
