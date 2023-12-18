@@ -103,6 +103,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
+BASE_CACHE_DIR = = "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
@@ -466,41 +467,14 @@ def extraer_palabras_clave(pregunta):
 
 ####### Inicio Sistema de cache #######
 
-def obtener_pares_api_simulada(chatbot_id):
-    # Simulando datos en español e inglés relacionados con Valencia
-    pares_pregunta_respuesta = [
-        # Pares en español
-        {"pregunta": "¿Cuál es la mejor época para visitar Valencia?", "respuesta": "La primavera y el otoño son ideales por su clima agradable."},
-        {"pregunta": "¿Qué playas son recomendadas en Valencia?", "respuesta": "Las playas de Malvarrosa y El Saler son muy populares."},
-        {"pregunta": "¿Valencia es una ciudad cara para turistas?", "respuesta": "Valencia es bastante asequible comparada con otras ciudades europeas."},
-        {"pregunta": "¿Hay festivales tradicionales en Valencia?", "respuesta": "Las Fallas es un famoso festival celebrado en marzo."},
-        {"pregunta": "¿Cómo es el transporte público en Valencia?", "respuesta": "El transporte público es eficiente, con una buena red de autobuses y metro."},
-        {"pregunta": "¿Qué museos son imperdibles en Valencia?", "respuesta": "El Museo de las Ciencias Príncipe Felipe y el IVAM son muy recomendados."},
-        {"pregunta": "¿Es Valencia un buen destino para familias?", "respuesta": "Sí, hay muchas actividades y lugares adaptados para niños."},
-        {"pregunta": "¿Qué tipo de comida es típica en Valencia?", "respuesta": "Además de la paella, la horchata y fartons son típicos de Valencia."},
-        {"pregunta": "¿Se puede visitar la Albufera?", "respuesta": "Sí, es una hermosa área natural perfecta para un día de excursión."},
-        {"pregunta": "¿Hay áreas verdes en Valencia?", "respuesta": "El Jardín del Turia ofrece un gran espacio verde en la ciudad."},
-        
-        # Pares en inglés
-        {"pregunta": "What is a must-see landmark in Valencia?", "respuesta": "The City of Arts and Sciences is a must-see architectural marvel."},
-        {"pregunta": "Are there historical sites in Valencia?", "respuesta": "Yes, the Valencia Cathedral and Torres de Serranos are rich in history."},
-        {"pregunta": "Can I find English-speaking guides in Valencia?", "respuesta": "Yes, many tour companies offer services in English."},
-        {"pregunta": "Is Valencia suitable for a weekend trip?", "respuesta": "Absolutely, it's perfect for a short but fulfilling visit."},
-        {"pregunta": "What's the nightlife like in Valencia?", "respuesta": "The nightlife is vibrant, with many bars and clubs in El Carmen."},
-        {"pregunta": "Are there vegan options in Valencia?", "respuesta": "Yes, there are plenty of restaurants offering vegan and vegetarian dishes."},
-        {"pregunta": "How far is the airport from the city center?", "respuesta": "It's about 10 km and easily accessible by metro or taxi."},
-        {"pregunta": "Is public transport in Valencia reliable?", "respuesta": "Yes, it's known for being punctual and well-connected."},
-        {"pregunta": "What local dishes should I try in Valencia?", "respuesta": "Paella Valenciana and Aguas de Valencia are local specialties."},
-        {"pregunta": "Is Valencia a walkable city?", "respuesta": "Yes, many of its attractions are within walking distance in the city center."} 
-    ]
-    return pares_pregunta_respuesta
-
-def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
-    pares_api = obtener_pares_api_simulada(chatbot_id)
-    if not pares_api:
+ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
+    if os.path.exists(cache_file_path):
+        with open(cache_file_path, 'r') as file:
+            pares_api = json.load(file)
+    else:
         return None
 
-    # Creando listas de preguntas y un diccionario de respuestas
     preguntas = []
     respuestas = {}
     for par in pares_api:
@@ -523,6 +497,19 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
         return respuestas[pregunta_similar]
     else:
         return None
+
+
+def guardar_en_cache(pregunta, respuesta, chatbot_id):
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
+    if os.path.exists(cache_file_path):
+        with open(cache_file_path, 'r') as file:
+            cache_data = json.load(file)
+    else:
+        cache_data = []
+
+    cache_data.append({'pregunta': pregunta, 'respuesta': respuesta, 'usar_api': 1})
+    with open(cache_file_path, 'w') as file:
+        json.dump(cache_data, file)
 
 
 
@@ -710,67 +697,55 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
-        fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
-            usar_api = pares_pregunta_respuesta[-1].get('usar_api', 0)
-            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
 
             if ultima_respuesta == "":
                 app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
+
+                # Primero, intentar encontrar una respuesta en el caché
+                respuesta_cache = encontrar_respuesta_similar(ultima_pregunta, chatbot_id)
+                if respuesta_cache:
+                    return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
+
+                # Intentar identificar saludos o despedidas
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                if respuesta_saludo_despedida:
+                    ultima_respuesta = respuesta_saludo_despedida
+                    fuente_respuesta = 'saludo_o_despedida'
 
-                if respuesta_saludo_despedida != False:
-                    return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_o_despedida'})
+                # Buscar en respuestas preestablecidas
+                if not ultima_respuesta:
+                    respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                    if encontrada_en_json:
+                        ultima_respuesta = respuesta_preestablecida
+                        fuente_respuesta = 'preestablecida'
 
-                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-
-                if encontrada_en_json:
-                    ultima_respuesta = respuesta_preestablecida
-                    fuente_respuesta = "preestablecida"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                # Buscar en eventos relacionados con OpenAI
+                if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    fuente_respuesta = "eventos"
-                elif usar_api:
-                    respuesta_api = encontrar_respuesta_similar(ultima_pregunta, chatbot_id)
-                    if respuesta_api:
-                        ultima_respuesta = respuesta_api
-                        fuente_respuesta = "API"
-                
-                if ultima_respuesta == "":
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
+                    fuente_respuesta = 'eventos'
 
-                        vectorizer = TfidfVectorizer()
-                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                        vectorizer.fit(prepared_data)
+                # Si aún no se ha encontrado respuesta, mejorar la pregunta con OpenAI
+                if not ultima_respuesta:
+                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
+                        pregunta=ultima_pregunta, 
+                        respuesta=ultima_respuesta, 
+                        new_prompt="", 
+                        contexto_adicional="", 
+                        temperature="", 
+                        model_gpt="", 
+                        chatbot_id=chatbot_id
+                    )
+                    fuente_respuesta = 'mejorada'
 
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        if respuesta_del_dataset:
-                            ultima_respuesta = respuesta_del_dataset
-                            fuente_respuesta = "dataset"
-                        else:
-                            ultima_respuesta = seleccionar_respuesta_por_defecto()
-                            fuente_respuesta = "respuesta_por_defecto"
-
-                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                    pregunta=ultima_pregunta, 
-                    respuesta=ultima_respuesta, 
-                    new_prompt="", 
-                    contexto_adicional=contexto, 
-                    temperature="", 
-                    model_gpt="", 
-                    chatbot_id=chatbot_id
-                )
-                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-                fuente_respuesta = "mejorada"
-
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
+                # Suponiendo que se obtiene una respuesta, se guarda en el caché
+                if ultima_respuesta:
+                    guardar_en_cache(ultima_pregunta, ultima_respuesta, chatbot_id)
+                    return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
