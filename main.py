@@ -637,6 +637,14 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
 
     return False
 
+# Procesamiento de consultas de usuario
+def preprocess_query(query):
+    # Preprocesamiento básico de la consulta
+    tokens = nltk.word_tokenize(query.lower())
+    stop_words = set(stopwords.words('spanish'))
+    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
+    return ' '.join(filtered_tokens)
+
 def extraer_frases_relevantes(texto, pregunta, max_palabras):
     # Tokenizar el texto y la pregunta
     palabras_texto = texto.split()
@@ -756,7 +764,7 @@ def ask():
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
 
-                pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+                pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
                     with open(pdf_file_path, 'r') as file:
                         datos_del_pdf = json.load(file)
