@@ -550,7 +550,6 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
 ####### Fin Sistema de cache #######
 
 
-
 # Función auxiliar para mapear etiquetas POS a WordNet POS
 def get_wordnet_pos(token):
     tag = nltk.pos_tag([token])[0][1][0].upper()
@@ -635,15 +634,6 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
     if similarity_scores[0, indice_mas_similar] > 0:
         return datos_texto[indice_mas_similar]
 
-    return False
-
-# Procesamiento de consultas de usuario
-def preprocess_query(query):
-    # Preprocesamiento básico de la consulta
-    tokens = nltk.word_tokenize(query.lower())
-    stop_words = set(stopwords.words('spanish'))
-    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
-    return ' '.join(filtered_tokens)
 
 def extraer_frases_relevantes(texto, pregunta, max_palabras):
     # Tokenizar el texto y la pregunta
