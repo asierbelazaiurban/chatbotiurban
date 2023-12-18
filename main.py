@@ -629,18 +629,29 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
     # Realizar la búsqueda de similitud
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
-    
+
     if similarity_scores[0, indice_mas_similar] > 0:
         texto = datos_texto[indice_mas_similar]
-        
-        # Ajustar la longitud de la respuesta a 50 palabras
+
+        # Tokenizar el texto
         palabras = word_tokenize(texto)
-        if len(palabras) > 50:
-            return ' '.join(palabras[:50])
-        elif len(palabras) < 50:
-            return texto + ' ' + ' '.join(['[relleno]'] * (50 - len(palabras)))
-        else:
-            return texto
+
+        # Encontrar la ubicación de la palabra más relevante
+        indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada)
+
+        # Seleccionar 100 palabras centradas en la palabra relevante
+        inicio = max(0, indice_palabra_relevante - 50)
+        fin = min(len(palabras), indice_palabra_relevante + 50)
+        return ' '.join(palabras[inicio:fin])
+
+def encontrar_indice_palabra_relevante(palabras, pregunta_procesada):
+    # Esta función busca las palabras clave de la pregunta en el texto y devuelve el índice
+    # de la primera coincidencia. Si no hay coincidencias directas, devuelve el centro del texto.
+    palabras_clave = pregunta_procesada.split()
+    for i, palabra in enumerate(palabras):
+        if palabra in palabras_clave:
+            return i
+    return len(palabras) // 2
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
