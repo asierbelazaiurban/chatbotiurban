@@ -733,6 +733,7 @@ def ask():
         app.logger.info(f"Chatbot ID: {chatbot_id}")
         fuente_respuesta = "ninguna"
         contexto = ""
+        respuesta = None
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -750,7 +751,6 @@ def ask():
 
                 if not respuesta and usar_api:
                     respuesta_cache = encontrar_respuesta_similar(pregunta, chatbot_id)
-                    respuesta_cache = False
                     if respuesta_cache:
                         respuesta = respuesta_cache
                         fuente_respuesta = 'cache'
@@ -818,7 +818,6 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 
 @app.route('/uploads', methods=['POST'])
