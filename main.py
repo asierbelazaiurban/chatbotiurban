@@ -709,6 +709,7 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        app.logger.info(f"Chatbot ID: {chatbot_id}")
         fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
@@ -716,50 +717,62 @@ def ask():
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+            app.logger.info(f"Última pregunta recibida: {ultima_pregunta}, Contexto: {contexto}")
 
             if ultima_respuesta == "":
-                app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
-
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                app.logger.info("Verificando si es un saludo o despedida")
                 if respuesta_saludo_despedida:
                     fuente_respuesta = 'saludo_o_despedida'
                     ultima_respuesta = respuesta_saludo_despedida
+                    app.logger.info("Respuesta de saludo/despedida encontrada")
 
                 if not ultima_respuesta:
+                    app.logger.info("Buscando en respuestas preestablecidas NLP")
                     respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                     if encontrada_en_json:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
+                        app.logger.info("Respuesta preestablecida encontrada")
 
                 pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
+                    app.logger.info("Buscando en documentos PDF indexados")
                     with open(pdf_file_path, 'r') as file:
                         datos_del_pdf = json.load(file)
                     respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
                     if respuesta_del_pdf:
                         fuente_respuesta = 'Docs'
                         ultima_respuesta = respuesta_del_pdf
+                        app.logger.info("Respuesta encontrada en documentos PDF")
 
                 if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                    app.logger.info("Buscando en eventos relacionados")
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
                     if respuesta_eventos and respuesta_eventos != False:
                         fuente_respuesta = 'eventos'
                         ultima_respuesta = respuesta_eventos
+                        app.logger.info("Respuesta de eventos relacionados encontrada")
 
                 dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                 if not ultima_respuesta and os.path.exists(dataset_file_path):
+                    app.logger.info("Buscando en el dataset")
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
                     if respuesta_del_dataset:
                         fuente_respuesta = 'dataset'
                         ultima_respuesta = respuesta_del_dataset
+                        app.logger.info("Respuesta encontrada en el dataset")
 
                 if not ultima_respuesta:
+                    app.logger.info("Seleccionando una respuesta por defecto")
                     fuente_respuesta = 'respuesta_por_defecto'
                     ultima_respuesta = seleccionar_respuesta_por_defecto()
+                    app.logger.info("Respuesta por defecto seleccionada")
 
                 if ultima_respuesta and ultima_respuesta != False:
+                    app.logger.info("Mejorando la respuesta con OpenAI")
                     ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta, 
                         respuesta=ultima_respuesta, 
@@ -771,10 +784,12 @@ def ask():
                     )
                     ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
                     fuente_respuesta = 'mejorada'
+                    app.logger.info("Respuesta mejorada con OpenAI")
 
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
+                app.logger.info("Respondiendo con respuesta existente")
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
@@ -785,6 +800,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 
