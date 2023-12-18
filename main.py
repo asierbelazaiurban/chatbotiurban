@@ -836,50 +836,67 @@ def upload_file():
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
+        if not chatbot_id:
+            return jsonify({"respuesta": "No se proporcionó el chatbot_id", "codigo_error": 1})
+        
         app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
             app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Ruta modificada para guardar en BASE_PDFS_DIR
+        # Ruta para guardar los archivos PDF
         pdfs_folder = os.path.join(BASE_PDFS_DIR, str(chatbot_id))
         os.makedirs(pdfs_folder, exist_ok=True)
+
+        # Evitar sobrescribir archivos existentes
+        file_index = 1
         file_path = os.path.join(pdfs_folder, uploaded_file.filename)
+        while os.path.exists(file_path):
+            file_path = os.path.join(pdfs_folder, f"{file_index}_{uploaded_file.filename}")
+            file_index += 1
+
         uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en: {file_path}")
 
-        # Procesar archivo y obtener contenido legible
-        # Suponiendo que process_file es una función ya definida para procesar el archivo
+        # Procesar el contenido del archivo
         readable_content = process_file(file_path, os.path.splitext(uploaded_file.filename)[1][1:].lower())
         if readable_content is None:
             app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        # Crear o actualizar el archivo JSON de indexación
-        pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+        # Ruta del archivo JSON para la indexación
+        pdf_index_file_path = os.path.join(BASE_PDFS_DIR, str(chatbot_id), 'dataset.json')
         os.makedirs(os.path.dirname(pdf_index_file_path), exist_ok=True)
 
+        # Leer o inicializar el archivo de indexación
         pdf_entries = {}
         if os.path.exists(pdf_index_file_path):
             with open(pdf_index_file_path, 'r', encoding='utf-8') as json_file:
                 pdf_entries = json.load(json_file)
 
-        # Agregar nueva entrada de indexación
-        pdf_entries[uploaded_file.filename] = {
-            "contenido": readable_content,
-            "url": file_path
+        # Agregar nueva entrada al índice
+        pdf_entries[file_index] = {
+            "indice": file_index,
+            "url": uploaded_file.filename,  # Nombre del archivo
+            "dialogue": readable_content   # Contenido del archivo
         }
 
+        # Guardar el índice actualizado
         with open(pdf_index_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(pdf_entries, json_file_to_write, ensure_ascii=False, indent=4)
-        app.logger.info("Archivo de indexación actualizado y guardado")
+        app.logger.info("Índice de archivos PDF actualizado y guardado")
 
-        return jsonify({"respuesta": "Archivo procesado y indexado con éxito.", "codigo_error": 0})
+        return jsonify({
+            "respuesta": "Archivo procesado y añadido al índice con éxito.",
+            "indice": file_index,
+            "codigo_error": 0
+        })
 
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
 
 
 
