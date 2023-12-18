@@ -831,10 +831,15 @@ def upload_file():
             app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Ruta modificada para guardar en data/uploads/docs/{chatbot_id}/
-        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
-        os.makedirs(docs_folder, exist_ok=True)
-        file_path = os.path.join(docs_folder, uploaded_file.filename)
+        # Ruta modificada para guardar en BASE_PDFS_DIR
+        pdfs_folder = os.path.join(BASE_PDFS_DIR, str(chatbot_id))
+        os.makedirs(pdfs_folder, exist_ok=True)
+        # Asegurando que no se sobreescriban archivos existentes
+        file_index = 1
+        file_path = os.path.join(pdfs_folder, uploaded_file.filename)
+        while os.path.exists(file_path):
+            file_path = os.path.join(pdfs_folder, f"{file_index}_{uploaded_file.filename}")
+            file_index += 1
         uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en: {file_path}")
 
@@ -845,6 +850,7 @@ def upload_file():
 
         word_count = len(readable_content.split())
 
+        # Crear o actualizar el archivo JSON del dataset
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
@@ -853,8 +859,10 @@ def upload_file():
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
 
-        dataset_entries[uploaded_file.filename] = {
-            "indice": uploaded_file.filename,
+        # Agregar nueva entrada al dataset
+        dataset_entries[file_index] = {
+            "indice": file_index,
+            "nombre_archivo": uploaded_file.filename,
             "url": file_path,
             "dialogue": readable_content
         }
@@ -863,6 +871,7 @@ def upload_file():
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
         app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
+        # Respuesta final
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
             "word_count": word_count,
