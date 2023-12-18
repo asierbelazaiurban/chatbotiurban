@@ -103,8 +103,6 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
-BASE_PDFS_DIR = "data/uploads/pdfs/"
-BASE_PDFS_DIR_JSON = "data/uploads/pdfs/json/"
 BASE_CACHE_DIR =  "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
@@ -550,7 +548,6 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
 ####### Fin Sistema de cache #######
 
 
-
 # Función auxiliar para mapear etiquetas POS a WordNet POS
 def get_wordnet_pos(token):
     tag = nltk.pos_tag([token])[0][1][0].upper()
@@ -636,24 +633,6 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
         return datos_texto[indice_mas_similar]
 
     return False
-
-def extraer_frases_relevantes(texto, pregunta, max_palabras):
-    # Tokenizar el texto y la pregunta
-    palabras_texto = texto.split()
-    palabras_pregunta = set(pregunta.split())
-
-    # Encontrar las frases del texto que contienen palabras de la pregunta
-    frases_relevantes = []
-    frase_actual = []
-    for palabra in palabras_texto:
-        frase_actual.append(palabra)
-        if palabra in palabras_pregunta:
-            frases_relevantes.extend(frase_actual)
-            frase_actual = []
-
-    # Limitar la longitud de la respuesta y convertirla a una cadena de texto
-    respuesta_resumida = ' '.join(frases_relevantes[:max_palabras])
-    return respuesta_resumida
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
@@ -745,51 +724,49 @@ def ask():
             if ultima_respuesta == "":
                 app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
 
+                # Verificar si es un saludo o despedida
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
                 if respuesta_saludo_despedida:
                     fuente_respuesta = 'saludo_o_despedida'
                     ultima_respuesta = respuesta_saludo_despedida
 
+                # Buscar en respuestas preestablecidas NLP
                 if not ultima_respuesta:
                     respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                     if encontrada_en_json:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
 
-                pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
-                if not ultima_respuesta and os.path.exists(pdf_file_path):
-                    with open(pdf_file_path, 'r') as file:
-                        datos_del_pdf = json.load(file)
-                    vectorizer = TfidfVectorizer()
-                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_pdf.values()]
-                    vectorizer.fit(prepared_data)
-                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, vectorizer, contexto)
-                    if respuesta_drespuesta_del_pdfel_dataset:
-                        fuente_respuesta = 'Docs'
-                        ultima_respuesta = respuesta_del_dataset
-
+                # Buscar eventos relacionados
                 if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
                     if respuesta_eventos and respuesta_eventos != False:
                         fuente_respuesta = 'eventos'
                         ultima_respuesta = respuesta_eventos
 
-                dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                if not ultima_respuesta and os.path.exists(dataset_file_path):
-                    with open(dataset_file_path, 'r') as file:
-                        datos_del_dataset = json.load(file)
-                    vectorizer = TfidfVectorizer()
-                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                    vectorizer.fit(prepared_data)
-                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                    if respuesta_del_dataset:
-                        fuente_respuesta = 'dataset'
-                        ultima_respuesta = respuesta_del_dataset
+                # Buscar en el dataset
+                if not ultima_respuesta:
+                    app.logger.info("Entrando en la sección del dataset")
+                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                    if os.path.exists(dataset_file_path):
+                        with open(dataset_file_path, 'r') as file:
+                            datos_del_dataset = json.load(file)
 
+                        vectorizer = TfidfVectorizer()
+                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+                        vectorizer.fit(prepared_data)
+
+                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
+                        if respuesta_del_dataset:
+                            fuente_respuesta = 'dataset'
+                            ultima_respuesta = respuesta_del_dataset
+
+                # Seleccionar una respuesta por defecto si aún no se ha encontrado una
                 if not ultima_respuesta:
                     fuente_respuesta = 'respuesta_por_defecto'
                     ultima_respuesta = seleccionar_respuesta_por_defecto()
 
+                # Mejorar la respuesta con OpenAI si se ha obtenido una
                 if ultima_respuesta and ultima_respuesta != False:
                     ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta, 
@@ -819,7 +796,6 @@ def ask():
 
 
 
-
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
@@ -829,66 +805,55 @@ def upload_file():
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
-        if not chatbot_id:
-            return jsonify({"respuesta": "No se proporcionó el chatbot_id", "codigo_error": 1})
-        
         app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
             app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Ruta para guardar los archivos PDF
-        pdfs_folder = os.path.join(BASE_PDFS_DIR, str(chatbot_id))
-        os.makedirs(pdfs_folder, exist_ok=True)
-
-        # Evitar sobrescribir archivos existentes
-        file_index = 1
-        file_path = os.path.join(pdfs_folder, uploaded_file.filename)
-        while os.path.exists(file_path):
-            file_path = os.path.join(pdfs_folder, f"{file_index}_{uploaded_file.filename}")
-            file_index += 1
-
+        # Ruta modificada para guardar en data/uploads/docs/{chatbot_id}/
+        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
+        os.makedirs(docs_folder, exist_ok=True)
+        file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en: {file_path}")
 
-        # Procesar el contenido del archivo
         readable_content = process_file(file_path, os.path.splitext(uploaded_file.filename)[1][1:].lower())
         if readable_content is None:
             app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        # Ruta del archivo JSON para la indexación
-        pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
-        os.makedirs(os.path.dirname(pdf_index_file_path), exist_ok=True)
+        word_count = len(readable_content.split())
 
-        # Leer o inicializar el archivo de indexación
-        pdf_entries = {}
-        if os.path.exists(pdf_index_file_path):
-            with open(pdf_index_file_path, 'r', encoding='utf-8') as json_file:
-                pdf_entries = json.load(json_file)
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
-        # Agregar nueva entrada al índice
-        pdf_entries[file_index] = {
-            "indice": file_index,
-            "url": uploaded_file.filename,  # Nombre del archivo
-            "dialogue": readable_content   # Contenido del archivo
+        dataset_entries = {}
+        if os.path.exists(dataset_file_path):
+            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+                dataset_entries = json.load(json_file)
+
+        dataset_entries[uploaded_file.filename] = {
+            "indice": uploaded_file.filename,
+            "url": file_path,
+            "dialogue": readable_content
         }
 
-        # Guardar el índice actualizado
-        with open(pdf_index_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            json.dump(pdf_entries, json_file_to_write, ensure_ascii=False, indent=4)
-        app.logger.info("Índice de archivos PDF actualizado y guardado")
+        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+        app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
-            "respuesta": "Archivo procesado y añadido al índice con éxito.",
-            "indice": file_index,
+            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "word_count": word_count,
             "codigo_error": 0
         })
 
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
+
 
 
 @app.route('/save_text', methods=['POST'])
