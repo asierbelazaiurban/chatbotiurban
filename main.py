@@ -200,7 +200,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -273,7 +273,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-3.5-turbo",
+            model=model_gpt if model_gpt else "gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
