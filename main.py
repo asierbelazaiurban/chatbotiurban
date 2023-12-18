@@ -748,21 +748,21 @@ def ask():
                     ultima_respuesta = respuesta_saludo_despedida
 
                 # Buscar en respuestas preestablecidas NLP
-                elif not ultima_respuesta:
+                if not ultima_respuesta:
                     respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                     if encontrada_en_json:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
 
                 # Buscar eventos relacionados
-                elif not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
                     if respuesta_eventos and respuesta_eventos != False:
                         fuente_respuesta = 'eventos'
                         ultima_respuesta = respuesta_eventos
 
                 # Buscar en el dataset
-                elif not ultima_respuesta:
+                if not ultima_respuesta:
                     app.logger.info("Entrando en la sección del dataset")
                     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                     if os.path.exists(dataset_file_path):
@@ -774,8 +774,6 @@ def ask():
                         vectorizer.fit(prepared_data)
 
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        app.logger.info(f"Respuesta del dataset: {respuesta_del_dataset}")
-
                         if respuesta_del_dataset:
                             fuente_respuesta = 'dataset'
                             ultima_respuesta = respuesta_del_dataset
