@@ -611,7 +611,6 @@ def preprocess_query(query):
     filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
     return ' '.join(filtered_tokens)
 
-# Encontrar respuesta
 def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
     # Convertir los datos del dataset a texto
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
@@ -632,9 +631,16 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
     indice_mas_similar = similarity_scores.argmax()
     
     if similarity_scores[0, indice_mas_similar] > 0:
-        return datos_texto[indice_mas_similar]
-
-    return False
+        texto = datos_texto[indice_mas_similar]
+        
+        # Ajustar la longitud de la respuesta a 50 palabras
+        palabras = word_tokenize(texto)
+        if len(palabras) > 50:
+            return ' '.join(palabras[:50])
+        elif len(palabras) < 50:
+            return texto + ' ' + ' '.join(['[relleno]'] * (50 - len(palabras)))
+        else:
+            return texto
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
