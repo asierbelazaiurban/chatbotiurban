@@ -103,6 +103,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
+BASE_PDFS_DIR = "data/uploads/pdfs/"
 BASE_CACHE_DIR =  "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
@@ -613,7 +614,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', max_palabras=5
     # Convertir los datos del dataset a texto
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    # Crear y ajustar el vectorizador
+    # Crear y ajustar el vectorizador dentro de la función
     vectorizer = TfidfVectorizer()
     vectorizer.fit(datos_texto)
 
@@ -629,12 +630,9 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', max_palabras=5
     indice_mas_similar = similarity_scores.argmax()
     
     if similarity_scores[0, indice_mas_similar] > 0:
-        # Obtener la respuesta más similar
         respuesta_completa = datos_texto[indice_mas_similar]
-
-        # Extraer las frases más relevantes de la respuesta
-        respuesta_resumida = extraer_frases_relevantes(respuesta_completa, pregunta, max_palabras)
-        return respuesta_resumida
+        palabras_respuesta = respuesta_completa.split()[:max_palabras]
+        return ' '.join(palabras_respuesta)
 
     return False
 
