@@ -612,45 +612,32 @@ def preprocess_query(query):
     return ' '.join(filtered_tokens)
 
 def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', umbral_similitud=0.05):
-    # Convertir los datos del dataset a texto
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    # Crear y ajustar el vectorizador
     vectorizer = TfidfVectorizer()
     vectorizer.fit(datos_texto)
 
-    # Preprocesar y vectorizar la pregunta
     pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
     encoded_query = vectorizer.transform([pregunta_procesada])
 
-    # Vectorizar los datos
     encoded_data = vectorizer.transform(datos_texto)
 
-    # Realizar la búsqueda de similitud
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
 
-    # Verificar si la similitud es mayor que el umbral establecido
     if similarity_scores[0, indice_mas_similar] < umbral_similitud:
-        return False
+        return None
 
     texto = datos_texto[indice_mas_similar]
-
-    # Tokenizar el texto
     palabras = word_tokenize(texto)
-
-    # Encontrar la ubicación de la palabra más relevante
     indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=['museo', 'gratis'])
 
-    # Seleccionar 100 palabras centradas en la palabra relevante
     inicio = max(0, indice_palabra_relevante - 50)
     fin = min(len(palabras), indice_palabra_relevante + 50)
     return ' '.join(palabras[inicio:fin])
 
+# Encontrar índice de palabra relevante
 def encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=[]):
-    # Busca las palabras clave de la pregunta en el texto y devuelve el índice
-    # de la primera coincidencia. Si no hay coincidencias directas, devuelve el índice
-    # más cercano a las palabras clave específicas.
     for palabra_clave in palabras_clave:
         if palabra_clave in palabras:
             return palabras.index(palabra_clave)
