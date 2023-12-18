@@ -500,14 +500,24 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
 
 
 def guardar_en_cache(pregunta, respuesta, chatbot_id):
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
+
+    # Asegúrate de que el directorio exista
+    os.makedirs(BASE_CACHE_DIR, exist_ok=True)
+
+    # Define la ruta completa del archivo de caché
+    cache_file_path = os.path.join(BASE_CACHE_DIR, f'{chatbot_id}_cache.json')
+
+    # Lee el archivo de caché existente o inicializa una lista vacía si no existe
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
             cache_data = json.load(file)
     else:
         cache_data = []
 
+    # Añade el nuevo par pregunta-respuesta al caché
     cache_data.append({'pregunta': pregunta, 'respuesta': respuesta, 'usar_api': 1})
+
+    # Escribe los datos actualizados al archivo de caché
     with open(cache_file_path, 'w') as file:
         json.dump(cache_data, file)
 
