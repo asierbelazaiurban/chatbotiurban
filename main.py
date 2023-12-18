@@ -756,14 +756,17 @@ def ask():
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
 
-                pdf_file_path = os.path.join(BASE_PDFS_DIR, str(chatbot_id), 'dataset.json')
+                pdf_file_path = os.path.join(BASE_PDFS_DIR, str(chatbot_id), 'pdf.json')
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
                     with open(pdf_file_path, 'r') as file:
                         datos_del_pdf = json.load(file)
-                    respuesta_del_pdf = tu_funcion_de_busqueda(ultima_pregunta, datos_del_pdf)
-                    if respuesta_del_pdf:
-                        fuente_respuesta = 'pdf_dataset'
-                        ultima_respuesta = respuesta_del_pdf
+                    vectorizer = TfidfVectorizer()
+                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_pdf.values()]
+                    vectorizer.fit(prepared_data)
+                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, vectorizer, contexto)
+                    if respuesta_drespuesta_del_pdfel_dataset:
+                        fuente_respuesta = 'Docs'
+                        ultima_respuesta = respuesta_del_dataset
 
                 if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
