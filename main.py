@@ -761,7 +761,7 @@ def ask():
                     vectorizer = TfidfVectorizer()
                     prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_pdf.values()]
                     vectorizer.fit(prepared_data)
-                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, vectorizer, contexto)
+                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
                     if respuesta_drespuesta_del_pdfel_dataset:
                         fuente_respuesta = 'Docs'
                         ultima_respuesta = respuesta_del_dataset
@@ -779,7 +779,7 @@ def ask():
                     vectorizer = TfidfVectorizer()
                     prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
                     vectorizer.fit(prepared_data)
-                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
+                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
                     if respuesta_del_dataset:
                         fuente_respuesta = 'dataset'
                         ultima_respuesta = respuesta_del_dataset
