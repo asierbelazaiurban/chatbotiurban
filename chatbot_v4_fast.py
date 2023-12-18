@@ -641,7 +641,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 
 ####### Inicio Endpoints #######
-
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
@@ -664,9 +663,7 @@ def ask():
                 if respuesta_saludo_despedida != False:
                     return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_o_despedida'})
 
-
                 respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-
                 if encontrada_en_json:
                     ultima_respuesta = respuesta_preestablecida
                     fuente_respuesta = "preestablecida"
@@ -685,7 +682,7 @@ def ask():
                         vectorizer.fit(prepared_data)
 
                         respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        app.logger.info(respuesta_del_dataset)
+                        app.logger.info(f"Respuesta del dataset: {respuesta_del_dataset}")
 
                         if respuesta_del_dataset:
                             ultima_respuesta = respuesta_del_dataset
