@@ -547,10 +547,6 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
 
 ####### Fin Sistema de cache #######
 
-####### Utils busqueda en Json #######
-
-# Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
-
 
 # Función auxiliar para mapear etiquetas POS a WordNet POS
 def get_wordnet_pos(token):
@@ -563,13 +559,6 @@ def encode_data(data):
     vectorizer = TfidfVectorizer()
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
-
-# Procesamiento de consultas de usuario
-def preprocess_query(query, n=1):
-    tokens = nltk.word_tokenize(query)
-    ngrams_list = list(ngrams(tokens, n))
-    processed_query = ' '.join([' '.join(grams) for grams in ngrams_list])
-    return processed_query.lower()
 
 # Búsqueda de similitud
 def perform_search(encoded_data, encoded_query):
@@ -612,31 +601,38 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
         data = json.load(file)
     return data
 
+# Procesamiento de consultas de usuario
+def preprocess_query(query):
+    # Preprocesamiento básico de la consulta
+    tokens = nltk.word_tokenize(query.lower())
+    stop_words = set(stopwords.words('spanish'))
+    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
+    return ' '.join(filtered_tokens)
+
 # Encontrar respuesta
-def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, palabra_clave="museos"):
-    # Filtrar entradas del dataset que contienen la palabra clave
-    datos_filtrados = [item for item in datos_del_dataset.values() if palabra_clave in item['dialogue'].lower()]
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
+    # Convertir los datos del dataset a texto
+    datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    # Convertir los datos filtrados a texto
-    datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_filtrados]
-
-    # Vectorizar los datos filtrados
+    # Crear y ajustar el vectorizador
+    vectorizer = TfidfVectorizer()
     vectorizer.fit(datos_texto)
-    encoded_data = vectorizer.transform(datos_texto)
 
-    # Preprocesar la pregunta
+    # Preprocesar y vectorizar la pregunta
     pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
-
-    # Vectorizar la pregunta
     encoded_query = vectorizer.transform([pregunta_procesada])
+
+    # Vectorizar los datos
+    encoded_data = vectorizer.transform(datos_texto)
 
     # Realizar la búsqueda de similitud
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
+    
     if similarity_scores[0, indice_mas_similar] > 0:
         return datos_texto[indice_mas_similar]
 
-    return "Lo siento, no encontré información sobre museos."
+    return False
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
