@@ -1075,6 +1075,7 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+
 @app.route('/delete_urls', methods=['POST'])
 def delete_urls():
     data = request.json
