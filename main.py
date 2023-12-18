@@ -468,11 +468,15 @@ def extraer_palabras_clave(pregunta):
 ####### Inicio Sistema de cache #######
 
 def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + 'cache.json')
+    app.logger.info(f"Buscando respuesta similar para el chatbot {chatbot_id}")
+
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
             pares_api = json.load(file)
+            app.logger.info("Archivo de caché encontrado y leído")
     else:
+        app.logger.info("No se encontró archivo de caché")
         return None
 
     preguntas = []
@@ -483,8 +487,10 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
             respuestas[par['pregunta']] = par['respuesta']
 
     if not preguntas:
+        app.logger.info("No hay preguntas en el caché para comparar")
         return None
 
+    app.logger.info("Vectorizando preguntas para comparación")
     vectorizer = TfidfVectorizer()
     matriz_tfidf = vectorizer.fit_transform(preguntas)
 
@@ -494,25 +500,30 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     indice_mas_similar = np.argmax(similitudes)
     if similitudes[0, indice_mas_similar] > 0.5:
         pregunta_similar = preguntas[indice_mas_similar]
+        app.logger.info(f"Encontrada pregunta similar: {pregunta_similar}")
         return respuestas[pregunta_similar]
     else:
+        app.logger.info("No se encontraron preguntas similares con suficiente similitud")
         return None
 
 
 def guardar_en_cache(pregunta, respuesta, chatbot_id):
+    app.logger.info(f"Guardando en caché para el chatbot {chatbot_id}")
 
     # Asegúrate de que el directorio exista
     os.makedirs(BASE_CACHE_DIR, exist_ok=True)
 
     # Define la ruta completa del archivo de caché
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + 'cache.json')
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
 
     # Lee el archivo de caché existente o inicializa una lista vacía si no existe
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
             cache_data = json.load(file)
+            app.logger.info("Archivo de caché existente leído")
     else:
         cache_data = []
+        app.logger.info("Inicializando nuevo archivo de caché")
 
     # Añade el nuevo par pregunta-respuesta al caché
     cache_data.append({'pregunta': pregunta, 'respuesta': respuesta, 'usar_api': 1})
@@ -520,6 +531,7 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
     # Escribe los datos actualizados al archivo de caché
     with open(cache_file_path, 'w') as file:
         json.dump(cache_data, file)
+        app.logger.info("Datos guardados en el archivo de caché")
 
 
 
@@ -708,50 +720,60 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        app.logger.info(f"Chatbot ID: {chatbot_id}")
         fuente_respuesta = "ninguna"
         contexto = ""
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+            app.logger.info(f"Pares pregunta-respuesta recibidos: {len(pares_pregunta_respuesta)}")
+            
             for par in pares_pregunta_respuesta:
                 pregunta = par.get('pregunta', '')
                 respuesta = par.get('respuesta', '')
                 usar_api = par.get('usar_api', 1)
+                app.logger.info(f"Procesando par pregunta-respuesta: Pregunta: {pregunta}, Respuesta: {respuesta}")
 
                 if len(pares_pregunta_respuesta) > 1:
                     contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+                    app.logger.info(f"Contexto construido: {contexto}")
 
                 if not respuesta and usar_api:
                     respuesta_cache = encontrar_respuesta_similar(pregunta, chatbot_id)
                     if respuesta_cache:
                         respuesta = respuesta_cache
                         fuente_respuesta = 'cache'
+                        app.logger.info("Respuesta encontrada en caché")
                     else:
                         respuesta_saludo_despedida = identificar_saludo_despedida(pregunta)
                         if respuesta_saludo_despedida:
                             respuesta = respuesta_saludo_despedida
                             fuente_respuesta = 'saludo_o_despedida'
+                            app.logger.info("Respuesta de saludo o despedida encontrada")
                         else:
                             respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(pregunta, chatbot_id)
                             if encontrada_en_json:
                                 respuesta = respuesta_preestablecida
                                 fuente_respuesta = 'preestablecida'
+                                app.logger.info("Respuesta preestablecida encontrada")
                             elif buscar_en_openai_relacion_con_eventos(pregunta):
                                 respuesta = obtener_eventos(pregunta, chatbot_id)
                                 fuente_respuesta = 'eventos'
+                                app.logger.info("Respuesta de eventos relacionados con OpenAI encontrada")
                             else:
-                                app.logger.info("Entrando en la sección del dataset")
+                                app.logger.info("Buscando en el dataset")
                                 dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                                 if os.path.exists(dataset_file_path):
                                     with open(dataset_file_path, 'r') as file:
                                         datos_del_dataset = json.load(file)
+                                        app.logger.info("Datos del dataset cargados")
 
                                     vectorizer = TfidfVectorizer()
                                     prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
                                     vectorizer.fit(prepared_data)
 
                                     respuesta_del_dataset = encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto)
-                                    app.logger.info(respuesta_del_dataset)
+                                    app.logger.info(f"Respuesta del dataset: {respuesta_del_dataset}")
 
                                     if respuesta_del_dataset:
                                         respuesta = respuesta_del_dataset
@@ -759,8 +781,10 @@ def ask():
                                     else:
                                         respuesta = seleccionar_respuesta_por_defecto()
                                         fuente_respuesta = "respuesta_por_defecto"
+                                        app.logger.info("Seleccionada respuesta por defecto")
 
                 if respuesta:
+                    app.logger.info("Mejorando respuesta con OpenAI")
                     ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                         pregunta=pregunta, 
                         respuesta=respuesta, 
@@ -772,20 +796,18 @@ def ask():
                     )
                     respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else respuesta
                     fuente_respuesta = "mejorada"
+                    app.logger.info(f"Respuesta final: {respuesta}, Fuente: {fuente_respuesta}")
 
                     guardar_en_cache(pregunta, respuesta, chatbot_id)
-                    return jsonify({'respuesta': respuesta, 'fuente': fuente_respuesta})
+                    app.logger.info("Respuesta guardada en caché")
 
-            return jsonify({'respuesta': respuesta, 'fuente': 'definida'})
-
-        else:
-            app.logger.warning("Formato de solicitud incorrecto")
-            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
+            return jsonify({'respuesta': respuesta, 'fuente': fuente_respuesta})
 
     except Exception as e:
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 
