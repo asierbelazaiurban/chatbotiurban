@@ -700,55 +700,41 @@ def ask():
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
-            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
-            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+            for par in pares_pregunta_respuesta:
+                pregunta = par.get('pregunta', '')
+                respuesta = par.get('respuesta', '')
+                usar_api = par.get('usar_api', 1)
 
-            if ultima_respuesta == "":
-                app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
+                if not respuesta and usar_api:
+                    # Intenta encontrar una respuesta en el caché
+                    respuesta_cache = encontrar_respuesta_similar(pregunta, chatbot_id)
+                    if respuesta_cache:
+                        respuesta = respuesta_cache
+                        fuente_respuesta = 'cache'
+                    else:
+                        # Intentar identificar saludos o despedidas
+                        respuesta_saludo_despedida = identificar_saludo_despedida(pregunta)
+                        if respuesta_saludo_despedida:
+                            respuesta = respuesta_saludo_despedida
+                            fuente_respuesta = 'saludo_o_despedida'
+                        else:
+                            # Buscar en respuestas preestablecidas
+                            respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(pregunta, chatbot_id)
+                            if encontrada_en_json:
+                                respuesta = respuesta_preestablecida
+                                fuente_respuesta = 'preestablecida'
+                            else:
+                                # Buscar en eventos relacionados con OpenAI
+                                if buscar_en_openai_relacion_con_eventos(pregunta):
+                                    respuesta = obtener_eventos(pregunta, chatbot_id)
+                                    fuente_respuesta = 'eventos'
 
-                # Primero, intentar encontrar una respuesta en el caché
-                respuesta_cache = encontrar_respuesta_similar(ultima_pregunta, chatbot_id)
-                if respuesta_cache:
-                    return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
+                # Si se obtiene una nueva respuesta, se guarda en el caché
+                if respuesta:
+                    guardar_en_cache(pregunta, respuesta, chatbot_id)
+                    return jsonify({'respuesta': respuesta, 'fuente': fuente_respuesta})
 
-                # Intentar identificar saludos o despedidas
-                respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
-                if respuesta_saludo_despedida:
-                    ultima_respuesta = respuesta_saludo_despedida
-                    fuente_respuesta = 'saludo_o_despedida'
-
-                # Buscar en respuestas preestablecidas
-                if not ultima_respuesta:
-                    respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                    if encontrada_en_json:
-                        ultima_respuesta = respuesta_preestablecida
-                        fuente_respuesta = 'preestablecida'
-
-                # Buscar en eventos relacionados con OpenAI
-                if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    fuente_respuesta = 'eventos'
-
-                # Si aún no se ha encontrado respuesta, mejorar la pregunta con OpenAI
-                if not ultima_respuesta:
-                    ultima_respuesta = mejorar_respuesta_generales_con_openai(
-                        pregunta=ultima_pregunta, 
-                        respuesta=ultima_respuesta, 
-                        new_prompt="", 
-                        contexto_adicional="", 
-                        temperature="", 
-                        model_gpt="", 
-                        chatbot_id=chatbot_id
-                    )
-                    fuente_respuesta = 'mejorada'
-
-                # Suponiendo que se obtiene una respuesta, se guarda en el caché
-                if ultima_respuesta:
-                    guardar_en_cache(ultima_pregunta, ultima_respuesta, chatbot_id)
-                    return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
-
-            else:
-                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
+            return jsonify({'respuesta': respuesta, 'fuente': 'definida'})
 
         else:
             app.logger.warning("Formato de solicitud incorrecto")
@@ -758,7 +744,6 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
-
 
 
 @app.route('/uploads', methods=['POST'])
