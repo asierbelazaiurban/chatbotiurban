@@ -762,7 +762,7 @@ def ask():
                     prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_pdf.values()]
                     vectorizer.fit(prepared_data)
                     respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
-                    if respuesta_drespuesta_del_pdfel_dataset:
+                    if respuesta_del_pdf:
                         fuente_respuesta = 'Docs'
                         ultima_respuesta = respuesta_del_dataset
 
