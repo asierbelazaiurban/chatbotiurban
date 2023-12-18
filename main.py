@@ -467,10 +467,16 @@ def extraer_palabras_clave(pregunta):
 
 ####### Inicio Sistema de cache #######
 
+import os
+import json
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     app.logger.info(f"Buscando respuesta similar para el chatbot {chatbot_id}")
 
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
+    # Usando BASE_DATASET_DIR para la ruta del archivo de caché
+    cache_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'cache.json')
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
             pares_api = json.load(file)
@@ -510,11 +516,14 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
 def guardar_en_cache(pregunta, respuesta, chatbot_id):
     app.logger.info(f"Guardando en caché para el chatbot {chatbot_id}")
 
+    # Define el directorio base para el caché, usando BASE_DATASET_DIR
+    cache_dir = os.path.join(BASE_DATASET_DIR, str(chatbot_id))
+
     # Asegúrate de que el directorio exista
-    os.makedirs(BASE_CACHE_DIR, exist_ok=True)
+    os.makedirs(cache_dir, exist_ok=True)
 
     # Define la ruta completa del archivo de caché
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
+    cache_file_path = os.path.join(cache_dir, 'cache.json')
 
     # Lee el archivo de caché existente o inicializa una lista vacía si no existe
     if os.path.exists(cache_file_path):
@@ -532,6 +541,7 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
     with open(cache_file_path, 'w') as file:
         json.dump(cache_data, file)
         app.logger.info("Datos guardados en el archivo de caché")
+
 
 
 
