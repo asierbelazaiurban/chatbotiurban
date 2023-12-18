@@ -468,7 +468,7 @@ def extraer_palabras_clave(pregunta):
 ####### Inicio Sistema de cache #######
 
 def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + '_cache.json')
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + 'cache.json')
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
             pares_api = json.load(file)
@@ -505,7 +505,7 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
     os.makedirs(BASE_CACHE_DIR, exist_ok=True)
 
     # Define la ruta completa del archivo de caché
-    cache_file_path = os.path.join(BASE_CACHE_DIR, f'{chatbot_id}_cache.json')
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id) + 'cache.json')
 
     # Lee el archivo de caché existente o inicializa una lista vacía si no existe
     if os.path.exists(cache_file_path):
