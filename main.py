@@ -1075,54 +1075,46 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-
-@app.route('/delete_urls', methods=['POST'])
-def delete_urls():
+@app.route('/delete_dataset_entries', methods=['POST'])
+def delete_dataset_entries():
     data = request.json
-    urls_to_delete = set(data.get('urls', []))  # Conjunto de URLs a eliminar
-    chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
+    urls_to_delete = set(data.get('urls', []))
+    chatbot_id = data.get('chatbot_id')
 
     if not urls_to_delete or not chatbot_id:
         app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
         return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
 
-    chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
+    BASE_DATASET_DIR = 'data/uploads/datasets'
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
-    app.logger.info(f"Ruta del directorio del chatbot: {chatbot_folder}")
-
-    if not os.path.exists(chatbot_folder):
-        app.logger.error("Carpeta del chatbot no encontrada")
-        return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
-
-    file_name = f"{chatbot_id}.txt"
-    file_path = os.path.join(chatbot_folder, file_name)
-
-    app.logger.info(f"Ruta del archivo de URLs: {file_path}")
-
-    if not os.path.exists(file_path):
-        app.logger.error(f"Archivo {file_name} no encontrado en la carpeta del chatbot")
-        return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("Archivo del dataset no encontrado")
+        return jsonify({"status": "error", "message": "Dataset file not found"}), 404
 
     try:
-        with open(file_path, 'r+') as file:
-            existing_urls = set(file.read().splitlines())
-            updated_urls = existing_urls - urls_to_delete
+        with open(dataset_file_path, 'r+') as file:
+            dataset = json.load(file)
+            urls_in_dataset = {entry['url'] for entry in dataset}
+            urls_not_found = urls_to_delete - urls_in_dataset
+
+            if urls_not_found:
+                app.logger.info(f"URLs no encontradas en el dataset: {urls_not_found}")
+
+            updated_dataset = [entry for entry in dataset if entry['url'] not in urls_to_delete]
 
             file.seek(0)
             file.truncate()
+            json.dump(updated_dataset, file, indent=4)
 
-            for url in updated_urls:
-                if url.strip():  # Asegura que la URL no sea una línea vacía
-                    file.write(url + '\n')
-
-        app.logger.info("URLs eliminadas con éxito")
-        return jsonify({"status": "success", "message": "URLs deleted successfully"})
+        app.logger.info("Proceso de eliminación completado con éxito")
+        return jsonify({"status": "success", "message": "Dataset entries deleted successfully", "urls_not_found": list(urls_not_found)})
+    except json.JSONDecodeError:
+        app.logger.error("Error al leer el archivo JSON")
+        return jsonify({"status": "error", "message": "Invalid JSON format in dataset file"}), 500
     except Exception as e:
-        app.logger.error(f"Error al eliminar URLs: {e}")
+        app.logger.error(f"Error inesperado: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
-
-
 
 
 @app.route('/pre_established_answers', methods=['POST'])
