@@ -540,7 +540,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
         if isinstance(contexto_texto, list) and all(isinstance(item, str) for item in contexto_texto):
             # Concatenar el texto para formar la respuesta, limitando a 100 palabras
             respuesta_concatenada = ' '.join(contexto_texto)
-            palabras_respuesta = respuesta_concatenada.split()[:100]
+            palabras_respuesta = respuesta_concatenada.split()[:200]
             contexto_ampliado = ' '.join(palabras_respuesta)
             return contexto_ampliado
         else:
