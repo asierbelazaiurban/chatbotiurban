@@ -697,6 +697,7 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
             pares_pregunta_respuesta = data['pares_pregunta_respuesta']
@@ -706,30 +707,44 @@ def ask():
                 usar_api = par.get('usar_api', 1)
 
                 if not respuesta and usar_api:
-                    # Intenta encontrar una respuesta en el caché
                     respuesta_cache = encontrar_respuesta_similar(pregunta, chatbot_id)
                     if respuesta_cache:
                         respuesta = respuesta_cache
                         fuente_respuesta = 'cache'
                     else:
-                        # Intentar identificar saludos o despedidas
                         respuesta_saludo_despedida = identificar_saludo_despedida(pregunta)
                         if respuesta_saludo_despedida:
                             respuesta = respuesta_saludo_despedida
                             fuente_respuesta = 'saludo_o_despedida'
                         else:
-                            # Buscar en respuestas preestablecidas
                             respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(pregunta, chatbot_id)
                             if encontrada_en_json:
                                 respuesta = respuesta_preestablecida
                                 fuente_respuesta = 'preestablecida'
+                            elif buscar_en_openai_relacion_con_eventos(pregunta):
+                                respuesta = obtener_eventos(pregunta, chatbot_id)
+                                fuente_respuesta = 'eventos'
                             else:
-                                # Buscar en eventos relacionados con OpenAI
-                                if buscar_en_openai_relacion_con_eventos(pregunta):
-                                    respuesta = obtener_eventos(pregunta, chatbot_id)
-                                    fuente_respuesta = 'eventos'
+                                app.logger.info("Entrando en la sección del dataset")
+                                dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                                if os.path.exists(dataset_file_path):
+                                    with open(dataset_file_path, 'r') as file:
+                                        datos_del_dataset = json.load(file)
 
-                # Si se obtiene una nueva respuesta, se guarda en el caché
+                                    vectorizer = TfidfVectorizer()
+                                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+                                    vectorizer.fit(prepared_data)
+
+                                    respuesta_del_dataset = encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto)
+                                    app.logger.info(respuesta_del_dataset)
+
+                                    if respuesta_del_dataset:
+                                        respuesta = respuesta_del_dataset
+                                        fuente_respuesta = "dataset"
+                                    else:
+                                        respuesta = seleccionar_respuesta_por_defecto()
+                                        fuente_respuesta = "respuesta_por_defecto"
+
                 if respuesta:
                     guardar_en_cache(pregunta, respuesta, chatbot_id)
                     return jsonify({'respuesta': respuesta, 'fuente': fuente_respuesta})
