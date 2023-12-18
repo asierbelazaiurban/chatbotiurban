@@ -265,7 +265,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Responde con menos de 75 palabras. Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
+    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -613,43 +613,30 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
     return data
 
 # Encontrar respuesta
-def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
-    # Convertir los datos del dataset a texto
-    datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, palabra_clave="museos"):
+    # Filtrar entradas del dataset que contienen la palabra clave
+    datos_filtrados = [item for item in datos_del_dataset.values() if palabra_clave in item['dialogue'].lower()]
+
+    # Convertir los datos filtrados a texto
+    datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_filtrados]
+
+    # Vectorizar los datos filtrados
+    vectorizer.fit(datos_texto)
+    encoded_data = vectorizer.transform(datos_texto)
 
     # Preprocesar la pregunta
-    pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta, n=n)
+    pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
 
-    # Codificar la pregunta y los datos con el vectorizer
+    # Vectorizar la pregunta
     encoded_query = vectorizer.transform([pregunta_procesada])
-    encoded_data = vectorizer.transform(datos)
 
     # Realizar la búsqueda de similitud
-    ranked_results, ranked_scores = perform_search(encoded_data, encoded_query)
+    similarity_scores = cosine_similarity(encoded_query, encoded_data)
+    indice_mas_similar = similarity_scores.argmax()
+    if similarity_scores[0, indice_mas_similar] > 0:
+        return datos_texto[indice_mas_similar]
 
-    # Recuperar los resultados
-    resultados = retrieve_results(datos, ranked_results, ranked_scores)
- 
-
-    # Manejar los resultados
-    if not resultados:
-        # Si no hay resultados, seleccionar una respuesta por defecto
-        respuesta_por_defecto = seleccionar_respuesta_por_defecto()
-        return traducir_texto_con_openai(respuesta_por_defecto, "Spanish")
-    else:
-        # Asumiendo que cada elemento en resultados es una tupla (contexto_texto, puntuacion)
-        contexto_texto, puntuacion = resultados[0]
-
-        # Verificar que el contexto_texto sea una lista de cadenas de texto
-        if isinstance(contexto_texto, list) and all(isinstance(item, str) for item in contexto_texto):
-            # Concatenar el texto para formar la respuesta, limitando a 100 palabras
-            respuesta_concatenada = ' '.join(contexto_texto)
-            palabras_respuesta = respuesta_concatenada.split()[:100]
-            contexto_ampliado = ' '.join(palabras_respuesta)
-            return contexto_ampliado
-        else:
-            app.logger.error("La estructura de los resultados no es como se esperaba.")
-            return "Ocurrió un error al procesar la respuesta. La estructura de los resultados es incorrecta."
+    return "Lo siento, no encontré información sobre museos."
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
