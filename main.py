@@ -193,7 +193,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     )
 
     # Construir el prompt base
-    prompt_base = f"Responde con menos de 75 palabras.Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
+    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
 
     # Intentar generar la respuesta mejorada
     try:
@@ -265,7 +265,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Responde con menos de 75 palabras. Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
+    prompt_base = f"Responde con menos de 75 palabras. Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -476,7 +476,7 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     app.logger.info(f"Buscando respuesta similar para el chatbot {chatbot_id}")
 
     # Usando BASE_DATASET_DIR para la ruta del archivo de caché
-    cache_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'cache.json')
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id), 'cache.json')
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
             pares_api = json.load(file)
@@ -517,7 +517,7 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
     app.logger.info(f"Guardando en caché para el chatbot {chatbot_id}")
 
     # Define el directorio base para el caché, usando BASE_DATASET_DIR
-    cache_dir = os.path.join(BASE_DATASET_DIR, str(chatbot_id))
+    cache_dir = os.path.join(BASE_CACHE_DIR, str(chatbot_id))
 
     # Asegúrate de que el directorio exista
     os.makedirs(cache_dir, exist_ok=True)
@@ -821,15 +821,12 @@ def ask():
 
 
 
-@app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
-        logging.info("Procesando solicitud de carga de archivo")
-
         if 'documento' not in request.files:
             app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
-        
+
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
         app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
@@ -838,52 +835,48 @@ def upload_file():
             app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        docs_folder = os.path.join(BASE_DIR_DOCS, str(chatbot_id))
+        # Ruta modificada para guardar en data/uploads/docs/{chatbot_id}/
+        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
-        app.logger.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
-
-        file_extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
         file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en: {file_path}")
 
-        readable_content = process_file(file_path, file_extension)
+        readable_content = process_file(file_path, os.path.splitext(uploaded_file.filename)[1][1:].lower())
         if readable_content is None:
             app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        # Contar palabras en el contenido
         word_count = len(readable_content.split())
 
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
-                app.logger.info("Archivo JSON del dataset existente cargado")
 
-        indice = uploaded_file.filename
-        dataset_entries[indice] = {
-            "indice": indice,
+        dataset_entries[uploaded_file.filename] = {
+            "indice": uploaded_file.filename,
             "url": file_path,
             "dialogue": readable_content
         }
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-            app.logger.info("Archivo JSON del dataset actualizado y guardado")
+        app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-            "word_count": word_count,  # Incluir el recuento de palabras en la respuesta
+            "word_count": word_count,
             "codigo_error": 0
         })
 
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+
 
 
 
