@@ -500,8 +500,13 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     if not pares_api:
         return None
 
-    preguntas = [par['pregunta'] for par in pares_api if par['respuesta']]
-    respuestas = {par['pregunta']: par['respuesta'] for par en pares_api if par['respuesta']}
+    # Creando listas de preguntas y un diccionario de respuestas
+    preguntas = []
+    respuestas = {}
+    for par in pares_api:
+        if par['respuesta']:
+            preguntas.append(par['pregunta'])
+            respuestas[par['pregunta']] = par['respuesta']
 
     if not preguntas:
         return None
@@ -518,6 +523,7 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
         return respuestas[pregunta_similar]
     else:
         return None
+
 
 
 ####### Fin Sistema de cache #######
