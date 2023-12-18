@@ -519,6 +519,7 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     else:
         return None
 
+
 ####### Fin Sistema de cache #######
 
 ####### Utils busqueda en Json #######
