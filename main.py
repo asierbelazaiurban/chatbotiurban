@@ -776,7 +776,7 @@ def ask():
                         datos_del_pdf = json.load(file)
                     respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
                     app.logger.info("respuesta_del_pdf")
-                     app.logger.info(respuesta_del_pdf)
+                    app.logger.info(respuesta_del_pdf)
                     if respuesta_del_pdf:
                         fuente_respuesta = 'Docs'
                         ultima_respuesta = respuesta_del_pdf
