@@ -280,8 +280,8 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
             temperature=float(temperature) if temperature else 0.5
         )
         improved_response = response.choices[0].message['content'].strip()
-        respuesta_mejorada = improved_response
         app.logger.info("Respuesta generada con éxito.")
+        respuesta_mejorada = improved_response
         return respuesta_mejorada
         
     except Exception as e:
