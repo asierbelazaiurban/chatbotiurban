@@ -603,55 +603,32 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
         data = json.load(file)
     return data
 
-# Procesamiento de consultas de usuario
 def preprocess_query(query):
-    # Preprocesamiento básico de la consulta
     tokens = nltk.word_tokenize(query.lower())
     stop_words = set(stopwords.words('spanish'))
-    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
-    return ' '.join(filtered_tokens)
+    return ' '.join([word for word in tokens if word not in stop_words and word.isalnum()])
 
-# Encontrar respuesta
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
-    # Convertir los datos del dataset a texto
+def extraer_y_recortar_respuesta(texto, pregunta, max_palabras):
+    # Extracción y recorte de respuesta
+    palabras_pregunta = set(pregunta.split())
+    palabras_texto = texto.split()
+    palabras_respuesta = [palabra for palabra in palabras_texto if palabra in palabras_pregunta]
+    return ' '.join(palabras_respuesta[:max_palabras])
+
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', max_palabras=50):
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-
-    # Crear y ajustar el vectorizador
     vectorizer = TfidfVectorizer()
     vectorizer.fit(datos_texto)
-
-    # Preprocesar y vectorizar la pregunta
     pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
     encoded_query = vectorizer.transform([pregunta_procesada])
-
-    # Vectorizar los datos
     encoded_data = vectorizer.transform(datos_texto)
-
-    # Realizar la búsqueda de similitud
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
-    
     if similarity_scores[0, indice_mas_similar] > 0:
-        return datos_texto[indice_mas_similar]
+        respuesta_completa = datos_texto[indice_mas_similar]
+        return extraer_y_recortar_respuesta(respuesta_completa, pregunta, max_palabras)
+    return False
 
-
-def extraer_frases_relevantes(texto, pregunta, max_palabras):
-    # Tokenizar el texto y la pregunta
-    palabras_texto = texto.split()
-    palabras_pregunta = set(pregunta.split())
-
-    # Encontrar las frases del texto que contienen palabras de la pregunta
-    frases_relevantes = []
-    frase_actual = []
-    for palabra in palabras_texto:
-        frase_actual.append(palabra)
-        if palabra in palabras_pregunta:
-            frases_relevantes.extend(frase_actual)
-            frase_actual = []
-
-    # Limitar la longitud de la respuesta y convertirla a una cadena de texto
-    respuesta_resumida = ' '.join(frases_relevantes[:max_palabras])
-    return respuesta_resumida
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
@@ -758,9 +735,6 @@ def ask():
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
                     with open(pdf_file_path, 'r') as file:
                         datos_del_pdf = json.load(file)
-                    vectorizer = TfidfVectorizer()
-                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_pdf.values()]
-                    vectorizer.fit(prepared_data)
                     respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
                     if respuesta_del_pdf:
                         fuente_respuesta = 'Docs'
@@ -776,9 +750,6 @@ def ask():
                 if not ultima_respuesta and os.path.exists(dataset_file_path):
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
-                    vectorizer = TfidfVectorizer()
-                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                    vectorizer.fit(prepared_data)
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
                     if respuesta_del_dataset:
                         fuente_respuesta = 'dataset'
@@ -814,6 +785,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 
