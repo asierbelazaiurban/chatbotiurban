@@ -734,6 +734,7 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        app.logger.info(f"Chatbot ID: {chatbot_id}")
         fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
@@ -745,37 +746,44 @@ def ask():
             if ultima_respuesta == "":
                 app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
 
+                # Identificar saludo o despedida
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
                 if respuesta_saludo_despedida:
                     fuente_respuesta = 'saludo_o_despedida'
                     ultima_respuesta = respuesta_saludo_despedida
 
+                # Buscar en respuestas preestablecidas NLP
                 if not ultima_respuesta:
                     respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                     if encontrada_en_json:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
 
+                # Buscar en documentos PDF indexados
                 pdf_file_path = os.path.join(BASE_PDFS_DIR, str(chatbot_id), 'pdf.json')
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
+                    app.logger.info("Buscando en documentos PDF indexados")
                     with open(pdf_file_path, 'r') as file:
                         datos_del_pdf = json.load(file)
                     vectorizer = TfidfVectorizer()
-                    prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_pdf.values()]
+                    prepared_data = [convertir_a_texto(item['contenido']) for item in datos_del_pdf.values()]
                     vectorizer.fit(prepared_data)
                     respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, vectorizer, contexto)
-                    if respuesta_drespuesta_del_pdfel_dataset:
-                        fuente_respuesta = 'Docs'
-                        ultima_respuesta = respuesta_del_dataset
+                    if respuesta_del_pdf:
+                        fuente_respuesta = 'pdf'
+                        ultima_respuesta = respuesta_del_pdf
 
+                # Buscar en eventos relacionados
                 if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
                     if respuesta_eventos and respuesta_eventos != False:
                         fuente_respuesta = 'eventos'
                         ultima_respuesta = respuesta_eventos
 
+                # Buscar en el dataset
                 dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                 if not ultima_respuesta and os.path.exists(dataset_file_path):
+                    app.logger.info("Buscando en el dataset")
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
                     vectorizer = TfidfVectorizer()
@@ -786,10 +794,12 @@ def ask():
                         fuente_respuesta = 'dataset'
                         ultima_respuesta = respuesta_del_dataset
 
+                # Seleccionar una respuesta por defecto si aún no se ha encontrado una
                 if not ultima_respuesta:
                     fuente_respuesta = 'respuesta_por_defecto'
                     ultima_respuesta = seleccionar_respuesta_por_defecto()
 
+                # Mejorar la respuesta con OpenAI
                 if ultima_respuesta and ultima_respuesta != False:
                     ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta, 
@@ -816,6 +826,7 @@ def ask():
         app.logger.error(f"Error en /ask: {e}")
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
 
 
 
