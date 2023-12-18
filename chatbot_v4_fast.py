@@ -209,28 +209,6 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
-    # Intentar traducir la respuesta mejorada
-    app.logger.info("pregunta")
-    app.logger.info(pregunta)
-    app.logger.info("respuesta_mejorada")
-    app.logger.info(respuesta_mejorada)
-    try:
-        respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4",
-            messages=[
-                {"role": "system", "content": f"Responde con no mas de 50 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
-                {"role": "user", "content": respuesta_mejorada}
-            ],
-            temperature=float(temperature) if temperature else 0.7
-        )
-        respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
-    except Exception as e:
-        app.logger.error(f"Error al traducir la respuesta: {e}")
-
-    app.logger.info("respuesta_mejorada final")
-    app.logger.info(respuesta_mejorada)
-    return respuesta_mejorada
-
 
 
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
@@ -279,7 +257,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
-        new_prompt = ("Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
+        new_prompt = ("Responde como máximo con 50 palabras, lo mas corto posible para resumir y mejorar la respuesta. Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
                       "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
                       "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
                       "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
@@ -288,7 +266,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"No mas de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma.Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Responde como máximo con 50 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma.Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
