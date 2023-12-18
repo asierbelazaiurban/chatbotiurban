@@ -192,7 +192,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     )
 
     # Construir el prompt base
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto. Responde con no mas de 50 palabras"
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
 
     # Intentar generar la respuesta mejorada
     try:
@@ -209,8 +209,6 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return None
 
 
-
-
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     # Verificar si hay pregunta y respuesta
     if not pregunta or not respuesta:
@@ -219,6 +217,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
+
     app.logger.info("Entrando en OpenAI")
 
     # Definir las rutas base para los prompts
@@ -241,7 +240,14 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     if new_prompt_by_id:
         new_prompt = new_prompt_by_id
     elif new_prompt:
-        new_prompt = new_prompt
+        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        try:
+            with open(prompt_file_path_direct, 'r') as file:
+                new_prompt_direct = file.read()
+            new_prompt = new_prompt_direct
+            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
+        except Exception as e:
+            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
 
     # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
     if not contexto_adicional:
@@ -249,7 +255,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
     if not new_prompt:
-        new_prompt = ("Responde con menos de 50 palabras, lo mas corto posible para resumir y mejorar la respuesta. Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
+        new_prompt = ("Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
                       "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
                       "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
                       "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
@@ -258,7 +264,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Responde como menos con 50 palabras. Obvia o quita todo lo que no tenga que ver con la pregunta. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta}, al idioma de la pregiunta. Asegurate de que sea una traducción literal si no lo reconoces responde es Español. Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma. Si hay algun tema con la codificación o caracteres, no te refieras ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -272,18 +278,35 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
             temperature=float(temperature) if temperature else 0.5
         )
         improved_response = response.choices[0].message['content'].strip()
-
-        # Limitar la respuesta a 50 palabras
-        palabras = improved_response.split()
-        if len(palabras) > 50:
-            improved_response = ' '.join(palabras[:50])
-
+        respuesta_mejorada = improved_response
         app.logger.info("Respuesta generada con éxito.")
-        return improved_response
         
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
+
+
+    # Intentar traducir la respuesta mejorada
+    app.logger.info("pregunta")
+    app.logger.info(pregunta)
+    app.logger.info("respuesta_mejorada")
+    app.logger.info(respuesta_mejorada)
+    try:
+        respuesta_traducida = openai.ChatCompletion.create(
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
+            messages=[
+                {"role": "system", "content": f"El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
+                {"role": "user", "content": respuesta_mejorada}
+            ],
+            temperature=float(temperature) if temperature else 0.7
+        )
+        respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
+    except Exception as e:
+        app.logger.error(f"Error al traducir la respuesta: {e}")
+
+    app.logger.info("respuesta_mejorada final")
+    app.logger.info(respuesta_mejorada)
+    return respuesta_mejorada
 
 
 
@@ -540,7 +563,7 @@ def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
         if isinstance(contexto_texto, list) and all(isinstance(item, str) for item in contexto_texto):
             # Concatenar el texto para formar la respuesta, limitando a 100 palabras
             respuesta_concatenada = ' '.join(contexto_texto)
-            palabras_respuesta = respuesta_concatenada.split()[:200]
+            palabras_respuesta = respuesta_concatenada.split()[:100]
             contexto_ampliado = ' '.join(palabras_respuesta)
             return contexto_ampliado
         else:
@@ -1051,6 +1074,47 @@ def delete_urls():
         app.logger.error(f"Error al eliminar URLs: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/delete_dataset_entries', methods=['POST'])
+def delete_dataset_entries():
+    data = request.json
+    urls_to_delete = set(data.get('urls', []))
+    chatbot_id = data.get('chatbot_id')
+
+    if not urls_to_delete or not chatbot_id:
+        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
+        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+
+    BASE_DATASET_DIR = 'data/uploads/datasets'
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("Archivo del dataset no encontrado")
+        return jsonify({"status": "error", "message": "Dataset file not found"}), 404
+
+    try:
+        with open(dataset_file_path, 'r+') as file:
+            dataset = json.load(file)
+            urls_in_dataset = {entry['url'] for entry in dataset}
+            urls_not_found = urls_to_delete - urls_in_dataset
+
+            if urls_not_found:
+                app.logger.info(f"URLs no encontradas en el dataset: {urls_not_found}")
+
+            updated_dataset = [entry for entry in dataset if entry['url'] not in urls_to_delete]
+
+            file.seek(0)
+            file.truncate()
+            json.dump(updated_dataset, file, indent=4)
+
+        app.logger.info("Proceso de eliminación completado con éxito")
+        return jsonify({"status": "success", "message": "Dataset entries deleted successfully", "urls_not_found": list(urls_not_found)})
+    except json.JSONDecodeError:
+        app.logger.error("Error al leer el archivo JSON")
+        return jsonify({"status": "error", "message": "Invalid JSON format in dataset file"}), 500
+    except Exception as e:
+        app.logger.error(f"Error inesperado: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 @app.route('/pre_established_answers', methods=['POST'])
@@ -1190,46 +1254,6 @@ def events():
         app.logger.error("Error al mejorar la respuesta para el evento concatenado.")
         return jsonify({"error": "Error al mejorar la respuesta"}), 500
 
-@app.route('/delete_dataset_entries', methods=['POST'])
-def delete_dataset_entries():
-    data = request.json
-    urls_to_delete = set(data.get('urls', []))
-    chatbot_id = data.get('chatbot_id')
-
-    if not urls_to_delete or not chatbot_id:
-        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
-        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
-
-    BASE_DATASET_DIR = 'data/uploads/datasets'
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-
-    if not os.path.exists(dataset_file_path):
-        app.logger.error("Archivo del dataset no encontrado")
-        return jsonify({"status": "error", "message": "Dataset file not found"}), 404
-
-    try:
-        with open(dataset_file_path, 'r+') as file:
-            dataset = json.load(file)
-            urls_in_dataset = {entry['url'] for entry in dataset}
-            urls_not_found = urls_to_delete - urls_in_dataset
-
-            if urls_not_found:
-                app.logger.info(f"URLs no encontradas en el dataset: {urls_not_found}")
-
-            updated_dataset = [entry for entry in dataset if entry['url'] not in urls_to_delete]
-
-            file.seek(0)
-            file.truncate()
-            json.dump(updated_dataset, file, indent=4)
-
-        app.logger.info("Proceso de eliminación completado con éxito")
-        return jsonify({"status": "success", "message": "Dataset entries deleted successfully", "urls_not_found": list(urls_not_found)})
-    except json.JSONDecodeError:
-        app.logger.error("Error al leer el archivo JSON")
-        return jsonify({"status": "error", "message": "Invalid JSON format in dataset file"}), 500
-    except Exception as e:
-        app.logger.error(f"Error inesperado: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/list_chatbot_ids', methods=['GET'])
 def list_folders():
