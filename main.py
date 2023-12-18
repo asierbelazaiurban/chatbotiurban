@@ -764,7 +764,7 @@ def ask():
                     respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
                     if respuesta_del_pdf:
                         fuente_respuesta = 'Docs'
-                        ultima_respuesta = respuesta_del_dataset
+                        ultima_respuesta = respuesta_del_pdf
 
                 if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
