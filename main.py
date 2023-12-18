@@ -264,7 +264,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Responde como menos con 50 palabras. Obvia o quita todo lo que no tenga que ver con la pregunta. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta}, al idioma de la pregiunta. Asegurate de que sea una traducción literal si no lo reconoces responde es Español. Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma. Si hay algun tema con la codificación o caracteres, no te refieras ni comentes el problema.. {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -1074,7 +1074,6 @@ def delete_urls():
         app.logger.error(f"Error al eliminar URLs: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route('/delete_dataset_entries', methods=['POST'])
 def delete_dataset_entries():
     data = request.json
@@ -1115,6 +1114,7 @@ def delete_dataset_entries():
     except Exception as e:
         app.logger.error(f"Error inesperado: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 @app.route('/pre_established_answers', methods=['POST'])
