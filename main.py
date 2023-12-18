@@ -609,8 +609,7 @@ def preprocess_query(query):
     filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
     return ' '.join(filtered_tokens)
 
-# Encontrar respuesta
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', max_palabras=50):
     # Convertir los datos del dataset a texto
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
@@ -630,9 +629,32 @@ def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
     indice_mas_similar = similarity_scores.argmax()
     
     if similarity_scores[0, indice_mas_similar] > 0:
-        return datos_texto[indice_mas_similar]
+        # Obtener la respuesta más similar
+        respuesta_completa = datos_texto[indice_mas_similar]
+
+        # Extraer las frases más relevantes de la respuesta
+        respuesta_resumida = extraer_frases_relevantes(respuesta_completa, pregunta, max_palabras)
+        return respuesta_resumida
 
     return False
+
+def extraer_frases_relevantes(texto, pregunta, max_palabras):
+    # Tokenizar el texto y la pregunta
+    palabras_texto = texto.split()
+    palabras_pregunta = set(pregunta.split())
+
+    # Encontrar las frases del texto que contienen palabras de la pregunta
+    frases_relevantes = []
+    frase_actual = []
+    for palabra in palabras_texto:
+        frase_actual.append(palabra)
+        if palabra in palabras_pregunta:
+            frases_relevantes.extend(frase_actual)
+            frase_actual = []
+
+    # Limitar la longitud de la respuesta y convertirla a una cadena de texto
+    respuesta_resumida = ' '.join(frases_relevantes[:max_palabras])
+    return respuesta_resumida
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
