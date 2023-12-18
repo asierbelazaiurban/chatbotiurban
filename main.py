@@ -197,7 +197,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -264,13 +264,13 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Responde como menos con 50 palabras. Obvia o quita todo lo que no tenga que ver con la pregunta. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta}, al idioma de la pregiunta. Asegurate de que sea una traducción literal si no lo reconoces responde es Español. Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma. Si hay algun tema con la codificación o caracteres, no te refieras ni comentes el problema.. {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -293,7 +293,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": f"El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_mejorada}
@@ -316,7 +316,7 @@ def generar_contexto_con_openai(historial):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
@@ -340,7 +340,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": ""},
                 {"role": "user", "content": frase_combinada}
@@ -403,7 +403,7 @@ def identificar_saludo_despedida(frase):
     try:
         # Enviar la frase directamente a OpenAI para determinar si es un saludo o despedida
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": "Identifica si la siguiente frase es exclusivamente un saludo o una despedida, sin información adicional o solicitudes. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
                 {"role": "user", "content": frase}
@@ -432,7 +432,7 @@ def identificar_saludo_despedida(frase):
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_elegida}
@@ -579,7 +579,7 @@ def traducir_texto_con_openai(texto, idioma_destino):
     try:
         prompt = f"Traduce este texto al {idioma_destino}: {texto}"
         response = openai.Completion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             prompt=prompt,
             max_tokens=60
         )
@@ -1075,6 +1075,54 @@ def delete_urls():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/delete_urls', methods=['POST'])
+def delete_urls():
+    data = request.json
+    urls_to_delete = set(data.get('urls', []))  # Conjunto de URLs a eliminar
+    chatbot_id = data.get('chatbot_id')  # Identificador del chatbot
+
+    if not urls_to_delete or not chatbot_id:
+        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
+        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+
+    chatbot_folder = os.path.join('data/uploads/scraping', str(chatbot_id))
+
+    app.logger.info(f"Ruta del directorio del chatbot: {chatbot_folder}")
+
+    if not os.path.exists(chatbot_folder):
+        app.logger.error("Carpeta del chatbot no encontrada")
+        return jsonify({"status": "error", "message": "Chatbot folder not found"}), 404
+
+    file_name = f"{chatbot_id}.txt"
+    file_path = os.path.join(chatbot_folder, file_name)
+
+    app.logger.info(f"Ruta del archivo de URLs: {file_path}")
+
+    if not os.path.exists(file_path):
+        app.logger.error(f"Archivo {file_name} no encontrado en la carpeta del chatbot")
+        return jsonify({"status": "error", "message": f"File {file_name} not found in chatbot folder"}), 404
+
+    try:
+        with open(file_path, 'r+') as file:
+            existing_urls = set(file.read().splitlines())
+            updated_urls = existing_urls - urls_to_delete
+
+            file.seek(0)
+            file.truncate()
+
+            for url in updated_urls:
+                if url.strip():  # Asegura que la URL no sea una línea vacía
+                    file.write(url + '\n')
+
+        app.logger.info("URLs eliminadas con éxito")
+        return jsonify({"status": "success", "message": "URLs deleted successfully"})
+    except Exception as e:
+        app.logger.error(f"Error al eliminar URLs: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
 
 @app.route('/pre_established_answers', methods=['POST'])
 def pre_established_answers():
@@ -1154,7 +1202,7 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-4')
+    model_gpt = data.get('model_gpt', 'gpt-4-1106-preview')
 
     if not new_prompt or not chatbot_id:
         app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
