@@ -266,7 +266,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Responde como máximo con 50 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma.Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Responde como máximo con 50 palabras lo mas corto posible para resumir y mejorar la respuesta. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma.Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -1168,6 +1168,47 @@ def change_params():
 
     app.logger.info("Parámetros del chatbot cambiados con éxito.")
     return jsonify({"mensaje": "Parámetros cambiados con éxito"})
+
+@app.route('/delete_dataset_entries', methods=['POST'])
+def delete_dataset_entries():
+    data = request.json
+    urls_to_delete = set(data.get('urls', []))
+    chatbot_id = data.get('chatbot_id')
+
+    if not urls_to_delete or not chatbot_id:
+        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
+        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+
+    BASE_DATASET_DIR = 'data/uploads/datasets'
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("Archivo del dataset no encontrado")
+        return jsonify({"status": "error", "message": "Dataset file not found"}), 404
+
+    try:
+        with open(dataset_file_path, 'r+') as file:
+            dataset = json.load(file)
+            urls_in_dataset = {entry['url'] for entry in dataset}
+            urls_not_found = urls_to_delete - urls_in_dataset
+
+            if urls_not_found:
+                app.logger.info(f"URLs no encontradas en el dataset: {urls_not_found}")
+
+            updated_dataset = [entry for entry in dataset if entry['url'] not in urls_to_delete]
+
+            file.seek(0)
+            file.truncate()
+            json.dump(updated_dataset, file, indent=4)
+
+        app.logger.info("Proceso de eliminación completado con éxito")
+        return jsonify({"status": "success", "message": "Dataset entries deleted successfully", "urls_not_found": list(urls_not_found)})
+    except json.JSONDecodeError:
+        app.logger.error("Error al leer el archivo JSON")
+        return jsonify({"status": "error", "message": "Invalid JSON format in dataset file"}), 500
+    except Exception as e:
+        app.logger.error(f"Error inesperado: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/events', methods=['POST'])
 def events():
