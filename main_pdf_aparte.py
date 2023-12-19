@@ -103,6 +103,8 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
+BASE_PDFS_DIR = "data/uploads/pdfs/"
+BASE_PDFS_DIR_JSON = "data/uploads/pdfs/json/"
 BASE_CACHE_DIR =  "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
@@ -198,7 +200,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -271,7 +273,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-preview",
+            model=model_gpt if model_gpt else "gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -294,7 +296,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-preview",
+            model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_mejorada}
@@ -317,7 +319,7 @@ def generar_contexto_con_openai(historial):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
@@ -341,7 +343,7 @@ def buscar_en_openai_relacion_con_eventos(frase):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": ""},
                 {"role": "user", "content": frase_combinada}
@@ -404,7 +406,7 @@ def identificar_saludo_despedida(frase):
     try:
         # Enviar la frase directamente a OpenAI para determinar si es un saludo o despedida
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Identifica si la siguiente frase es exclusivamente un saludo o una despedida, sin información adicional o solicitudes. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
                 {"role": "user", "content": frase}
@@ -433,7 +435,7 @@ def identificar_saludo_despedida(frase):
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_elegida}
@@ -609,30 +611,37 @@ def preprocess_query(query):
     filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
     return ' '.join(filtered_tokens)
 
-# Encontrar respuesta
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto=''):
-    # Convertir los datos del dataset a texto
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', umbral_similitud=0.05):
     datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    # Crear y ajustar el vectorizador
     vectorizer = TfidfVectorizer()
     vectorizer.fit(datos_texto)
 
-    # Preprocesar y vectorizar la pregunta
     pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
     encoded_query = vectorizer.transform([pregunta_procesada])
 
-    # Vectorizar los datos
     encoded_data = vectorizer.transform(datos_texto)
 
-    # Realizar la búsqueda de similitud
     similarity_scores = cosine_similarity(encoded_query, encoded_data)
     indice_mas_similar = similarity_scores.argmax()
-    
-    if similarity_scores[0, indice_mas_similar] > 0:
-        return datos_texto[indice_mas_similar]
 
-    return False
+    if similarity_scores[0, indice_mas_similar] < umbral_similitud:
+        return None
+
+    texto = datos_texto[indice_mas_similar]
+    palabras = word_tokenize(texto)
+    indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=['museo', 'gratis'])
+
+    inicio = max(0, indice_palabra_relevante - 50)
+    fin = min(len(palabras), indice_palabra_relevante + 50)
+    return ' '.join(palabras[inicio:fin])
+
+# Encontrar índice de palabra relevante
+def encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=[]):
+    for palabra_clave in palabras_clave:
+        if palabra_clave in palabras:
+            return palabras.index(palabra_clave)
+    return len(palabras) // 2
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
@@ -643,7 +652,7 @@ def traducir_texto_con_openai(texto, idioma_destino):
     try:
         prompt = f"Traduce este texto al {idioma_destino}: {texto}"
         response = openai.Completion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo",
             prompt=prompt,
             max_tokens=60
         )
@@ -713,6 +722,7 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        app.logger.info(f"Chatbot ID: {chatbot_id}")
         fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
@@ -720,54 +730,64 @@ def ask():
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+            app.logger.info(f"Última pregunta recibida: {ultima_pregunta}, Contexto: {contexto}")
 
             if ultima_respuesta == "":
-                app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
-
-                # Verificar si es un saludo o despedida
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                app.logger.info("Verificando si es un saludo o despedida")
                 if respuesta_saludo_despedida:
                     fuente_respuesta = 'saludo_o_despedida'
                     ultima_respuesta = respuesta_saludo_despedida
+                    app.logger.info("Respuesta de saludo/despedida encontrada")
 
-                # Buscar en respuestas preestablecidas NLP
                 if not ultima_respuesta:
+                    app.logger.info("Buscando en respuestas preestablecidas NLP")
                     respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                     if encontrada_en_json:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
+                        app.logger.info("Respuesta preestablecida encontrada")
 
-                # Buscar eventos relacionados
                 if not ultima_respuesta and buscar_en_openai_relacion_con_eventos(ultima_pregunta):
+                    app.logger.info("Buscando en eventos relacionados")
                     respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
                     if respuesta_eventos and respuesta_eventos != False:
                         fuente_respuesta = 'eventos'
                         ultima_respuesta = respuesta_eventos
+                        app.logger.info("Respuesta de eventos relacionados encontrada")
 
-                # Buscar en el dataset
+                pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+                if not ultima_respuesta and os.path.exists(pdf_file_path):
+                    app.logger.info("Buscando en documentos PDF indexados")
+                    with open(pdf_file_path, 'r') as file:
+                        datos_del_pdf = json.load(file)
+                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
+                    app.logger.info("respuesta_del_pdf")
+                    app.logger.info(respuesta_del_pdf)
+                    if respuesta_del_pdf:
+                        fuente_respuesta = 'Docs'
+                        ultima_respuesta = respuesta_del_pdf
+                        app.logger.info("Respuesta encontrada en documentos PDF")
+
+                dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                if not ultima_respuesta and os.path.exists(dataset_file_path):
+                    app.logger.info("Buscando en el dataset")
+                    with open(dataset_file_path, 'r') as file:
+                        datos_del_dataset = json.load(file)
+                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+                    if respuesta_del_dataset:
+                        fuente_respuesta = 'dataset'
+                        ultima_respuesta = respuesta_del_dataset
+                        app.logger.info("Respuesta encontrada en el dataset")
+
                 if not ultima_respuesta:
-                    app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
-
-                        vectorizer = TfidfVectorizer()
-                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                        vectorizer.fit(prepared_data)
-
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        if respuesta_del_dataset:
-                            fuente_respuesta = 'dataset'
-                            ultima_respuesta = respuesta_del_dataset
-
-                # Seleccionar una respuesta por defecto si aún no se ha encontrado una
-                if not ultima_respuesta:
+                    app.logger.info("Seleccionando una respuesta por defecto")
                     fuente_respuesta = 'respuesta_por_defecto'
                     ultima_respuesta = seleccionar_respuesta_por_defecto()
+                    app.logger.info("Respuesta por defecto seleccionada")
 
-                # Mejorar la respuesta con OpenAI si se ha obtenido una
                 if ultima_respuesta and ultima_respuesta != False:
+                    app.logger.info("Mejorando la respuesta con OpenAI")
                     ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                         pregunta=ultima_pregunta, 
                         respuesta=ultima_respuesta, 
@@ -779,10 +799,12 @@ def ask():
                     )
                     ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
                     fuente_respuesta = 'mejorada'
+                    app.logger.info("Respuesta mejorada con OpenAI")
 
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
+                app.logger.info("Respondiendo con respuesta existente")
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
@@ -796,6 +818,9 @@ def ask():
 
 
 
+
+
+
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
@@ -805,55 +830,66 @@ def upload_file():
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
+        if not chatbot_id:
+            return jsonify({"respuesta": "No se proporcionó el chatbot_id", "codigo_error": 1})
+        
         app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
             app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Ruta modificada para guardar en data/uploads/docs/{chatbot_id}/
-        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
-        os.makedirs(docs_folder, exist_ok=True)
-        file_path = os.path.join(docs_folder, uploaded_file.filename)
+        # Ruta para guardar los archivos PDF
+        pdfs_folder = os.path.join(BASE_PDFS_DIR, str(chatbot_id))
+        os.makedirs(pdfs_folder, exist_ok=True)
+
+        # Evitar sobrescribir archivos existentes
+        file_index = 1
+        file_path = os.path.join(pdfs_folder, uploaded_file.filename)
+        while os.path.exists(file_path):
+            file_path = os.path.join(pdfs_folder, f"{file_index}_{uploaded_file.filename}")
+            file_index += 1
+
         uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en: {file_path}")
 
+        # Procesar el contenido del archivo
         readable_content = process_file(file_path, os.path.splitext(uploaded_file.filename)[1][1:].lower())
         if readable_content is None:
             app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        word_count = len(readable_content.split())
+        # Ruta del archivo JSON para la indexación
+        pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+        os.makedirs(os.path.dirname(pdf_index_file_path), exist_ok=True)
 
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
+        # Leer o inicializar el archivo de indexación
+        pdf_entries = {}
+        if os.path.exists(pdf_index_file_path):
+            with open(pdf_index_file_path, 'r', encoding='utf-8') as json_file:
+                pdf_entries = json.load(json_file)
 
-        dataset_entries = {}
-        if os.path.exists(dataset_file_path):
-            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
-                dataset_entries = json.load(json_file)
-
-        dataset_entries[uploaded_file.filename] = {
-            "indice": uploaded_file.filename,
-            "url": file_path,
-            "dialogue": readable_content
+        # Agregar nueva entrada al índice
+        pdf_entries[file_index] = {
+            "indice": file_index,
+            "url": uploaded_file.filename,  # Nombre del archivo
+            "dialogue": readable_content   # Contenido del archivo
         }
 
-        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-        app.logger.info("Archivo JSON del dataset actualizado y guardado")
+        # Guardar el índice actualizado
+        with open(pdf_index_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json.dump(pdf_entries, json_file_to_write, ensure_ascii=False, indent=4)
+        app.logger.info("Índice de archivos PDF actualizado y guardado")
 
         return jsonify({
-            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-            "word_count": word_count,
+            "respuesta": "Archivo procesado y añadido al índice con éxito.",
+            "indice": file_index,
             "codigo_error": 0
         })
 
     except Exception as e:
         app.logger.error(f"Error durante el procesamiento general. Error: {e}")
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
-
-
 
 
 @app.route('/save_text', methods=['POST'])
@@ -1263,7 +1299,7 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-4-1106-preview')
+    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
 
     if not new_prompt or not chatbot_id:
         app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")

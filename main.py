@@ -313,7 +313,6 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
 
 
-
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
@@ -469,15 +468,9 @@ def extraer_palabras_clave(pregunta):
 
 ####### Inicio Sistema de cache #######
 
-import os
-import json
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
-def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
+def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     app.logger.info(f"Buscando respuesta similar para el chatbot {chatbot_id}")
 
-    # Usando BASE_DATASET_DIR para la ruta del archivo de caché
     cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id), 'cache.json')
     if os.path.exists(cache_file_path):
         with open(cache_file_path, 'r') as file:
@@ -506,15 +499,20 @@ def encontrar_respuesta_similar(pregunta_usuario, chatbot_id):
     similitudes = cosine_similarity(pregunta_vectorizada, matriz_tfidf)
 
     indice_mas_similar = np.argmax(similitudes)
-    if similitudes[0, indice_mas_similar] > 0.5:
+    similitud_maxima = similitudes[0, indice_mas_similar]
+
+    # Define un umbral para la similitud. Puedes ajustar este valor según sea necesario.
+    umbral_similitud = 0.5
+    if similitud_maxima > umbral_similitud:
         pregunta_similar = preguntas[indice_mas_similar]
         app.logger.info(f"Encontrada pregunta similar: {pregunta_similar}")
         return respuestas[pregunta_similar]
-    else:
-        app.logger.info("No se encontraron preguntas similares con suficiente similitud")
-        return None
+
+    app.logger.info("No se encontraron preguntas similares con suficiente similitud")
+    return None  # O podrías retornar False si prefieres
 
 
+## Seguramente no sea necesario
 def guardar_en_cache(pregunta, respuesta, chatbot_id):
     app.logger.info(f"Guardando en caché para el chatbot {chatbot_id}")
 
@@ -545,10 +543,7 @@ def guardar_en_cache(pregunta, respuesta, chatbot_id):
         app.logger.info("Datos guardados en el archivo de caché")
 
 
-
-
 ####### Fin Sistema de cache #######
-
 
 # Función auxiliar para mapear etiquetas POS a WordNet POS
 def get_wordnet_pos(token):
@@ -817,10 +812,6 @@ def ask():
         return jsonify({'error': str(e)}), 500
 
 
-
-
-
-
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
@@ -830,60 +821,47 @@ def upload_file():
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
-        if not chatbot_id:
-            return jsonify({"respuesta": "No se proporcionó el chatbot_id", "codigo_error": 1})
-        
         app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
             app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Ruta para guardar los archivos PDF
-        pdfs_folder = os.path.join(BASE_PDFS_DIR, str(chatbot_id))
-        os.makedirs(pdfs_folder, exist_ok=True)
-
-        # Evitar sobrescribir archivos existentes
-        file_index = 1
-        file_path = os.path.join(pdfs_folder, uploaded_file.filename)
-        while os.path.exists(file_path):
-            file_path = os.path.join(pdfs_folder, f"{file_index}_{uploaded_file.filename}")
-            file_index += 1
-
+        # Ruta modificada para guardar en data/uploads/docs/{chatbot_id}/
+        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
+        os.makedirs(docs_folder, exist_ok=True)
+        file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
         app.logger.info(f"Archivo guardado en: {file_path}")
 
-        # Procesar el contenido del archivo
         readable_content = process_file(file_path, os.path.splitext(uploaded_file.filename)[1][1:].lower())
         if readable_content is None:
             app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        # Ruta del archivo JSON para la indexación
-        pdf_index_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
-        os.makedirs(os.path.dirname(pdf_index_file_path), exist_ok=True)
+        word_count = len(readable_content.split())
 
-        # Leer o inicializar el archivo de indexación
-        pdf_entries = {}
-        if os.path.exists(pdf_index_file_path):
-            with open(pdf_index_file_path, 'r', encoding='utf-8') as json_file:
-                pdf_entries = json.load(json_file)
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
-        # Agregar nueva entrada al índice
-        pdf_entries[file_index] = {
-            "indice": file_index,
-            "url": uploaded_file.filename,  # Nombre del archivo
-            "dialogue": readable_content   # Contenido del archivo
+        dataset_entries = {}
+        if os.path.exists(dataset_file_path):
+            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+                dataset_entries = json.load(json_file)
+
+        dataset_entries[uploaded_file.filename] = {
+            "indice": uploaded_file.filename,
+            "url": file_path,
+            "dialogue": readable_content
         }
 
-        # Guardar el índice actualizado
-        with open(pdf_index_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            json.dump(pdf_entries, json_file_to_write, ensure_ascii=False, indent=4)
-        app.logger.info("Índice de archivos PDF actualizado y guardado")
+        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+        app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
-            "respuesta": "Archivo procesado y añadido al índice con éxito.",
-            "indice": file_index,
+            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "word_count": word_count,
             "codigo_error": 0
         })
 
