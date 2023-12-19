@@ -751,7 +751,7 @@ def ask():
                         ultima_respuesta = respuesta_eventos
                         app.logger.info("Respuesta de eventos relacionados encontrada")
 
-                pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+                """pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
                 if not ultima_respuesta and os.path.exists(pdf_file_path):
                     app.logger.info("Buscando en documentos PDF indexados")
                     with open(pdf_file_path, 'r') as file:
@@ -762,7 +762,7 @@ def ask():
                     if respuesta_del_pdf:
                         fuente_respuesta = 'Docs'
                         ultima_respuesta = respuesta_del_pdf
-                        app.logger.info("Respuesta encontrada en documentos PDF")
+                        app.logger.info("Respuesta encontrada en documentos PDF")"""
 
                 dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                 if not ultima_respuesta and os.path.exists(dataset_file_path):
