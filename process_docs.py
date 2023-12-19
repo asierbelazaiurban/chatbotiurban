@@ -44,15 +44,7 @@ def read_pptx(file_path):
                 text += shape.text + "\n"
     return text
 
-def clean_and_format_content(content):
-    # Eliminar caracteres especiales y números (si es necesario)
-    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ.,!? ]', '', content)
 
-    # Espacios adicionales y líneas nuevas
-    content = re.sub(r'\s+', ' ', content).strip()
-
-    # (Opcional) aquí puedes añadir más reglas de limpieza/formato según tus necesidades
-    return content
 
 def process_file(file_path, extension):
     if extension == 'txt':

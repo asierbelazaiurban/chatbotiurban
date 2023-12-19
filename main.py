@@ -115,6 +115,16 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
+def clean_and_format_content(content):
+    # Eliminar caracteres especiales y números (si es necesario)
+    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ.,!? ]', '', content)
+
+    # Espacios adicionales y líneas nuevas
+    content = re.sub(r'\s+', ' ', content).strip()
+
+    # (Opcional) aquí puedes añadir más reglas de limpieza/formato según tus necesidades
+    return content
+
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
