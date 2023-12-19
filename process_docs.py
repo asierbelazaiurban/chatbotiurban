@@ -14,10 +14,10 @@ def read_txt(file_path):
         return file.read()
 
 def read_pdf(file_path):
-    reader = PdfReader(file_path)
     text = ""
-    for page in reader.pages:
-        text += page.extract_text() + "\n"
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() or ''
     return text
 
 def read_csv_or_xlsx(file_path, extension):
@@ -25,7 +25,7 @@ def read_csv_or_xlsx(file_path, extension):
     return df.to_string()
 
 def read_docx(file_path):
-    doc = docx.Document(file_path)  # Usar 'docx.Document' aquí
+    doc = docx.Document(file_path)
     return "\n".join([para.text for para in doc.paragraphs])
 
 def read_pptx(file_path):

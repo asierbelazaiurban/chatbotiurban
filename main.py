@@ -816,34 +816,31 @@ def ask():
 def upload_file():
     try:
         if 'documento' not in request.files:
-            app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
-        app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
 
         if uploaded_file.filename == '':
-            app.logger.warning("Nombre de archivo vacío")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        # Ruta modificada para guardar en data/uploads/docs/{chatbot_id}/
+        extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
+        if extension not in ALLOWED_EXTENSIONS:
+            return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
+
         docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
         file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
-        app.logger.info(f"Archivo guardado en: {file_path}")
 
-        readable_content = process_file(file_path, os.path.splitext(uploaded_file.filename)[1][1:].lower())
+        readable_content = process_file(file_path, extension)
         if readable_content is None:
-            app.logger.error("No se pudo procesar el archivo")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        word_count = len(readable_content.split())
-
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        # Guardar y manejar el contenido extraído aquí
+        dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), 'dataset.json')
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
-
+        
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
@@ -852,22 +849,20 @@ def upload_file():
         dataset_entries[uploaded_file.filename] = {
             "indice": uploaded_file.filename,
             "url": file_path,
-            "dialogue": readable_content
+            "contenido": readable_content
         }
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-        app.logger.info("Archivo JSON del dataset actualizado y guardado")
 
         return jsonify({
-            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-            "word_count": word_count,
+            "respuesta": "Archivo procesado con éxito",
+            "contenido": readable_content,
             "codigo_error": 0
         })
 
     except Exception as e:
-        app.logger.error(f"Error durante el procesamiento general. Error: {e}")
-        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+        return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
 
 
 @app.route('/save_text', methods=['POST'])
