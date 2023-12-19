@@ -6,6 +6,7 @@ import pandas as pd
 from PyPDF2 import PdfReader
 import docx  # Importar la biblioteca como 'docx'
 from pptx import Presentation
+import pdfplumber
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
@@ -50,3 +51,4 @@ def process_file(file_path, extension):
         return read_pptx(file_path)
     else:
         return None
+        
