@@ -21,7 +21,7 @@
     return respuesta_mejorada
 
 
-    @app.route('/delete_dataset_entries', methods=['POST'])
+@app.route('/delete_dataset_entries', methods=['POST'])
 def delete_dataset_entries():
     data = request.json
     urls_to_delete = set(data.get('urls', []))

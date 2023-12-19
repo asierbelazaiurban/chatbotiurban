@@ -840,6 +840,13 @@ def upload_file():
         if readable_content is None:
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
+        # Limpieza y formato del contenido (si es texto)
+        if extension in ['txt', 'pdf', 'docx', 'pptx']:
+            readable_content = clean_and_format_content(readable_content)
+
+        # Contar las palabras en el contenido procesado
+        word_count = len(readable_content.split())
+
         # Guardar y manejar el contenido extraído aquí
         dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), 'dataset.json')
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
@@ -859,8 +866,8 @@ def upload_file():
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
 
         return jsonify({
-            "respuesta": "Archivo procesado con éxito",
-            "contenido": readable_content,
+            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "word_count": word_count,
             "codigo_error": 0
         })
 
