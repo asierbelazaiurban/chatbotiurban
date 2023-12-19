@@ -112,6 +112,8 @@ BASE_DIR_DOCS = "data/uploads/docs/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
+
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
