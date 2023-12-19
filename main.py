@@ -45,6 +45,7 @@ import pandas as pd
 from tqdm import tqdm  # Importación única de tqdm
 from gensim.models import Word2Vec
 from datasets import Dataset, load_dataset
+import pdfplumber
 
 # Web Scraping y Solicitudes HTTP
 import requests
