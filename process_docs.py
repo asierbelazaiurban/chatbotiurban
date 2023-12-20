@@ -15,13 +15,35 @@ app = Flask(__name__)
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
+def clean_and_format_content(content):
+    # Eliminar caracteres especiales y números (mantener letras, acentos, números y signos de puntuación básicos)
+    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
+
+    # Reemplazar secuencias de espacios, saltos de línea, etc., por un único espacio
+    content = re.sub(r'\s+', ' ', content).strip()
+
+    # Corregir espacios antes de signos de puntuación (opcional)
+    content = re.sub(r'\s+([.,!?])', r'\1', content)
+
+    # Manejo de codificación
+    try:
+        content = content.encode('utf-8', 'replace').decode('utf-8', 'replace')
+    except UnicodeEncodeError:
+        pass
+
+    return content
+
+
 def read_txt(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
     except UnicodeDecodeError:
-        with open(file_path, 'r', encoding='latin-1') as file:
-            return file.read()
+        try:
+            with open(file_path, 'r', encoding='latin-1') as file:
+                return file.read()
+        except UnicodeDecodeError:
+            return "Error de lectura del archivo TXT"
 
 def read_pdf(file_path):
     text = ""
@@ -33,6 +55,7 @@ def read_pdf(file_path):
                     text += page_text
     except Exception as e:
         print(f"Error al procesar PDF: {e}")
+        return "Error de lectura del archivo PDF"
     return text
 
 def read_csv_or_xlsx(file_path, extension):
@@ -44,7 +67,7 @@ def read_csv_or_xlsx(file_path, extension):
         return df.to_string()
     except Exception as e:
         print(f"Error al procesar {extension.upper()} archivo: {e}")
-        return ""
+        return "Error de lectura del archivo CSV/XLSX"
 
 def read_docx(file_path):
     try:
@@ -52,7 +75,7 @@ def read_docx(file_path):
         return "\n".join([para.text for para in doc.paragraphs])
     except Exception as e:
         print(f"Error al procesar DOCX: {e}")
-        return ""
+        return "Error de lectura del archivo DOCX"
 
 def read_pptx(file_path):
     try:
@@ -65,7 +88,7 @@ def read_pptx(file_path):
         return text
     except Exception as e:
         print(f"Error al procesar PPTX: {e}")
-        return ""
+        return "Error de lectura del archivo PPTX"
 
 def process_file(file_path, extension):
     if extension == 'txt':
@@ -79,9 +102,6 @@ def process_file(file_path, extension):
     elif extension == 'pptx':
         return read_pptx(file_path)
     else:
-        return None
+        return "Formato de archivo no soportado"
 
-def clean_and_format_content(content):
-    # Aquí debes implementar la lógica para limpiar y formatear el contenido
-    return content
 
