@@ -688,28 +688,36 @@ respuestas_por_defecto = [
 ]
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
-    # Configurar el logger
+    # Configuración del logger
     logging.basicConfig(level=logging.INFO)
-    app.logger = logging.getLogger(__name__)
+    app_logger = logging.getLogger(__name__)
 
-    app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
+    app_logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
+    # Cargar el modelo de SentenceTransformer
     modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
     if not os.path.exists(json_file_path):
-        app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
+        app_logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
         return None, False
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
 
-    # Usar preguntas en lugar de palabras clave
-    preguntas = [entry["Pregunta"] for entry in preguntas_respuestas.values()]
+    # Acceder a las preguntas usando la clave correcta "Pregunta" y añadir comprobación
+    preguntas = []
+    for entry in preguntas_respuestas.values():
+        if "Pregunta" in entry and entry["Pregunta"]:
+            preguntas.append(entry["Pregunta"][0])
+        else:
+            app_logger.warning("Entrada encontrada en el JSON sin la clave 'Pregunta' o lista de preguntas vacía")
 
+    # Crear embeddings para las preguntas
     embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
     embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
 
+    # Calcular la similitud
     similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_preguntas)[0]
 
     mejor_coincidencia = similitudes.argmax()
@@ -719,14 +727,14 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
-            app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
-            return respuesta_mejor_coincidencia
+            app_logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
+            return respuesta_mejor_coincidencia, True
         else:
-            app.logger.info("La respuesta no es coherente según OpenAI")
-            return False
+            app_logger.info("La respuesta no es coherente según GPT")
+            return None, False
     else:
-        app.logger.info("No se encontró una coincidencia adecuada")
-        return False
+        app_logger.info("No se encontró una coincidencia adecuada")
+        return None, False
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
     prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
