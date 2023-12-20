@@ -19,6 +19,12 @@ from time import sleep
 from urllib.parse import urlparse, urljoin
 from openai import ChatCompletion
 
+Para detener completamente la ejecución de un script de Python, puedes usar la función exit() del módulo sys. Al llamar a esta función, el programa terminará inmediatamente. Aquí te muestro cómo puedes usarla:
+
+python
+Copy code
+import sys
+
 # ---------------------------
 # Librerías de Terceros
 # ---------------------------
@@ -379,7 +385,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
         app.logger.info("respuesta_mejor_coincidencia")
         app.logger.info(respuesta_mejor_coincidencia)
-
+        sys.exit()
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
             return respuesta_mejor_coincidencia
