@@ -346,7 +346,7 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def ?(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
     modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
@@ -376,6 +376,10 @@ def ?(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+
+        app.logger.info("respuesta_mejor_coincidencia")
+        app.logger.info(respuesta_mejor_coincidencia)
+
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
@@ -744,9 +748,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-       
-        app.logger.info("respuesta_mejor_coincidencia")
-        app.logger.info(respuesta_mejor_coincidencia)
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
@@ -757,7 +758,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     else:
         app.logger.info("No se encontró una coincidencia adecuada")
         return  False
-
 
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
