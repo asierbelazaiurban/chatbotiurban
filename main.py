@@ -858,7 +858,7 @@ def upload_file():
         word_count = len(readable_content.split())
 
         # Guardar y manejar el contenido extraído aquí
-        dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), 'dataset.json')
+        dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
         
         dataset_entries = {}
