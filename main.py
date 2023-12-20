@@ -723,28 +723,30 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 ####### FIN Utils busqueda en Json #######
 
 def safe_encode_to_json(content):
+    app.logger.info("Iniciando safe_encode_to_json")
     try:
-        # Intenta convertir a JSON directamente
-        return json.dumps(content, ensure_ascii=False, indent=4)
-    except UnicodeEncodeError:
-        # Si falla, intenta una codificación segura
-        if isinstance(content, dict):
-            for key, value in content.items():
-                content[key] = value.encode('utf-8', 'ignore').decode('utf-8')
-        elif isinstance(content, list):
-            content = [x.encode('utf-8', 'ignore').decode('utf-8') for x in content]
-        elif isinstance(content, str):
-            content = content.encode('utf-8', 'ignore').decode('utf-8')
-        return json.dumps(content, ensure_ascii=False, indent=4)
+        json_output = json.dumps(content, ensure_ascii=False, indent=4)
+        app.logger.info("Codificación JSON exitosa en el primer intento")
+        return json_output
+    except UnicodeEncodeError as e:
+        app.logger.error(f"Fallo en la codificación JSON: {e}")
 
-    try:
-        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            json_content = safe_encode_to_json(dataset_entries)
-            json_file_to_write.write(json_content)
-        app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
-    except Exception as e:
-        app.logger.error(f"Error al escribir en el archivo JSON: {e}")
-        return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
+        def encode_item(item):
+            if isinstance(item, str):
+                encoded_str = item.encode('utf-8', 'ignore').decode('utf-8')
+                app.logger.info(f"Codificación de string realizada: {encoded_str}")
+                return encoded_str
+            elif isinstance(item, dict):
+                return {k: encode_item(v) for k, v in item.items()}
+            elif isinstance(item, list):
+                return [encode_item(x) for x in item]
+            return item
+
+        app.logger.info("Intentando codificación segura del contenido")
+        safe_content = encode_item(content)
+        json_output = json.dumps(safe_content, ensure_ascii=False, indent=4)
+        app.logger.info("Codificación JSON exitosa en el segundo intento")
+        return json_output
 
 
 ####### Inicio Endpoints #######
