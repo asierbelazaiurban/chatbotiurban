@@ -871,7 +871,7 @@ def upload_file():
 
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
-            app.logger.info"(hasta aqui no hay error")
+            app.logger.info("hasta aqui no hay error")
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
 
@@ -882,7 +882,7 @@ def upload_file():
         }
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            app.logger.info"(hasta aqui no hay error segnda parte")
+            app.logger.info("hasta aqui no hay error segnda parte")
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
         app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
 
