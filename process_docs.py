@@ -15,7 +15,9 @@ app = Flask(__name__)
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
+import re
 
+# Función para leer archivos TXT
 def read_txt(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -27,7 +29,7 @@ def read_txt(file_path):
         except UnicodeDecodeError:
             return "Error de lectura del archivo TXT"
 
-
+# Función para leer archivos PDF
 def read_pdf(file_path):
     text = ""
     try:
@@ -40,10 +42,10 @@ def read_pdf(file_path):
                 except UnicodeDecodeError:
                     text += " [Error en la decodificación de esta página] "
     except Exception as e:
-        print(f"Error al procesar PDF: {e}")
-        return "Error de lectura del archivo PDF"
+        return f"Error al procesar PDF: {e}"
     return text
 
+# Función para leer archivos CSV o XLSX
 def read_csv_or_xlsx(file_path, extension):
     try:
         if extension == 'csv':
@@ -52,17 +54,17 @@ def read_csv_or_xlsx(file_path, extension):
             df = pd.read_excel(file_path)
         return df.to_string()
     except Exception as e:
-        print(f"Error al procesar {extension.upper()} archivo: {e}")
-        return "Error de lectura del archivo CSV/XLSX"
+        return f"Error al procesar {extension.upper()} archivo: {e}"
 
+# Función para leer archivos DOCX
 def read_docx(file_path):
     try:
         doc = docx.Document(file_path)
         return "\n".join([para.text for para in doc.paragraphs])
     except Exception as e:
-        print(f"Error al procesar DOCX: {e}")
-        return "Error de lectura del archivo DOCX"
+        return f"Error al procesar DOCX: {e}"
 
+# Función para leer archivos PPTX
 def read_pptx(file_path):
     try:
         ppt = Presentation(file_path)
@@ -73,8 +75,8 @@ def read_pptx(file_path):
                     text += shape.text + "\n"
         return text
     except Exception as e:
-        print(f"Error al procesar PPTX: {e}")
-        return "Error de lectura del archivo PPTX"
+        return f"Error al procesar PPTX: {e}"
+
 
 def process_file(file_path, extension):
     if extension == 'txt':
@@ -89,5 +91,4 @@ def process_file(file_path, extension):
         return read_pptx(file_path)
     else:
         return "Formato de archivo no soportado"
-
 

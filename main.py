@@ -127,17 +127,19 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 import re
 
+import re
+
 def clean_and_format_content(content):
-    # Eliminar caracteres especiales y números (mantener letras, acentos, números y signos de puntuación básicos)
+    # Eliminar caracteres especiales y números, conservando letras, acentos, y puntuación básica
     content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
 
-    # Reemplazar secuencias de espacios, saltos de línea, etc., por un único espacio
+    # Reemplazar secuencias de espacios y saltos de línea por un único espacio
     content = re.sub(r'\s+', ' ', content).strip()
 
-    # Corregir espacios antes de signos de puntuación (opcional)
+    # Eliminar espacios antes de signos de puntuación
     content = re.sub(r'\s+([.,!?])', r'\1', content)
 
-    # Manejo de codificación
+    # Manejo de codificación (opcional, dependiendo de la necesidad)
     try:
         content = content.encode('utf-8', 'replace').decode('utf-8', 'replace')
     except UnicodeEncodeError:
@@ -1228,7 +1230,6 @@ def delete_dataset_entries():
     except Exception as e:
         app.logger.error(f"Error inesperado: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 @app.route('/pre_established_answers', methods=['POST'])
