@@ -17,6 +17,7 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 from time import sleep
 from urllib.parse import urlparse, urljoin
+from openai import ChatCompletion
 
 # ---------------------------
 # Librerías de Terceros
@@ -685,9 +686,13 @@ respuestas_por_defecto = [
 ]
 
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+    # Configurar el logger
+    logging.basicConfig(level=logging.INFO)
+    app.logger = logging.getLogger(__name__)
+
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
-    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
+    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
     if not os.path.exists(json_file_path):
@@ -697,28 +702,53 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
 
-    # Crear una lista de todas las palabras clave
-    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
-    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
+    # Usar preguntas en lugar de palabras clave
+    preguntas = [entry["pregunta"] for entry in preguntas_respuestas.values()]
 
-    # Calcular los embeddings para las palabras clave y la pregunta del usuario
-    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
+    embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
     embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
 
-    # Calcular la similitud semántica
-    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_preguntas)[0]
 
-    # Encontrar la mejor coincidencia si supera el umbral
     mejor_coincidencia = similitudes.argmax()
     max_similitud = similitudes[mejor_coincidencia].item()
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
-        return respuesta_mejor_coincidencia, True
+
+        if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
+            app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
+            return respuesta_mejor_coincidencia
+        else:
+            app.logger.info("La respuesta no es coherente según OpenAI")
+            return False
     else:
         app.logger.info("No se encontró una coincidencia adecuada")
-        return None, False
+        return False
+
+def comprobar_coherencia_gpt(pregunta, respuesta):
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False."
+
+    response = ChatCompletion.create(
+        model="gpt-4",  # O el modelo que prefieras
+        messages=[
+            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    respuesta_gpt = response.choices[0].message['content'].strip().lower()
+    # Limpiar la respuesta de puntuación y espacios adicionales
+    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
+
+    if respuesta_gpt == "true"
+        return True
+    if respuesta_gpt == "false"
+        return False
+    if respuesta_gpt != "false" and respuesta_gpt != "true"
+        return False
+
+
 
 ####### FIN Utils busqueda en Json #######
 
