@@ -76,7 +76,6 @@ from process_docs import process_file
 
 modelo = api.load("glove-wiki-gigaword-50")
 
-
 nltk.download('stopwords')
 nltk.download('punkt')
 app = Flask(__name__)
