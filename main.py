@@ -376,11 +376,42 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
-        return respuesta_mejor_coincidencia
+
+        if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
+            app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
+            return respuesta_mejor_coincidencia
+        else:
+            app.logger.info("La respuesta no es coherente según GPT")
+            return  False
     else:
         app.logger.info("No se encontró una coincidencia adecuada")
+        return  False
+
+
+def comprobar_coherencia_gpt(pregunta, respuesta):
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
+
+    response = ChatCompletion.create(
+        model="gpt-4",  # O el modelo que prefieras
+        messages=[
+            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    respuesta_gpt = response.choices[0].message['content'].strip().lower()
+    # Limpiar la respuesta de puntuación y espacios adicionales
+    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
+
+    app.logger.info(respuesta_gpt)
+
+    # Evaluar la respuesta
+    if respuesta_gpt == "true":
+        return True
+    else:
         return False
+
+
 
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
