@@ -17,7 +17,6 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 from time import sleep
 from urllib.parse import urlparse, urljoin
-from openai import ChatCompletion
 
 # ---------------------------
 # Librerías de Terceros
@@ -128,6 +127,25 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 import re
 
+def clean_and_format_content(content):
+    # Eliminar caracteres especiales y números (mantener letras, acentos, números y signos de puntuación básicos)
+    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
+
+    # Reemplazar secuencias de espacios, saltos de línea, etc., por un único espacio
+    content = re.sub(r'\s+', ' ', content).strip()
+
+    # Corregir espacios antes de signos de puntuación (opcional)
+    content = re.sub(r'\s+([.,!?])', r'\1', content)
+
+    # Manejo de codificación
+    try:
+        content = content.encode('utf-8', 'replace').decode('utf-8', 'replace')
+    except UnicodeEncodeError:
+        pass
+
+    return content
+
+
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
@@ -216,7 +234,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -289,7 +307,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-preview",
+            model=model_gpt if model_gpt else "gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -312,7 +330,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-preview",
+            model=model_gpt if model_gpt else "gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_mejorada}
@@ -346,41 +364,43 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
-    app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
+def buscar_en_openai_relacion_con_eventos(frase):
+    app.logger.info("Hemos detectado un evento")
 
-    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+    # Texto fijo a concatenar
+    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. la frase es: "
+    frase_combinada = texto_fijo + frase
 
-    if not os.path.exists(json_file_path):
-        app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None, False
+    # Establecer la clave de API de OpenAI
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    with open(json_file_path, 'r', encoding='utf-8') as json_file:
-        preguntas_respuestas = json.load(json_file)
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": ""},
+                {"role": "user", "content": frase_combinada}
+            ]
+        )
 
-    # Crear una lista de todas las palabras clave
-    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
-    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
+        # Interpretar la respuesta y normalizarla
+        respuesta = response.choices[0].message['content'].strip().lower()
+        respuesta = unidecode.unidecode(respuesta).replace(".", "")
 
-    # Calcular los embeddings para las palabras clave y la pregunta del usuario
-    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
-    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
+        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
 
-    # Calcular la similitud semántica
-    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
-
-    # Encontrar la mejor coincidencia si supera el umbral
-    mejor_coincidencia = similitudes.argmax()
-    max_similitud = similitudes[mejor_coincidencia].item()
-
-    if max_similitud >= umbral_similitud:
-        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
-        return respuesta_mejor_coincidencia
-    else:
-        app.logger.info("No se encontró una coincidencia adecuada")
-        return False
+        if respuesta == "si":
+            app.logger.info("La respuesta es sí, relacionada con eventos")
+            return True
+        elif respuesta == "no":
+            app.logger.info("La respuesta es no, no relacionada con eventos")
+            return False
+        else:
+            app.logger.info("La respuesta no es ni sí ni no")
+            return None
+    except Exception as e:
+        app.logger.error(f"Error al procesar la solicitud: {e}")
+        return None
 
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
@@ -713,68 +733,13 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-
-        if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
-            app_logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
-            return respuesta_mejor_coincidencia
-        else:
-            app_logger.info("La respuesta no es coherente según GPT")
-            return  False
+        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
+        return respuesta_mejor_coincidencia, True
     else:
-        app_logger.info("No se encontró una coincidencia adecuada")
-        return  False
-
-
-def comprobar_coherencia_gpt(pregunta, respuesta):
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
-
-    response = ChatCompletion.create(
-        model="gpt-4",  # O el modelo que prefieras
-        messages=[
-            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    # Limpiar la respuesta de puntuación y espacios adicionales
-    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
-
-    app.logger.info(respuesta_gpt)
-
-    # Evaluar la respuesta
-    if respuesta_gpt == "true":
-        return True
-    else:
-        return False
+        app.logger.info("No se encontró una coincidencia adecuada")
+        return None, False
 
 ####### FIN Utils busqueda en Json #######
-
-import json
-
-def safe_encode_to_json(content):
-    app.logger.info("Iniciando safe_encode_to_json")
-
-    def encode_item(item):
-        if isinstance(item, str):
-            encoded_str = item.encode('utf-8', 'ignore').decode('utf-8')
-            app.logger.info(f"Codificando cadena: original='{item[:30]}...', codificado='{encoded_str[:30]}...'")
-            return encoded_str
-        elif isinstance(item, dict):
-            app.logger.info(f"Procesando diccionario: {list(item.keys())[:5]}...")
-            return {k: encode_item(v) for k, v in item.items()}
-        elif isinstance(item, list):
-            app.logger.info(f"Procesando lista: longitud={len(item)}")
-            return [encode_item(x) for x in item]
-        app.logger.info(f"Tipo no procesado: {type(item)}")
-        return item
-
-    app.logger.info("Codificando contenido para JSON")
-    safe_content = encode_item(content)
-    app.logger.info("Contenido codificado con éxito")
-    json_output = json.dumps(safe_content, ensure_ascii=False, indent=4)
-    app.logger.info("Codificación JSON completada con éxito")
-    return json_output
 
 
 ####### Inicio Endpoints #######
@@ -806,8 +771,8 @@ def ask():
 
                 if not ultima_respuesta:
                     app.logger.info("Buscando en respuestas preestablecidas NLP")
-                    respuesta_preestablecida = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                    if respuesta_preestablecida:
+                    respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                    if encontrada_en_json:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
                         app.logger.info("Respuesta preestablecida encontrada")
@@ -881,68 +846,61 @@ def ask():
         return jsonify({'error': str(e)}), 500
 
 
-
 @app.route('/uploads', methods=['POST'])
 def upload_file():
-    if 'documento' not in request.files:
-        return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
+    try:
+        if 'documento' not in request.files:
+            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
-    uploaded_file = request.files['documento']
-    chatbot_id = request.form.get('chatbot_id')
+        uploaded_file = request.files['documento']
+        chatbot_id = request.form.get('chatbot_id')
 
-    if uploaded_file.filename == '':
-        return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+        if uploaded_file.filename == '':
+            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-    extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
-    if extension not in ALLOWED_EXTENSIONS:
-        return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
+        extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
+        if extension not in ALLOWED_EXTENSIONS:
+            return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
 
-    # Guardar archivo físicamente en el directorio 'docs'
-    docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
-    os.makedirs(docs_folder, exist_ok=True)
-    file_path = os.path.join(docs_folder, uploaded_file.filename)
-    uploaded_file.save(file_path)
+        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
+        os.makedirs(docs_folder, exist_ok=True)
+        file_path = os.path.join(docs_folder, uploaded_file.filename)
+        uploaded_file.save(file_path)
 
-    # Procesar contenido del archivo
-    readable_content = process_file(file_path, extension)
-    readable_content = readable_content.encode('utf-8', 'ignore').decode('utf-8')
+        readable_content = process_file(file_path, extension)
+        if readable_content is None:
+            return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-    # Actualizar dataset.json
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
+        # Asumiendo que tienes una función para limpiar y formatear el contenido
+        readable_content = clean_and_format_content(readable_content)
 
-    dataset_entries = {}
-    if os.path.exists(dataset_file_path):
-        with open(dataset_file_path, 'rb') as json_file:
-            file_content = json_file.read()
-            if file_content:
-                decoded_content = file_content.decode('utf-8', 'ignore')
-                try:
-                    dataset_entries = json.loads(decoded_content)
-                except json.decoder.JSONDecodeError:
-                    dataset_entries = {}
-            else:
-                dataset_entries = {}
+        word_count = len(readable_content.split())
 
-    # Añadir entrada al dataset
-    dataset_entries[uploaded_file.filename] = {
-        "indice": uploaded_file.filename,
-        "url": file_path,
-        "contenido": readable_content
-    }
+        dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
+        os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
+        
+        dataset_entries = {}
+        if os.path.exists(dataset_file_path):
+            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+                dataset_entries = json.load(json_file)
 
-    # Escribir cambios en dataset.json
-    with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-        json_content = safe_encode_to_json(dataset_entries)
-        json_file_to_write.write(json_content)
+        dataset_entries[uploaded_file.filename] = {
+            "indice": uploaded_file.filename,
+            "url": file_path,
+            "contenido": readable_content
+        }
 
-    return jsonify({
-        "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-        "word_count": len(readable_content.split()),
-        "codigo_error": 0
-    })
+        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
 
+        return jsonify({
+            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+            "word_count": word_count,
+            "codigo_error": 0
+        })
 
+    except Exception as e:
+        return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
 
 @app.route('/save_text', methods=['POST'])
 def save_text():
@@ -995,9 +953,7 @@ def save_text():
         }
 
         # Guardar el archivo del dataset actualizado
-        app.logger.info("Aqui si")
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            app.logger.info("Aqui NO")
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
 
         return jsonify({
@@ -1272,6 +1228,7 @@ def delete_dataset_entries():
     except Exception as e:
         app.logger.error(f"Error inesperado: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 @app.route('/pre_established_answers', methods=['POST'])
