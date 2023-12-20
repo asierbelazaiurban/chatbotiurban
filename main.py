@@ -687,7 +687,7 @@ respuestas_por_defecto = [
     "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
 ]
 
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
     # Configuración del logger
     logging.basicConfig(level=logging.INFO)
     app_logger = logging.getLogger(__name__)
@@ -731,10 +731,10 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
             return respuesta_mejor_coincidencia, True
         else:
             app_logger.info("La respuesta no es coherente según GPT")
-            return None, False
+            return False
     else:
         app_logger.info("No se encontró una coincidencia adecuada")
-        return None, False
+        return False
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
     prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
