@@ -882,8 +882,16 @@ def upload_file():
     if os.path.exists(dataset_file_path):
         with open(dataset_file_path, 'rb') as json_file:
             file_content = json_file.read()
-            decoded_content = file_content.decode('utf-8', 'ignore')
-            dataset_entries = json.loads(decoded_content)
+            if file_content:
+                decoded_content = file_content.decode('utf-8', 'ignore')
+                try:
+                    dataset_entries = json.loads(decoded_content)
+                except json.decoder.JSONDecodeError:
+                    # Inicializar dataset_entries como diccionario vacío si hay un error
+                    dataset_entries = {}
+            else:
+                # El archivo JSON está vacío, inicializar dataset_entries como diccionario vacío
+                dataset_entries = {}
 
     dataset_entries[uploaded_file.filename] = {
         "indice": uploaded_file.filename,
@@ -900,6 +908,7 @@ def upload_file():
         "word_count": len(readable_content.split()),
         "codigo_error": 0
     })
+
 
 @app.route('/save_text', methods=['POST'])
 def save_text():
