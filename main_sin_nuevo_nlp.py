@@ -867,15 +867,18 @@ def upload_file():
     if extension not in ALLOWED_EXTENSIONS:
         return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
 
+    # Guardar archivo físicamente en el directorio 'docs'
     docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
     os.makedirs(docs_folder, exist_ok=True)
     file_path = os.path.join(docs_folder, uploaded_file.filename)
     uploaded_file.save(file_path)
 
+    # Procesar contenido del archivo
     readable_content = process_file(file_path, extension)
     readable_content = readable_content.encode('utf-8', 'ignore').decode('utf-8')
 
-    dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
+    # Actualizar dataset.json
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
     dataset_entries = {}
@@ -887,18 +890,18 @@ def upload_file():
                 try:
                     dataset_entries = json.loads(decoded_content)
                 except json.decoder.JSONDecodeError:
-                    # Inicializar dataset_entries como diccionario vacío si hay un error
                     dataset_entries = {}
             else:
-                # El archivo JSON está vacío, inicializar dataset_entries como diccionario vacío
                 dataset_entries = {}
 
+    # Añadir entrada al dataset
     dataset_entries[uploaded_file.filename] = {
         "indice": uploaded_file.filename,
         "url": file_path,
         "contenido": readable_content
     }
 
+    # Escribir cambios en dataset.json
     with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
         json_content = safe_encode_to_json(dataset_entries)
         json_file_to_write.write(json_content)
@@ -908,6 +911,7 @@ def upload_file():
         "word_count": len(readable_content.split()),
         "codigo_error": 0
     })
+
 
 
 @app.route('/save_text', methods=['POST'])
