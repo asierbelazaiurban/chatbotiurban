@@ -722,31 +722,32 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### FIN Utils busqueda en Json #######
 
+import json
+
 def safe_encode_to_json(content):
     app.logger.info("Iniciando safe_encode_to_json")
-    try:
-        json_output = json.dumps(content, ensure_ascii=False, indent=4)
-        app.logger.info("Codificación JSON exitosa en el primer intento")
-        return json_output
-    except UnicodeEncodeError as e:
-        app.logger.error(f"Fallo en la codificación JSON: {e}")
 
-        def encode_item(item):
-            if isinstance(item, str):
-                encoded_str = item.encode('utf-8', 'ignore').decode('utf-8')
-                app.logger.info(f"Codificación de string realizada: {encoded_str}")
-                return encoded_str
-            elif isinstance(item, dict):
-                return {k: encode_item(v) for k, v in item.items()}
-            elif isinstance(item, list):
-                return [encode_item(x) for x in item]
-            return item
+    def encode_item(item):
+        if isinstance(item, str):
+            encoded_str = item.encode('utf-8', 'ignore').decode('utf-8')
+            app.logger.info(f"Codificando cadena: original='{item[:30]}...', codificado='{encoded_str[:30]}...'")
+            return encoded_str
+        elif isinstance(item, dict):
+            app.logger.info(f"Procesando diccionario: {list(item.keys())[:5]}...")
+            return {k: encode_item(v) for k, v in item.items()}
+        elif isinstance(item, list):
+            app.logger.info(f"Procesando lista: longitud={len(item)}")
+            return [encode_item(x) for x in item]
+        app.logger.info(f"Tipo no procesado: {type(item)}")
+        return item
 
-        app.logger.info("Intentando codificación segura del contenido")
-        safe_content = encode_item(content)
-        json_output = json.dumps(safe_content, ensure_ascii=False, indent=4)
-        app.logger.info("Codificación JSON exitosa en el segundo intento")
-        return json_output
+    app.logger.info("Codificando contenido para JSON")
+    safe_content = encode_item(content)
+    app.logger.info("Contenido codificado con éxito")
+    json_output = json.dumps(safe_content, ensure_ascii=False, indent=4)
+    app.logger.info("Codificación JSON completada con éxito")
+    return json_output
+
 
 ####### Inicio Endpoints #######
 
@@ -853,71 +854,55 @@ def ask():
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
-    try:
-        app.logger.info("Procesando solicitud de carga de archivo")
-        if 'documento' not in request.files:
-            app.logger.error("No se encontró el archivo 'documento'")
-            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
+    if 'documento' not in request.files:
+        return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
-        uploaded_file = request.files['documento']
-        chatbot_id = request.form.get('chatbot_id')
+    uploaded_file = request.files['documento']
+    chatbot_id = request.form.get('chatbot_id')
 
-        if uploaded_file.filename == '':
-            app.logger.error("No se seleccionó ningún archivo")
-            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+    if uploaded_file.filename == '':
+        return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
-        if extension not in ALLOWED_EXTENSIONS:
-            app.logger.error(f"Formato de archivo no permitido: {extension}")
-            return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
+    extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
 
-        docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
-        os.makedirs(docs_folder, exist_ok=True)
-        file_path = os.path.join(docs_folder, uploaded_file.filename)
-        uploaded_file.save(file_path)
-        app.logger.info(f"Archivo {uploaded_file.filename} guardado en {file_path}")
+    docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
+    os.makedirs(docs_folder, exist_ok=True)
+    file_path = os.path.join(docs_folder, uploaded_file.filename)
+    uploaded_file.save(file_path)
 
-        readable_content = process_file(file_path, extension)
-        readable_content = readable_content.encode('utf-8', 'ignore').decode('utf-8')
+    readable_content = process_file(file_path, extension)
+    readable_content = readable_content.encode('utf-8', 'ignore').decode('utf-8')
 
-        dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
-        os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
+    dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
+    os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
-        dataset_entries = {}
-        if os.path.exists(dataset_file_path):
-            try:
-                with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
-                    dataset_entries = json.load(json_file)
-            except UnicodeDecodeError as e:
-                app.logger.error(f"Error al leer el archivo JSON: {e}")
-                return jsonify({"respuesta": f"Error al leer el archivo JSON: {e}", "codigo_error": 1})
+    dataset_entries = {}
+    if os.path.exists(dataset_file_path):
+        with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+            dataset_entries = json.load(json_file)
 
-        dataset_entries[uploaded_file.filename] = {
-            "indice": uploaded_file.filename,
-            "url": file_path,
-            "contenido": readable_content
-        }
+    dataset_entries[uploaded_file.filename] = {
+        "indice": uploaded_file.filename,
+        "url": file_path,
+        "contenido": readable_content
+    }
 
-        try:
-            with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-                json_content = safe_encode_to_json(dataset_entries)
-                json_file_to_write.write(json_content)
-            app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
-        except Exception as e:
-            app.logger.error(f"Error al escribir en el archivo JSON: {e}")
-            return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
+    app.logger.info("Preparando para escribir en el archivo JSON")
+    with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+        app.logger.info("Llamando a safe_encode_to_json")
+        json_content = safe_encode_to_json(dataset_entries)
+        app.logger.info("safe_encode_to_json completado con éxito")
+        json_file_to_write.write(json_content)
 
-        return jsonify({
-            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-            "word_count": len(readable_content.split()),
-            "codigo_error": 0
-        })
+    app.logger.info(f"Archivo {uploaded_file.filename} añadido exitosamente al dataset")
 
-    except Exception as e:
-        app.logger.error(f"Error general en upload_file: {e}")
-        return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
-
-
+    return jsonify({
+        "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+        "word_count": len(readable_content.split()),
+        "codigo_error": 0
+    })
 
 @app.route('/save_text', methods=['POST'])
 def save_text():
