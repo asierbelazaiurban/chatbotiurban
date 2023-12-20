@@ -705,7 +705,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
         preguntas_respuestas = json.load(json_file)
 
     # Usar preguntas en lugar de palabras clave
-    preguntas = [entry["pregunta"] for entry in preguntas_respuestas.values()]
+    preguntas = [entry["Pregunta"] for entry in preguntas_respuestas.values()]
 
     embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
     embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
