@@ -347,76 +347,6 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
-    app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
-
-    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-
-    if not os.path.exists(json_file_path):
-        app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None
-
-    with open(json_file_path, 'r', encoding='utf-8') as json_file:
-        preguntas_respuestas = json.load(json_file)
-
-    # Crear una lista de todas las palabras clave
-    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
-    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
-
-    # Calcular los embeddings para las palabras clave y la pregunta del usuario
-    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
-    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
-
-    # Calcular la similitud semántica
-    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
-
-    # Encontrar la mejor coincidencia si supera el umbral
-    mejor_coincidencia = similitudes.argmax()
-    max_similitud = similitudes[mejor_coincidencia].item()
-
-    if max_similitud >= umbral_similitud:
-        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-
-        app.logger.info("respuesta_mejor_coincidencia")
-        app.logger.info(respuesta_mejor_coincidencia)
-
-        sys.exit()
-
-        if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
-            app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
-            return respuesta_mejor_coincidencia
-        else:
-            app.logger.info("La respuesta no es coherente según GPT")
-            return  False
-    else:
-        app.logger.info("No se encontró una coincidencia adecuada")
-        return  False
-
-
-def comprobar_coherencia_gpt(pregunta, respuesta):
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
-
-    response = ChatCompletion.create(
-        model="gpt-4",  # O el modelo que prefieras
-        messages=[
-            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    # Limpiar la respuesta de puntuación y espacios adicionales
-    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
-
-    app.logger.info(respuesta_gpt)
-
-    # Evaluar la respuesta
-    if respuesta_gpt == "true":
-        return True
-    else:
-        return False
-
 
 
 def identificar_saludo_despedida(frase):
@@ -720,7 +650,7 @@ respuestas_por_defecto = [
     "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
 ]
 
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
     modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
@@ -728,7 +658,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if not os.path.exists(json_file_path):
         app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return False
+        return None
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
@@ -750,6 +680,11 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+
+        app.logger.info("respuesta_mejor_coincidencia")
+        app.logger.info(respuesta_mejor_coincidencia)
+
+        sys.exit()
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
@@ -784,6 +719,8 @@ def comprobar_coherencia_gpt(pregunta, respuesta):
         return True
     else:
         return False
+
+
 
 ####### FIN Utils busqueda en Json #######
 
