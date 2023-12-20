@@ -885,9 +885,12 @@ def upload_file():
 
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
-            app.logger.info(f"Hasta aqui bien")
-            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
-                dataset_entries = json.load(json_file)
+            try:
+                with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
+                    dataset_entries = json.load(json_file)
+            except UnicodeDecodeError as e:
+                app.logger.error(f"Error al leer el archivo JSON: {e}")
+                return jsonify({"respuesta": f"Error al leer el archivo JSON: {e}", "codigo_error": 1})
 
         dataset_entries[uploaded_file.filename] = {
             "indice": uploaded_file.filename,
@@ -897,13 +900,12 @@ def upload_file():
 
         try:
             with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-                # Convierte todos los elementos a string para evitar problemas de codificación
-                json.dump({k: str(v) for k, v in dataset_entries.items()}, json_file_to_write, ensure_ascii=False, indent=4)
+                app.logger.info("Intentando escribir en el archivo JSON")
+                json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
             app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
         except Exception as e:
             app.logger.error(f"Error al escribir en el archivo JSON: {e}")
             return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
-
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
@@ -914,6 +916,7 @@ def upload_file():
     except Exception as e:
         app.logger.error(f"Error general en upload_file: {e}")
         return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
+
 
 
 @app.route('/save_text', methods=['POST'])
