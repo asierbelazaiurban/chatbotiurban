@@ -346,7 +346,7 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
+def ?(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
     modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
@@ -722,7 +722,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if not os.path.exists(json_file_path):
         app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None, False
+        return False
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
@@ -744,6 +744,8 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        app.logger.info("respuesta_mejor_coincidencia")
+        app.logger.info(respuesta_mejor_coincidencia)
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
