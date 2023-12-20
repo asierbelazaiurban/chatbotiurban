@@ -16,7 +16,6 @@ app = Flask(__name__)
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 
-
 def read_txt(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -27,7 +26,7 @@ def read_txt(file_path):
                 return file.read()
         except UnicodeDecodeError:
             return "Error de lectura del archivo TXT"
-            
+
 
 def read_pdf(file_path):
     text = ""
