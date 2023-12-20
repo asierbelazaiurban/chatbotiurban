@@ -748,7 +748,6 @@ def safe_encode_to_json(content):
         app.logger.info("Codificación JSON exitosa en el segundo intento")
         return json_output
 
-
 ####### Inicio Endpoints #######
 
 @app.route('/ask', methods=['POST'])
