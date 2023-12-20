@@ -385,7 +385,9 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
         app.logger.info("respuesta_mejor_coincidencia")
         app.logger.info(respuesta_mejor_coincidencia)
+
         sys.exit()
+        
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
             return respuesta_mejor_coincidencia
