@@ -702,8 +702,13 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
 
-    # Acceder a las preguntas usando la clave correcta y tomar el primer elemento de la lista
-    preguntas = [entry["Pregunta"][0] for entry in preguntas_respuestas.values()]
+    # Acceder a las preguntas usando la clave correcta "Pregunta" y añadir comprobación
+    preguntas = []
+    for entry in preguntas_respuestas.values():
+        if "Pregunta" in entry:
+            preguntas.append(entry["Pregunta"][0])
+        else:
+            app_logger.warning("Entrada encontrada en el JSON sin la clave 'Pregunta'")
 
     # Crear embeddings para las preguntas
     embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
@@ -720,13 +725,14 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
             app_logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
-            return respuesta_mejor_coincidencia, True
+            return respuesta_mejor_coincidencia
         else:
             app_logger.info("La respuesta no es coherente según GPT")
-            return None, False
+            return  False
     else:
         app_logger.info("No se encontró una coincidencia adecuada")
-        return None, False
+        return  False
+
 
 
 ####### FIN Utils busqueda en Json #######
