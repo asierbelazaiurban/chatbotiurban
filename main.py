@@ -727,7 +727,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
         return False
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False."
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
 
     response = ChatCompletion.create(
         model="gpt-4",  # O el modelo que prefieras
@@ -741,11 +741,10 @@ def comprobar_coherencia_gpt(pregunta, respuesta):
     # Limpiar la respuesta de puntuación y espacios adicionales
     respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
 
-    if respuesta_gpt == "true"
+    # Evaluar la respuesta
+    if respuesta_gpt == "true":
         return True
-    if respuesta_gpt == "false"
-        return False
-    if respuesta_gpt != "false" and respuesta_gpt != "true"
+    else:
         return False
 
 
