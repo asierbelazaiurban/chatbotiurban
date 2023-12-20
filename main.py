@@ -117,6 +117,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 import re
 
+
 def clean_and_format_content(content):
     """
     Función para limpiar y formatear contenido de texto.
@@ -124,12 +125,6 @@ def clean_and_format_content(content):
     - Corrige espacios adicionales y líneas nuevas.
     - Maneja caracteres acentuados y otros caracteres específicos del idioma.
     """
-
-    # Intentar corregir el error de codificación común (si es la fuente del problema)
-    try:
-        content = content.encode('latin1').decode('utf-8')
-    except UnicodeDecodeError:
-        pass
 
     # Eliminar caracteres especiales y números (mantener letras, acentos, números y signos de puntuación básicos)
     content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
@@ -140,9 +135,14 @@ def clean_and_format_content(content):
     # Corregir espacios antes de signos de puntuación (opcional)
     content = re.sub(r'\s+([.,!?])', r'\1', content)
 
-    # Otras reglas de limpieza/formato pueden ir aquí
+    # Intentar codificar y decodificar para manejar caracteres especiales, ignorando errores
+    try:
+        content = content.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+    except UnicodeEncodeError:
+        pass
 
     return content
+
 
 
 def allowed_file(filename, chatbot_id):
