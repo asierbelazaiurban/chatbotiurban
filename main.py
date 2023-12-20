@@ -127,25 +127,6 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 import re
 
-def clean_and_format_content(content):
-    # Eliminar caracteres especiales y números, conservando letras, acentos, y puntuación básica
-    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
-
-    # Reemplazar secuencias de espacios y saltos de línea por un único espacio
-    content = re.sub(r'\s+', ' ', content).strip()
-
-    # Eliminar espacios antes de signos de puntuación
-    content = re.sub(r'\s+([.,!?])', r'\1', content)
-
-    # Manejo de codificación (opcional, dependiendo de la necesidad)
-    try:
-        content = content.encode('utf-8', 'replace').decode('utf-8', 'replace')
-    except UnicodeEncodeError:
-        pass
-
-    return content
-
-
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
@@ -870,9 +851,6 @@ def upload_file():
         readable_content = process_file(file_path, extension)
         if readable_content is None:
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
-
-        # Asumiendo que tienes una función para limpiar y formatear el contenido
-        readable_content = clean_and_format_content(readable_content)
 
         word_count = len(readable_content.split())
 
