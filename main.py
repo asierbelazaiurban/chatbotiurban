@@ -311,7 +311,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-3.5-turbo",
+            model=model_gpt if model_gpt else "gpt-4-1106-vista previa",
             messages=[
                 {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_mejorada}
@@ -830,33 +830,45 @@ def ask():
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
+        app.logger.info("Inicio del proceso de carga de archivo")
         if 'documento' not in request.files:
+            app.logger.info("No se encontró el archivo 'documento'")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
 
         if uploaded_file.filename == '':
+            app.logger.info("No se seleccionó ningún archivo")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
         if extension not in ALLOWED_EXTENSIONS:
+            app.logger.info(f"Formato de archivo no permitido: {extension}")
             return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
 
         docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
         os.makedirs(docs_folder, exist_ok=True)
         file_path = os.path.join(docs_folder, uploaded_file.filename)
         uploaded_file.save(file_path)
+        app.logger.info(f"Archivo {uploaded_file.filename} guardado en {file_path}")
 
         readable_content = process_file(file_path, extension)
         if readable_content is None:
+            app.logger.error(f"Error al procesar el archivo: {file_path}")
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
         word_count = len(readable_content.split())
+        app.logger.info(f"Contenido procesado del archivo {uploaded_file.filename}, conteo de palabras: {word_count}")
 
         dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
+        # Verificar si la ruta del archivo existe
+        if not os.path.exists(os.path.dirname(dataset_file_path)):
+            # Si no existe, registra un error y devuelve una respuesta JSON
+            app.logger.error(f"La ruta del archivo no existe: {os.path.dirname(dataset_file_path)}")
+            return jsonify({"respuesta": f"La ruta del archivo no existe: {os.path.dirname(dataset_file_path)}", "codigo_error": 1})
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
-        
+
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
@@ -870,6 +882,7 @@ def upload_file():
 
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+        app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
@@ -878,7 +891,9 @@ def upload_file():
         })
 
     except Exception as e:
+        app.logger.error(f"Error en upload_file: {e}")
         return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
+
 
 @app.route('/save_text', methods=['POST'])
 def save_text():
