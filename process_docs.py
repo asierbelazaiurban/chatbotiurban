@@ -53,7 +53,14 @@ def read_pdf(file_path):
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text
-        return clean_and_format_content(text.encode().decode('utf-8', 'ignore'))
+
+        # Decodificación más robusta, intentando primero en UTF-8 y luego con 'ignore'
+        try:
+            # Intentar decodificar normalmente en utf-8
+            return clean_and_format_content(text)
+        except UnicodeDecodeError:
+            # Si falla, decodificar con 'ignore' para omitir caracteres problemáticos
+            return clean_and_format_content(text.encode('utf-8', 'ignore').decode('utf-8', 'ignore'))
     except Exception as e:
         logger.error(f"Error al procesar PDF: {e}")
         return f"Error al procesar PDF: {e}"
