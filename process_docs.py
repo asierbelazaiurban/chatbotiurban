@@ -21,15 +21,15 @@ import re
 def read_txt(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
+            content = file.read()
     except UnicodeDecodeError:
         try:
             with open(file_path, 'r', encoding='latin-1') as file:
-                return file.read()
+                content = file.read()
         except UnicodeDecodeError:
             return "Error de lectura del archivo TXT"
+    return clean_and_format_content(content)
 
-# Función para leer archivos PDF
 def read_pdf(file_path):
     text = ""
     try:
@@ -43,39 +43,38 @@ def read_pdf(file_path):
                     text += " [Error en la decodificación de esta página] "
     except Exception as e:
         return f"Error al procesar PDF: {e}"
-    return text
+    return clean_and_format_content(text)
 
-# Función para leer archivos CSV o XLSX
 def read_csv_or_xlsx(file_path, extension):
     try:
         if extension == 'csv':
             df = pd.read_csv(file_path, encoding='utf-8', error_bad_lines=False)
         else:
             df = pd.read_excel(file_path)
-        return df.to_string()
+        content = df.to_string()
     except Exception as e:
         return f"Error al procesar {extension.upper()} archivo: {e}"
+    return clean_and_format_content(content)
 
-# Función para leer archivos DOCX
 def read_docx(file_path):
     try:
         doc = docx.Document(file_path)
-        return "\n".join([para.text for para in doc.paragraphs])
+        content = "\n".join([para.text for para in doc.paragraphs])
     except Exception as e:
         return f"Error al procesar DOCX: {e}"
+    return clean_and_format_content(content)
 
-# Función para leer archivos PPTX
 def read_pptx(file_path):
+    text = ""
     try:
         ppt = Presentation(file_path)
-        text = ""
         for slide in ppt.slides:
             for shape in slide.shapes:
                 if hasattr(shape, "text"):
                     text += shape.text + "\n"
-        return text
     except Exception as e:
         return f"Error al procesar PPTX: {e}"
+    return clean_and_format_content(text)
 
 
 def process_file(file_path, extension):
