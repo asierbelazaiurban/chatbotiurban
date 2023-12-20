@@ -216,7 +216,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-vista previa",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -289,7 +289,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-vista previa",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -312,7 +312,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-vista previa",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_mejorada}
@@ -346,43 +346,45 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def buscar_en_openai_relacion_con_eventos(frase):
-    app.logger.info("Hemos detectado un evento")
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+    # Configuración del logger
+    logging.basicConfig(level=logging.INFO)
+    app_logger = logging.getLogger(__name__)
 
-    # Texto fijo a concatenar
-    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. la frase es: "
-    frase_combinada = texto_fijo + frase
+    app_logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
-    # Establecer la clave de API de OpenAI
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
+    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": ""},
-                {"role": "user", "content": frase_combinada}
-            ]
-        )
+    if not os.path.exists(json_file_path):
+        app_logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
+        return None, False
 
-        # Interpretar la respuesta y normalizarla
-        respuesta = response.choices[0].message['content'].strip().lower()
-        respuesta = unidecode.unidecode(respuesta).replace(".", "")
+    with open(json_file_path, 'r', encoding='utf-8') as json_file:
+        preguntas_respuestas = json.load(json_file)
 
-        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
+    preguntas = [entry["pregunta"] for entry in preguntas_respuestas.values()]
 
-        if respuesta == "si":
-            app.logger.info("La respuesta es sí, relacionada con eventos")
-            return True
-        elif respuesta == "no":
-            app.logger.info("La respuesta es no, no relacionada con eventos")
-            return False
+    embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
+    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
+
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_preguntas)[0]
+
+    mejor_coincidencia = similitudes.argmax()
+    max_similitud = similitudes[mejor_coincidencia].item()
+
+    if max_similitud >= umbral_similitud:
+        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+
+        if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
+            app_logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
+            return respuesta_mejor_coincidencia
         else:
-            app.logger.info("La respuesta no es ni sí ni no")
-            return None
-    except Exception as e:
-        app.logger.error(f"Error al procesar la solicitud: {e}")
-        return None
+            app_logger.info("La respuesta no es coherente según OpenAI")
+            return False
+    else:
+        app_logger.info("No se encontró una coincidencia adecuada")
+        return False
 
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
@@ -740,6 +742,8 @@ def comprobar_coherencia_gpt(pregunta, respuesta):
     respuesta_gpt = response.choices[0].message['content'].strip().lower()
     # Limpiar la respuesta de puntuación y espacios adicionales
     respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
+
+    app.logger.info(respuesta_gpt)
 
     # Evaluar la respuesta
     if respuesta_gpt == "true":
