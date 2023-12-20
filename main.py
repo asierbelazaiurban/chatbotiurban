@@ -811,8 +811,8 @@ def ask():
 
                 if not ultima_respuesta:
                     app.logger.info("Buscando en respuestas preestablecidas NLP")
-                    respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                    if encontrada_en_json:
+                    respuesta_preestablecida = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                    if respuesta_preestablecida:
                         fuente_respuesta = 'preestablecida'
                         ultima_respuesta = respuesta_preestablecida
                         app.logger.info("Respuesta preestablecida encontrada")
