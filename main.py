@@ -115,15 +115,35 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
-def clean_and_format_content(content):
-    # Eliminar caracteres especiales y números (si es necesario)
-    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ.,!? ]', '', content)
+import re
 
-    # Espacios adicionales y líneas nuevas
+def clean_and_format_content(content):
+    """
+    Función para limpiar y formatear contenido de texto.
+    - Elimina caracteres especiales y números innecesarios.
+    - Corrige espacios adicionales y líneas nuevas.
+    - Maneja caracteres acentuados y otros caracteres específicos del idioma.
+    """
+
+    # Intentar corregir el error de codificación común (si es la fuente del problema)
+    try:
+        content = content.encode('latin1').decode('utf-8')
+    except UnicodeDecodeError:
+        pass
+
+    # Eliminar caracteres especiales y números (mantener letras, acentos, números y signos de puntuación básicos)
+    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
+
+    # Reemplazar secuencias de espacios, saltos de línea, etc., por un único espacio
     content = re.sub(r'\s+', ' ', content).strip()
 
-    # (Opcional) aquí puedes añadir más reglas de limpieza/formato según tus necesidades
+    # Corregir espacios antes de signos de puntuación (opcional)
+    content = re.sub(r'\s+([.,!?])', r'\1', content)
+
+    # Otras reglas de limpieza/formato pueden ir aquí
+
     return content
+
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -850,14 +870,11 @@ def upload_file():
         if readable_content is None:
             return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
 
-        # Limpieza y formato del contenido (si es texto)
-        if extension in ['txt', 'pdf', 'docx', 'pptx']:
-            readable_content = clean_and_format_content(readable_content)
+        # Asumiendo que tienes una función para limpiar y formatear el contenido
+        readable_content = clean_and_format_content(readable_content)
 
-        # Contar las palabras en el contenido procesado
         word_count = len(readable_content.split())
 
-        # Guardar y manejar el contenido extraído aquí
         dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
         
@@ -883,7 +900,6 @@ def upload_file():
 
     except Exception as e:
         return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
-
 
 @app.route('/save_text', methods=['POST'])
 def save_text():
