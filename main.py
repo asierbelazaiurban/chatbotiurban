@@ -955,7 +955,9 @@ def save_text():
         }
 
         # Guardar el archivo del dataset actualizado
+        app.logger.info("Aqui si")
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            app.logger.info("Aqui NO")
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
 
         return jsonify({
