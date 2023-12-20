@@ -715,13 +715,13 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
 
         if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
-            app_logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
+            app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
             return respuesta_mejor_coincidencia
         else:
-            app_logger.info("La respuesta no es coherente según GPT")
+            app.logger.info("La respuesta no es coherente según GPT")
             return  False
     else:
-        app_logger.info("No se encontró una coincidencia adecuada")
+        app.logger.info("No se encontró una coincidencia adecuada")
         return  False
 
 
