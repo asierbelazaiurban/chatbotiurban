@@ -127,8 +127,6 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 import re
 
-import re
-
 def clean_and_format_content(content):
     # Eliminar caracteres especiales y números, conservando letras, acentos, y puntuación básica
     content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
