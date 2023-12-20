@@ -722,6 +722,30 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 ####### FIN Utils busqueda en Json #######
 
+def safe_encode_to_json(content):
+    try:
+        # Intenta convertir a JSON directamente
+        return json.dumps(content, ensure_ascii=False, indent=4)
+    except UnicodeEncodeError:
+        # Si falla, intenta una codificación segura
+        if isinstance(content, dict):
+            for key, value in content.items():
+                content[key] = value.encode('utf-8', 'ignore').decode('utf-8')
+        elif isinstance(content, list):
+            content = [x.encode('utf-8', 'ignore').decode('utf-8') for x in content]
+        elif isinstance(content, str):
+            content = content.encode('utf-8', 'ignore').decode('utf-8')
+        return json.dumps(content, ensure_ascii=False, indent=4)
+
+try:
+    with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+        json_content = safe_encode_to_json(dataset_entries)
+        json_file_to_write.write(json_content)
+    app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
+except Exception as e:
+    app.logger.error(f"Error al escribir en el archivo JSON: {e}")
+    return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
+
 
 ####### Inicio Endpoints #######
 
@@ -873,12 +897,13 @@ def upload_file():
 
         try:
             with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-                app.logger.info(f"Hasta aqui veamos")
-                json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+                # Convierte todos los elementos a string para evitar problemas de codificación
+                json.dump({k: str(v) for k, v in dataset_entries.items()}, json_file_to_write, ensure_ascii=False, indent=4)
             app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
         except Exception as e:
             app.logger.error(f"Error al escribir en el archivo JSON: {e}")
             return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
+
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
