@@ -44,6 +44,7 @@ def read_txt(file_path):
                 return file.read()
         except UnicodeDecodeError:
             return "Error de lectura del archivo TXT"
+            
 
 def read_pdf(file_path):
     text = ""
