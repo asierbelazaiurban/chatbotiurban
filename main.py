@@ -737,14 +737,14 @@ def safe_encode_to_json(content):
             content = content.encode('utf-8', 'ignore').decode('utf-8')
         return json.dumps(content, ensure_ascii=False, indent=4)
 
-try:
-    with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-        json_content = safe_encode_to_json(dataset_entries)
-        json_file_to_write.write(json_content)
-    app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
-except Exception as e:
-    app.logger.error(f"Error al escribir en el archivo JSON: {e}")
-    return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
+    try:
+        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            json_content = safe_encode_to_json(dataset_entries)
+            json_file_to_write.write(json_content)
+        app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
+    except Exception as e:
+        app.logger.error(f"Error al escribir en el archivo JSON: {e}")
+        return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
 
 
 ####### Inicio Endpoints #######
@@ -850,7 +850,6 @@ def ask():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
@@ -900,8 +899,8 @@ def upload_file():
 
         try:
             with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-                app.logger.info("Intentando escribir en el archivo JSON")
-                json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+                json_content = safe_encode_to_json(dataset_entries)
+                json_file_to_write.write(json_content)
             app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
         except Exception as e:
             app.logger.error(f"Error al escribir en el archivo JSON: {e}")
