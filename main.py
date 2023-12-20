@@ -830,21 +830,21 @@ def ask():
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     try:
-        app.logger.info("Inicio del proceso de carga de archivo")
+        app.logger.info("Procesando solicitud de carga de archivo")
         if 'documento' not in request.files:
-            app.logger.info("No se encontró el archivo 'documento'")
+            app.logger.error("No se encontró el archivo 'documento'")
             return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
         uploaded_file = request.files['documento']
         chatbot_id = request.form.get('chatbot_id')
 
         if uploaded_file.filename == '':
-            app.logger.info("No se seleccionó ningún archivo")
+            app.logger.error("No se seleccionó ningún archivo")
             return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
         extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
         if extension not in ALLOWED_EXTENSIONS:
-            app.logger.info(f"Formato de archivo no permitido: {extension}")
+            app.logger.error(f"Formato de archivo no permitido: {extension}")
             return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
 
         docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
@@ -854,24 +854,14 @@ def upload_file():
         app.logger.info(f"Archivo {uploaded_file.filename} guardado en {file_path}")
 
         readable_content = process_file(file_path, extension)
-        if readable_content is None:
-            app.logger.error(f"Error al procesar el archivo: {file_path}")
-            return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
-
-        word_count = len(readable_content.split())
-        app.logger.info(f"Contenido procesado del archivo {uploaded_file.filename}, conteo de palabras: {word_count}")
+        readable_content = readable_content.encode('utf-8', 'ignore').decode('utf-8')
 
         dataset_file_path = os.path.join('data', 'uploads', 'docs', str(chatbot_id), uploaded_file.filename)
-        # Verificar si la ruta del archivo existe
-        if not os.path.exists(os.path.dirname(dataset_file_path)):
-            # Si no existe, registra un error y devuelve una respuesta JSON
-            app.logger.error(f"La ruta del archivo no existe: {os.path.dirname(dataset_file_path)}")
-            return jsonify({"respuesta": f"La ruta del archivo no existe: {os.path.dirname(dataset_file_path)}", "codigo_error": 1})
         os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
         dataset_entries = {}
         if os.path.exists(dataset_file_path):
-            app.logger.info("hasta aqui no hay error")
+            app.logger.info(f"Hasta aqui bien")
             with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
                 dataset_entries = json.load(json_file)
 
@@ -881,19 +871,23 @@ def upload_file():
             "contenido": readable_content
         }
 
-        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            app.logger.info("hasta aqui no hay error segnda parte")
-            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-        app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
+        try:
+            with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+                app.logger.info(f"Hasta aqui veamos")
+                json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
+            app.logger.info(f"Archivo {uploaded_file.filename} añadido al dataset")
+        except Exception as e:
+            app.logger.error(f"Error al escribir en el archivo JSON: {e}")
+            return jsonify({"respuesta": f"Error al escribir en el archivo JSON: {e}", "codigo_error": 1})
 
         return jsonify({
             "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-            "word_count": word_count,
+            "word_count": len(readable_content.split()),
             "codigo_error": 0
         })
 
     except Exception as e:
-        app.logger.error(f"Error en upload_file: {e}")
+        app.logger.error(f"Error general en upload_file: {e}")
         return jsonify({"respuesta": f"Error: {e}", "codigo_error": 1})
 
 
