@@ -744,6 +744,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+       
         app.logger.info("respuesta_mejor_coincidencia")
         app.logger.info(respuesta_mejor_coincidencia)
 
@@ -756,6 +757,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     else:
         app.logger.info("No se encontró una coincidencia adecuada")
         return  False
+
 
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
