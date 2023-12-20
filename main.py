@@ -81,26 +81,37 @@ nltk.download('stopwords')
 nltk.download('punkt')
 app = Flask(__name__)
 
+#### Logger ####
 
-####### Configuración logs #######
-
+# Crear el directorio de logs si no existe
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-file_handler = FileHandler('logs/chatbotiurban.log')
+# Configurar el manejador de logs para escribir en un archivo
+log_file_path = 'logs/chatbotiurban.log'
+file_handler = RotatingFileHandler(log_file_path, maxBytes=10240000, backupCount=1)
 file_handler.setFormatter(logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
 ))
 file_handler.setLevel(logging.DEBUG)  # Usa DEBUG o INFO según necesites
 
+# Añadir el manejador de archivos al logger de la aplicación
 app.logger.addHandler(file_handler)
-app.logger.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consistente con file_handler.setLevel
+
+# También añadir un manejador de consola para la salida estándar
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+console_handler.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consistente con file_handler.setLevel
+app.logger.addHandler(console_handler)
+
+# Establecer el nivel del logger de la aplicación
+app.logger.setLevel(logging.DEBUG)
 
 app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
-
-#######  #######
-
+#### Logger ####
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
@@ -116,33 +127,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 import re
-
-
-def clean_and_format_content(content):
-    """
-    Función para limpiar y formatear contenido de texto.
-    - Elimina caracteres especiales y números innecesarios.
-    - Corrige espacios adicionales y líneas nuevas.
-    - Maneja caracteres acentuados y otros caracteres específicos del idioma.
-    """
-
-    # Eliminar caracteres especiales y números (mantener letras, acentos, números y signos de puntuación básicos)
-    content = re.sub(r'[^A-Za-záéíóúÁÉÍÓÚñÑüÜ0-9.,!? ]', '', content)
-
-    # Reemplazar secuencias de espacios, saltos de línea, etc., por un único espacio
-    content = re.sub(r'\s+', ' ', content).strip()
-
-    # Corregir espacios antes de signos de puntuación (opcional)
-    content = re.sub(r'\s+([.,!?])', r'\1', content)
-
-    # Intentar codificar y decodificar para manejar caracteres especiales, ignorando errores
-    try:
-        content = content.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
-    except UnicodeEncodeError:
-        pass
-
-    return content
-
 
 
 def allowed_file(filename, chatbot_id):

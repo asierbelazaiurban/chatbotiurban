@@ -81,25 +81,37 @@ nltk.download('punkt')
 app = Flask(__name__)
 
 
-####### Configuración logs #######
+#### Logger ####
 
+# Crear el directorio de logs si no existe
 if not os.path.exists('logs'):
     os.mkdir('logs')
 
-file_handler = FileHandler('logs/chatbotiurban.log')
+# Configurar el manejador de logs para escribir en un archivo
+log_file_path = 'logs/chatbotiurban.log'
+file_handler = RotatingFileHandler(log_file_path, maxBytes=10240000, backupCount=1)
 file_handler.setFormatter(logging.Formatter(
     '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
 ))
 file_handler.setLevel(logging.DEBUG)  # Usa DEBUG o INFO según necesites
 
+# Añadir el manejador de archivos al logger de la aplicación
 app.logger.addHandler(file_handler)
-app.logger.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consistente con file_handler.setLevel
+
+# También añadir un manejador de consola para la salida estándar
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+console_handler.setLevel(logging.DEBUG)  # Asegúrate de que este nivel sea consistente con file_handler.setLevel
+app.logger.addHandler(console_handler)
+
+# Establecer el nivel del logger de la aplicación
+app.logger.setLevel(logging.DEBUG)
 
 app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
-
-#######  #######
-
+#### FIN Logger ####
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
