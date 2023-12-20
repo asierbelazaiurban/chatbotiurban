@@ -880,8 +880,10 @@ def upload_file():
 
     dataset_entries = {}
     if os.path.exists(dataset_file_path):
-        with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
-            dataset_entries = json.load(json_file)
+        with open(dataset_file_path, 'rb') as json_file:
+            file_content = json_file.read()
+            decoded_content = file_content.decode('utf-8', 'ignore')
+            dataset_entries = json.loads(decoded_content)
 
     dataset_entries[uploaded_file.filename] = {
         "indice": uploaded_file.filename,
@@ -889,14 +891,9 @@ def upload_file():
         "contenido": readable_content
     }
 
-    app.logger.info("Preparando para escribir en el archivo JSON")
     with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-        app.logger.info("Llamando a safe_encode_to_json")
         json_content = safe_encode_to_json(dataset_entries)
-        app.logger.info("safe_encode_to_json completado con éxito")
         json_file_to_write.write(json_content)
-
-    app.logger.info(f"Archivo {uploaded_file.filename} añadido exitosamente al dataset")
 
     return jsonify({
         "respuesta": "Archivo procesado y añadido al dataset con éxito.",
