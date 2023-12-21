@@ -469,7 +469,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
         response = requests.post(url, headers=headers, data=json.dumps(payload))
         response.raise_for_status()
     except requests.RequestException as e:
-        app.logger.error(f"Error al realizar la solicitud HTTP: {e}")
+        logger.error(f"Error al realizar la solicitud HTTP: {e}")
         return None
 
     # Procesar la respuesta
@@ -487,7 +487,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
     # Verificar si hay preguntas en el caché
     if not preguntas:
-        app.logger.info("No hay preguntas en el caché para comparar")
+        logger.info("No hay preguntas en el caché para comparar")
         return None
 
     # Vectorizar las preguntas
@@ -509,15 +509,17 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     if similitud_maxima > UMBRAL_SIMILITUD:
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
+        logger.info(f"Respuesta encontrada: {respuesta_similar}")
         es_coherente = coherencia_pregunta_respuesta_cache(pregunta_usuario, respuesta_similar)
         if es_coherente:
             return respuesta_similar
         else:
-            app.logger.info("La respuesta no es coherente con la pregunta")
+            logger.info("La respuesta no es coherente con la pregunta")
             return False
     else:
-        app.logger.info("No se encontraron preguntas similares con suficiente similitud")
+        logger.info("No se encontraron preguntas similares con suficiente similitud")
         return False
+
 
 def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
     # Crear el prompt para el modelo
