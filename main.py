@@ -458,7 +458,7 @@ import numpy as np
 
 # Suponiendo que ya tienes definida la función comprobar_coherencia_gpt
 
-def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id, model_gpt=None):
+def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     url = 'https://experimental.ciceroneweb.com/api/get-back-cache'
     headers = {'Content-Type': 'application/json'}
     payload = {'chatbot_id': chatbot_id}
@@ -496,7 +496,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id, model_gpt=None):
     if similitud_maxima > umbral_similitud:
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
-        es_coherente = comprobar_coherencia_gpt(pregunta_usuario, respuesta_similar, model_gpt)
+        es_coherente = comprobar_coherencia_gpt(pregunta_usuario, respuesta_similar)
         if es_coherente:
             return respuesta_similar
         else:
