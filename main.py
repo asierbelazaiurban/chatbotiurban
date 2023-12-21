@@ -451,30 +451,38 @@ def extraer_palabras_clave(pregunta):
 
 ####### Inicio Sistema de cache #######
 
-def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
-    app.logger.info(f"Buscando respuesta similar para el chatbot {chatbot_id}")
+import requests
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id), 'cache.json')
-    if os.path.exists(cache_file_path):
-        with open(cache_file_path, 'r') as file:
-            pares_api = json.load(file)
-            app.logger.info("Archivo de caché encontrado y leído")
-    else:
-        app.logger.info("No se encontró archivo de caché")
+# Suponiendo que ya tienes definida la función comprobar_coherencia_gpt
+
+def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id, model_gpt=None):
+    url = 'https://experimental.ciceroneweb.com/api/get-back-cache'
+    headers = {'Content-Type': 'application/json'}
+    payload = {'chatbot_id': chatbot_id}
+    
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    if response.status_code != 200:
+        print("Error al obtener datos de la API")
         return None
 
+    data = response.json()
+    
     preguntas = []
     respuestas = {}
-    for par in pares_api:
-        if par['respuesta']:
-            preguntas.append(par['pregunta'])
-            respuestas[par['pregunta']] = par['respuesta']
+    for thread_id, pares in data.items():
+        for par in pares:
+            pregunta = par['pregunta']
+            respuesta = par['respuesta']
+            preguntas.append(pregunta)
+            respuestas[pregunta] = respuesta
 
     if not preguntas:
-        app.logger.info("No hay preguntas en el caché para comparar")
+        print("No hay preguntas en el caché para comparar")
         return None
 
-    app.logger.info("Vectorizando preguntas para comparación")
     vectorizer = TfidfVectorizer()
     matriz_tfidf = vectorizer.fit_transform(preguntas)
 
@@ -484,15 +492,20 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     indice_mas_similar = np.argmax(similitudes)
     similitud_maxima = similitudes[0, indice_mas_similar]
 
-    # Define un umbral para la similitud. Puedes ajustar este valor según sea necesario.
     umbral_similitud = 0.5
     if similitud_maxima > umbral_similitud:
         pregunta_similar = preguntas[indice_mas_similar]
-        app.logger.info(f"Encontrada pregunta similar: {pregunta_similar}")
-        return respuestas[pregunta_similar]
+        respuesta_similar = respuestas[pregunta_similar]
+        es_coherente = comprobar_coherencia_gpt(pregunta_usuario, respuesta_similar, model_gpt)
+        if es_coherente:
+            return respuesta_similar
+        else:
+            print("La respuesta no es coherente con la pregunta")
+            return False
+    else:
+        print("No se encontraron preguntas similares con suficiente similitud")
+        return False
 
-    app.logger.info("No se encontraron preguntas similares con suficiente similitud")
-    return None  # O podrías retornar False si prefieres
 
 
 ####### Fin Sistema de cache #######
