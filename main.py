@@ -459,17 +459,23 @@ import numpy as np
 # Suponiendo que ya tienes definida la función comprobar_coherencia_gpt
 
 def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
+    # URL y headers para la solicitud HTTP
     url = 'https://experimental.ciceroneweb.com/api/get-back-cache'
     headers = {'Content-Type': 'application/json'}
     payload = {'chatbot_id': chatbot_id}
-    
-    response = requests.post(url, headers=headers, data=json.dumps(payload))
-    if response.status_code != 200:
-        print("Error al obtener datos de la API")
+
+    # Realizar solicitud HTTP con manejo de excepciones
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Error al realizar la solicitud HTTP: {e}")
         return None
 
+    # Procesar la respuesta
     data = response.json()
-    
+
+    # Inicializar listas para preguntas y diccionario para respuestas
     preguntas = []
     respuestas = {}
     for thread_id, pares in data.items():
@@ -479,54 +485,64 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
             preguntas.append(pregunta)
             respuestas[pregunta] = respuesta
 
+    # Verificar si hay preguntas en el caché
     if not preguntas:
-        print("No hay preguntas en el caché para comparar")
+        logger.info("No hay preguntas en el caché para comparar")
         return None
 
+    # Vectorizar las preguntas
     vectorizer = TfidfVectorizer()
     matriz_tfidf = vectorizer.fit_transform(preguntas)
 
+    # Vectorizar la pregunta del usuario
     pregunta_vectorizada = vectorizer.transform([pregunta_usuario])
+    
+    # Calcular similitudes
     similitudes = cosine_similarity(pregunta_vectorizada, matriz_tfidf)
 
+    # Encontrar la pregunta más similar
     indice_mas_similar = np.argmax(similitudes)
     similitud_maxima = similitudes[0, indice_mas_similar]
 
-    umbral_similitud = 0.5
-    if similitud_maxima > umbral_similitud:
+    # Umbral de similitud para considerar una respuesta válida
+    UMBRAL_SIMILITUD = 0.5
+    if similitud_maxima > UMBRAL_SIMILITUD:
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
         es_coherente = coherencia_pregunta_respuesta_cache(pregunta_usuario, respuesta_similar)
         if es_coherente:
             return respuesta_similar
         else:
-            print("La respuesta no es coherente con la pregunta")
+            logger.info("La respuesta no es coherente con la pregunta")
             return False
     else:
-        print("No se encontraron preguntas similares con suficiente similitud")
+        logger.info("No se encontraron preguntas similares con suficiente similitud")
         return False
 
 def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
- 
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
+    # Crear el prompt para el modelo
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuación y la primera letra en mayúscula."
 
-    response = ChatCompletion.create(
-        model="gpt-4",  # O el modelo que prefieras
-        messages=[
-            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    # Intentar generar una respuesta utilizando GPT
+    try:
+        response = ChatCompletion.create(
+            model="gpt-4",  # O el modelo que prefieras
+            messages=[
+                {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+    except Exception as e:
+        logger.error(f"Error al generar la respuesta del modelo: {e}")
+        return False
 
+    # Procesar la respuesta del modelo
     respuesta_gpt = response.choices[0].message['content'].strip().lower()
-
-    app.logger.info(respuesta_gpt)
+    logger.info(f"Respuesta del modelo: {respuesta_gpt}")
 
     # Evaluar la respuesta
-    if respuesta_gpt == "true":
-        return True
-    else:
-        return False
+    return respuesta_gpt == "true"
+
 
 
 ####### Fin Sistema de cache #######
@@ -776,8 +792,9 @@ def ask():
         ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta'] if pares_pregunta_respuesta else ""
         ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta'] if pares_pregunta_respuesta else ""
         contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
-
+        app.logger.info("Antes de encontrar_respuesta")
         respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
+        app.logger.info("despues de encontrar_respuesta")
         if respuesta_cache:
             return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
 
