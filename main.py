@@ -553,7 +553,6 @@ def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
         return False
 
 
-
 ####### Fin Sistema de cache #######
 
 # Función auxiliar para mapear etiquetas POS a WordNet POS
