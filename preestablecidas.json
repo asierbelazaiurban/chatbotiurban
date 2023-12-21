@@ -1,120 +1,696 @@
 {
-    "¿Cuál es la festividad más conocida de Valencia?": {
+    "¿Como puedo obtener el descuento de la tarjeta turística Valencia Tourit Card?": {
         "Pregunta": [
-            "¿Cuál es la festividad más conocida de Valencia?"
+            "¿Como puedo obtener el descuento de la tarjeta turística Valencia Tourit Card?"
         ],
         "palabras_clave": [
-            "festividad",
-            "conocida",
-            "Valencia"
+            "puedo",
+            "obtener",
+            "descuento",
+            "tarjeta",
+            "turística",
+            "Valencia",
+            "Tourit",
+            "Card"
         ],
-        "respuesta": "La festividad más conocida de Valencia es Las Fallas, celebrada en marzo. Es famosa por sus impresionantes esculturas de papel maché, conocidas como \"fallas\", que se exhiben por toda la ciudad. Estas obras de arte son a menudo satíricas y retratan temas de actualidad. La celebración culmina con la \"Cremà\", donde todas las fallas se queman en enormes hogueras, creando un espectáculo asombroso."
+        "respuesta": "Debes realizar una compra con todos los productos.\r\nAl poner los productos en la cesta de la compra, los descuentos se aplican\r\nautomáticamente.\r\nhttps://www.visitvalencia.com/valencia-tourist-card/faqs-preguntas-frecuentes"
     },
-    "¿Qué plato es emblemático de la gastronomía valenciana?": {
+    "Si compro una entrada combinada para Ciudad de las Artes y las Ciencias (Museo,\r\nOceanografic y Hemisfèric), ¿tengo que visitarlo todo en un día?": {
         "Pregunta": [
-            "¿Qué plato es emblemático de la gastronomía valenciana?"
+            "Si compro una entrada combinada para Ciudad de las Artes y las Ciencias (Museo,\r\nOceanografic y Hemisfèric), ¿tengo que visitarlo todo en un día?"
         ],
         "palabras_clave": [
-            "plato",
-            "emblemático",
-            "gastronomía",
-            "valenciana"
+            "Si",
+            "compro",
+            "entrada",
+            "combinada",
+            "Ciudad",
+            "Artes",
+            "Ciencias",
+            "Museo",
+            "Oceanografic",
+            "Hemisfèric",
+            "visitarlo",
+            "día"
         ],
-        "respuesta": "La paella es el plato más emblemático de Valencia. Originaria de esta región, la paella valenciana tradicionalmente incluye conejo, pollo, judías verdes, garrofón (una variedad de alubia blanca), y a veces caracoles, cocinados en un caldo aromático y combinados con arroz. Es conocida mundialmente y es un must para cualquier visitante en Valencia."
+        "respuesta": "Durante el proceso de compra tienes que elegir qué día quieres visitar cada edificio.\r\nPuedes visitarlo en uno, dos o tres días diferentes, pero estos días deben ser\r\nconsecutivos.\r\nRecuerda que no podrás repetir la visita a un mismo recinto.\r\nhttps://www.visitvalencia.com/shop/entradas-turisticas/entradas-cac/ciudad-de-las-\r\nartes-y-las-ciencias-precios"
     },
-    "¿Cuál es un sitio histórico importante en Valencia?": {
+    "Tengo pensado comprar un paquete completo de tarjeta de viaje de 72 horas, Ciudad\r\nde las Artes y las Ciencias y Bioparc. He visto que me da la opción de elegir fechas\r\npara cada atracción. ¿Pero tengo que visitarlo todo dentro de las 72 horas que dura\r\nla tarjeta?": {
         "Pregunta": [
-            "¿Cuál es un sitio histórico importante en Valencia?"
+            "Tengo pensado comprar un paquete completo de tarjeta de viaje de 72 horas, Ciudad\r\nde las Artes y las Ciencias y Bioparc. He visto que me da la opción de elegir fechas\r\npara cada atracción. ¿Pero tengo que visitarlo todo dentro de las 72 horas que dura\r\nla tarjeta?"
         ],
         "palabras_clave": [
-            "sitio",
-            "histórico",
-            "importante",
-            "Valencia"
+            "Tengo",
+            "pensado",
+            "comprar",
+            "paquete",
+            "completo",
+            "tarjeta",
+            "viaje",
+            "72",
+            "horas",
+            "Ciudad",
+            "Artes",
+            "Ciencias",
+            "Bioparc",
+            "He",
+            "visto",
+            "da",
+            "opción",
+            "elegir",
+            "fechas",
+            "cada",
+            "atracción",
+            "visitarlo",
+            "dentro",
+            "72",
+            "horas",
+            "dura",
+            "tarjeta"
         ],
-        "respuesta": "La Lonja de la Seda, un edificio gótico del siglo XV, es un sitio histórico crucial en Valencia. Fue centro de comercio de seda y es un ejemplo destacado de la arquitectura civil gótica en Europa. Ahora es Patrimonio de la Humanidad por la UNESCO y un testimonio de la riqueza y el poder económico que Valencia tuvo durante la Edad Media."
+        "respuesta": "La València Tourist Card y las entradas son productos diferentes, por lo que podrás\r\nutilizarlos en días diferentes para poder así organizar bien tu visita.\r\n\r\nLa València Tourist Card es una tarjeta física. La tarjeta se activa con su primer uso en\r\nun punto de utilización (museo, transporte público…). Las horas de validez comenzarán\r\na contar a partir de ese momento.\r\nPor otro lado, las entradas te las enviaremos por email, una vez realizada la compra\r\nonline.\r\nDurante el proceso de compra tienes que elegir qué día quieres visitar cada edificio.\r\nhttps://www.visitvalencia.com/shop/entradas-turisticas/entradas-conjuntas/valencia-\r\ntourist-card-72-horas-entrada-oceanografic-museo-ciencias-hemisferic-bioparc"
     },
-    "¿Qué es la Ciudad de las Artes y las Ciencias?": {
+    "Quiero visitar la Ciudad de las Ciencias. ¿Cuánto tiempo se tarda en visitarlo?": {
         "Pregunta": [
-            "¿Qué es la Ciudad de las Artes y las Ciencias?"
+            "Quiero visitar la Ciudad de las Ciencias. ¿Cuánto tiempo se tarda en visitarlo?"
         ],
         "palabras_clave": [
+            "Quiero",
+            "visitar",
+            "Ciudad",
+            "Ciencias",
+            "tiempo",
+            "tarda",
+            "visitarlo"
+        ],
+        "respuesta": "Lo primero que hay que tener en cuenta es que la Ciudad de las Artes y las Ciencias\r\nrequiere tiempo. Para que disfrutes de todas sus maravillas y sorpresas, lo mejor es\r\nque dispongas de, mínimo, un día para recorrerla.\r\nTe decimos brevemente, en tres puntos, por qué vas a necesitar por lo menos una\r\njornada completa.\r\n Primero, el Oceanogràfic es el edificio más visitado y allí se necesita un mínimo\r\nde cuatro horas. Si además quieres asistir a la exhibición del delfinario, te vas a\r\ndemorar un poco más.\r\n Segundo, el Museo de las Ciencias requiere al menos tres horas. Eso sí, puedes\r\npasarte el día entero allí si completas la visita con los talleres disponibles.\r\n Y tercero, el Hemisfèric tiene proyecciones que no superan los 45 minutos.\r\nPero vale la pena recorrerlo y disfrutarlo con más tiempo: hora y media en\r\ntotal.\r\n¿Quieres estar unas horas en uno de los edificios, luego salir y más tarde regresar? ¡No\r\nhay problema! Puedes hacerlo el mismo día, si compras la entrada combinada para el\r\nOceanogràfic, el Museo de las Ciencias y el Hemisfèric.\r\nTe recomendamos que eches un vistazo a este enlace. Te será útil para organizar tu\r\nvisita a la Ciudad de las Artes y las Ciencias: https://www.visitvalencia.com/que-ver-\r\nvalencia/ciudad-de-las-artes-y-de-las-ciencias-y-pla-del-real/que-ver"
+    },
+    "¿Puedo utilizar la tarjeta València Tourist Card desde mi móvil o tengo que\r\nrecogerla?": {
+        "Pregunta": [
+            "¿Puedo utilizar la tarjeta València Tourist Card desde mi móvil o tengo que\r\nrecogerla?"
+        ],
+        "palabras_clave": [
+            "utilizar",
+            "tarjeta",
+            "València",
+            "Tourist",
+            "Card",
+            "móvil",
+            "recogerla"
+        ],
+        "respuesta": "La Valencia Tourist Card es una tarjeta física, por lo que deberás recogerla para\r\nempezar a utilizarla.\r\nAquí tienes un listado de oficinas de turismo y quioscos digitales donde podrás recoger\r\nla tarjeta:\r\nhttps://www.visitvalencia.com/planifica-tu-viaje-a-valencia/oficinas-de-turismo-valencia"
+    },
+    "¿Las tarjetas son nominativas? ¿Las tarjetas son personales? ¿Podemos compartir la\r\nmisma tarjeta? ¿Las tarjetas llevan mi nombre?": {
+        "Pregunta": [
+            "¿Las tarjetas son nominativas? ¿Las tarjetas son personales? ¿Podemos compartir la\r\nmisma tarjeta? ¿Las tarjetas llevan mi nombre?"
+        ],
+        "palabras_clave": [
+            "tarjetas",
+            "nominativas",
+            "tarjetas",
+            "personales",
+            "compartir",
+            "misma",
+            "tarjeta",
+            "tarjetas",
+            "llevan",
+            "nombre"
+        ],
+        "respuesta": "Las tarjetas no son nominativas, pero si personales.\r\nCada persona que desea obtener descuentos deberá adquirir una."
+    },
+    "Quiero ampliar los días de mi tarjeta. ¿Cómo puedo hacerlo?": {
+        "Pregunta": [
+            "Quiero ampliar los días de mi tarjeta. ¿Cómo puedo hacerlo?"
+        ],
+        "palabras_clave": [
+            "Quiero",
+            "ampliar",
+            "días",
+            "tarjeta",
+            "puedo",
+            "hacerlo"
+        ],
+        "respuesta": "La duración máxima de la tarjeta turística es de 72 horas, pero puedes comprar más\r\ntarjetas si lo necesitas.\r\nRecuerda que, si quieres recargar la tarjeta una vez caducado el título, podrás hacerlos\r\nen las oficinas de turismo disfrutando de un 10% de descuento. Sólo podrás recargar el\r\ntítulo de la misma modalidad. Si tu tarjeta es de 72 horas, solo podrás recargar 72\r\nhoras.\r\nhttps://www.visitvalencia.com/valencia-tourist-card/faqs-preguntas-frecuentes"
+    },
+    "¿Puedo recoger mis tarjetas en el aeropuerto?": {
+        "Pregunta": [
+            "¿Puedo recoger mis tarjetas en el aeropuerto?"
+        ],
+        "palabras_clave": [
+            "recoger",
+            "tarjetas",
+            "aeropuerto"
+        ],
+        "respuesta": "Sí, en el aeropuerto tienes una oficina de turismo y un quiosco digital activo 24h,\r\ndonde podrás recoger tus tarjetas. Aquí tienes toda la información:\r\n Oficina de turismo del aeropuerto: https://www.visitvalencia.com/planifica-\r\ntu-viaje-a-valencia/oficinas-de-turismo-valencia/oficina-turismo-aeropuerto-\r\nvalencia\r\n Quiosco digital del aeropuerto: https://www.visitvalencia.com/planifica-tu-\r\nviaje-a-valencia/oficinas-de-turismo-valencia/kiosco-digital-aeropuerto"
+    },
+    "¿Como puedo saber los horarios y las paradas del bus Turistic (rojo)?": {
+        "Pregunta": [
+            "¿Como puedo saber los horarios y las paradas del bus Turistic (rojo)?"
+        ],
+        "palabras_clave": [
+            "puedo",
+            "saber",
+            "horarios",
+            "paradas",
+            "bus",
+            "Turistic",
+            "rojo"
+        ],
+        "respuesta": "Las paradas del bus turístico están señalizadas, encontrarás una señal especifica\r\n(poste) en cada parada.\r\nAquí tienes un enlace con los horarios de cada parada:\r\nhttps://www.visitvalencia.com/sites/default/files/media/downloadable-\r\nfile/files/horarios-%20bus-turistic-rojo-TB-TA-2022-2023.pdf\r\nTambién puedes guardar el plano de las paradas del autobús turístico en Google Maps.\r\nhttps://www.google.com/maps/d/u/0/viewer?mid=1vWxlJu3cuCnMM3CDVrhsZNxbMXlUf2V5\r\n&amp;femb=1&amp;ll=39.47144880160391%2C-0.3655432000000136&amp;z=14"
+    },
+    "¿Tengo que imprimir los tickets del bus Turistic?": {
+        "Pregunta": [
+            "¿Tengo que imprimir los tickets del bus Turistic?"
+        ],
+        "palabras_clave": [
+            "imprimir",
+            "tickets",
+            "bus",
+            "Turistic"
+        ],
+        "respuesta": "Puedes descargar el ticket en tu móvil y enseñarlo al conductor. No es necesario\r\nllevarlo impreso."
+    },
+    "Puedo cambiar las fechas de mis entradas/tickets después de realizar la compra?": {
+        "Pregunta": [
+            "Puedo cambiar las fechas de mis entradas/tickets después de realizar la compra?"
+        ],
+        "palabras_clave": [
+            "Puedo",
+            "cambiar",
+            "fechas",
+            "después",
+            "realizar",
+            "compra"
+        ],
+        "respuesta": "Podemos modificar la fecha de visita solo si avisas con un mínimo de 48h de antelación\r\na la fecha de acceso que aparece en el tickets. Si la fecha de los tickets no ha caducado.\r\nRevisa atentamente tu reserva antes de confirmar tu compra ya que no se admiten\r\ndevoluciones. Por favor lee antes nuestra política de devoluciones:\r\nhttps://www.visitvalencia.com/shop/devoluciones"
+    },
+    "Quiero cambiar las fechas de mis entradas/tickets. (TODOS LOS PRODUCTOS MENOS\r\nCIUDAD DE LAS ARTES Y LAS CIENCIAS)": {
+        "Pregunta": [
+            "Quiero cambiar las fechas de mis entradas/tickets. (TODOS LOS PRODUCTOS MENOS\r\nCIUDAD DE LAS ARTES Y LAS CIENCIAS)"
+        ],
+        "palabras_clave": [
+            "Quiero",
+            "cambiar",
+            "fechas",
+            "TODOS",
+            "LOS",
+            "PRODUCTOS",
+            "MENOS",
+            "CIUDAD",
+            "DE",
+            "LAS",
+            "ARTES",
+            "Y",
+            "LAS",
+            "CIENCIAS"
+        ],
+        "respuesta": "Sólo podemos modificar la fecha de tus tickets con un mínimo de 48h de antelación del\r\ndisfrute del servicio. Recuerda que, si tus entradas ya están caducadas y no ha\r\ndisfrutado del servicio, no podemos cambiar las fechas.\r\n ¿Me puede indicar las fechas actuales de tus tickets y a qué días los quiere cambiar?\r\n ¿Me puede indicar con que email realizaste la compra o el nº de pedido de tu compra?\r\nMuchas gracias en breve recibirá tus tickets por email de nuestro servicio de atención\r\nal cliente. También nos puede dejar su correo electrónico y le enviaremos una respuesta"
+    },
+    "Me he equivocado y quiero cambiar mis fechas de visita a la Ciudad de\r\nlas Artes y de las Ciencias.": {
+        "Pregunta": [
+            "Me he equivocado y quiero cambiar mis fechas de visita a la Ciudad de\r\nlas Artes y de las Ciencias."
+        ],
+        "palabras_clave": [
+            "Me",
+            "equivocado",
+            "quiero",
+            "cambiar",
+            "fechas",
+            "visita",
             "Ciudad",
             "Artes",
             "Ciencias"
         ],
-        "respuesta": "La Ciudad de las Artes y las Ciencias es un complejo arquitectónico futurista en Valencia, diseñado por Santiago Calatrava y Félix Candela. Incluye varios edificios como el Hemisférico, un cine IMAX y planetario; el Museo de las Ciencias Príncipe Felipe, un museo interactivo de ciencia; y el Oceanogràfic, el acuario más grande de Europa. Es un emblema de la innovación y la modernidad de la ciudad."
+        "respuesta": "Si deseas cambiar la fecha de tu visita debes hacerlo contactando directamente con la\r\nCiudad de las Artes y las Ciencias en el teléfono + 34 961 974 686 o enviando un email\r\na reservas@cac.es antes de que caduquen las fechas de acceso al recinto de tus\r\ntickets. Una vez caduquen las fechas de acceso, no se podrá cambiar los tickets."
     },
-    "¿Qué importancia tiene el Turia para Valencia?": {
+    "Si compro la tarjeta de 72 horas con entradas incluidas, ¿se devuelve el dinero si cancelo el viaje?": {
         "Pregunta": [
-            "¿Qué importancia tiene el Turia para Valencia?"
+            "Si compro la tarjeta de 72 horas con entradas incluidas, ¿se devuelve el dinero si cancelo el viaje?"
         ],
         "palabras_clave": [
-            "importancia",
-            "Turia",
+            "Si",
+            "compro",
+            "tarjeta",
+            "72",
+            "horas",
+            "entradas",
+            "incluidas",
+            "devuelve",
+            "dinero",
+            "si",
+            "cancelo",
+            "viaje"
+        ],
+        "respuesta": "Si adquieres la tarjeta Valencia Tourist Card + las entradas a recintos turísticos y\r\nespectáculos (o cualquier otro tipo de pack ofertado) no se admitirá ningún tipo de\r\ndevolución, ni total ni parcial."
+    },
+    "Somos un grupo de X personas y estamos interesados en comprar ….": {
+        "Pregunta": [
+            "Somos un grupo de X personas y estamos interesados en comprar …."
+        ],
+        "palabras_clave": [
+            "Somos",
+            "grupo",
+            "X",
+            "personas",
+            "interesados",
+            "comprar"
+        ],
+        "respuesta": "Para los grupos, hacemos ofertas y presupuestos a medida. Necesitaría que me dieras la\r\nsiguiente información:\r\n Nº de personas del grupo\r\n Productos en los que estás interesados\r\n Fecha de tu visita\r\n Email de contacto para enviarte la información\r\n Algún dato de interés que necesitemos saber\r\nMuchas gracias por la información. En breve recibirás un correo de nuestro equipo de\r\natención a los clientes con la información solicitada.\r\nTambién puedes hacer tu petición a través del siguiente formulario:\r\nhttps://www.visitvalencia.com/shop/visitas-guiadas/tours-privados-con-guia"
+    },
+    "Tengo que cancelar el viaje por causas de fuerza mayor (cancelación vuelos,\r\nproblemas médicos, etc.) ¿Puedo cancelar mis entradas?": {
+        "Pregunta": [
+            "Tengo que cancelar el viaje por causas de fuerza mayor (cancelación vuelos,\r\nproblemas médicos, etc.) ¿Puedo cancelar mis entradas?"
+        ],
+        "palabras_clave": [
+            "Tengo",
+            "cancelar",
+            "viaje",
+            "causas",
+            "fuerza",
+            "mayor",
+            "cancelación",
+            "vuelos",
+            "problemas",
+            "médicos",
+            "etc",
+            "cancelar",
+            "entradas"
+        ],
+        "respuesta": "La política de cancelación no admite devoluciones ni por cancelación de vuelos, ni por\r\ncausas de fuerza mayor. Sin embargo, me puede explicar mejor su caso en concreto para\r\nque un compañero pueda darle más información y ver con más detalle su caso.\r\n ¿Me puedes indicar con que email realizó su compra o el nº de pedido de su\r\ncompra?\r\n ¿Me puede con más detalle el motivo de la cancelación de su viaje?\r\n ¿Tiene pensado volver a Valencia en próximas fechas?\r\n ¿Le gustaría que cambiáramos las fechas de su pedido para cuando vuelvas?\r\nMuchas gracias por sus respuestas. En breve recibirá un correo de servicio de atención al\r\ncliente para concretar mejor su caso."
+    },
+    "No voy a poder viajar Valencia. Quiero cancelar mis entradas.": {
+        "Pregunta": [
+            "No voy a poder viajar Valencia. Quiero cancelar mis entradas."
+        ],
+        "palabras_clave": [
+            "No",
+            "voy",
+            "poder",
+            "viajar",
+            "Valencia",
+            "Quiero",
+            "cancelar",
+            "entradas"
+        ],
+        "respuesta": "La política de cancelación no admite devoluciones ni por cancelación de vuelos, ni por\r\ncausas de fuerza mayor. Sin embargo, me puede explicar mejor su caso en concreto para\r\nque un compañero pueda darle más información y ver con más detalle su caso.\r\n ¿Me puedes indicar con que email realizó su compra o el nº de pedido de su\r\ncompra?\r\n ¿Me puedes dar más detalle el motivo de la cancelación de su viaje?\r\n ¿Tienes pensado volver a Valencia en próximas fechas?\r\n ¿Te gustaría que cambiáramos las fechas de su pedido para cuando vuelvas?\r\nMuchas gracias por tus respuestas. En breve recibirás un correo del servicio de atención al\r\ncliente para concretar mejor tu caso."
+    },
+    "He realizado una compra en la web, pero no he recibido mis entradas por email\r\n¿Cómo obtengo las entradas?": {
+        "Pregunta": [
+            "He realizado una compra en la web, pero no he recibido mis entradas por email\r\n¿Cómo obtengo las entradas?"
+        ],
+        "palabras_clave": [
+            "He",
+            "realizado",
+            "compra",
+            "web",
+            "recibido",
+            "entradas",
+            "email",
+            "obtengo",
+            "entradas"
+        ],
+        "respuesta": "Por favor comprueba tu email y la bandeja de correo no deseado por si hubieran llegado\r\nahí. Las entradas se han enviado al email que has facilitado durante el proceso de compra.\r\nComprueba que no haya ningún error en tu dirección de email.\r\nSi no has recibido tus entradas o no las encuentras, puedes descargarlas desde tu área\r\nprivada de la web.\r\nEn caso de que no estés registrado puedes registrarte a este enlace\r\nhttps://www.visitvalencia.com/user/login utilizando el mismo email que has utilizado\r\ndurante la compra.\r\nSi ya estás registrado, debes iniciar sesión en la web para poder acceder a tu pedido en\r\nzona privada y descargar tus entradas en el siguiente link.\r\nhttps://www.visitvalencia.com/user/login\r\nInicia sesión con el correo electrónico con el que hiciste la compra y tu clave.\r\nSi no recuerdes tu clave, puedes pedir que te la enviemos a tu correo electrónico a través\r\ndel siguiente link https://www.visitvalencia.com/user/password"
+    },
+    "No puedo descargar mis entradas desde mi zona privada.": {
+        "Pregunta": [
+            "No puedo descargar mis entradas desde mi zona privada."
+        ],
+        "palabras_clave": [
+            "No",
+            "puedo",
+            "descargar",
+            "entradas",
+            "zona",
+            "privada"
+        ],
+        "respuesta": "Debes iniciar sesión en la web para poder acceder a tu pedido en zona privada y descargar\r\ntus entradas en el siguiente link. https://www.visitvalencia.com/user/login\r\nInicia sesión con el correo electrónico con el que hiciste la compra y tu clave.\r\nSi no recuerdes tu clave, puedes pedir que te la enviemos a tu correo electrónico a través\r\ndel siguiente link https://www.visitvalencia.com/user/password\r\nEn caso de que no estés registrado puedes registrarte a este enlace\r\nhttps://www.visitvalencia.com/user/login utilizando el mismo email que has utilizado\r\ndurante la compra."
+    },
+    "¿Como me descargo mis tickets desde la zona privada?": {
+        "Pregunta": [
+            "¿Como me descargo mis tickets desde la zona privada?"
+        ],
+        "palabras_clave": [
+            "descargo",
+            "tickets",
+            "zona",
+            "privada"
+        ],
+        "respuesta": "Entra en tu zona privada pinchando en el icono de usuario o a través del link\r\nhttps://www.visitvalencia.com/user/login.\r\nEn la zona privada selecciona el botón Pedidos. A continuación, haz click en el botón VER\r\nPEDIDOS.\r\nPincha sobre el botón descargar entradas y se descargarán en formato PDF en tu móvil o\r\nen tu ordenador."
+    },
+    "No recuerdo mi usuario o mi clave": {
+        "Pregunta": [
+            "No recuerdo mi usuario o mi clave"
+        ],
+        "palabras_clave": [
+            "No",
+            "recuerdo",
+            "usuario",
+            "clave"
+        ],
+        "respuesta": "Tu usuario es siempre email con el que realizaste tu compra.\r\nSi no recuerdas tu clave, puedes pedir que te la enviemos a tu correo electrónico a través\r\ndel siguiente link https://www.visitvalencia.com/user/password\r\nEn caso de que no estés registrado puedes registrarte a este enlace\r\nhttps://www.visitvalencia.com/user/login utilizando el mismo email que has utilizado\r\ndurante la compra."
+    },
+    "Me he equivocado al poner el email en el pedido y no he recibido las entradas,\r\n¿Cómo puedo recuperar el pedido?": {
+        "Pregunta": [
+            "Me he equivocado al poner el email en el pedido y no he recibido las entradas,\r\n¿Cómo puedo recuperar el pedido?"
+        ],
+        "palabras_clave": [
+            "Me",
+            "equivocado",
+            "poner",
+            "email",
+            "pedido",
+            "recibido",
+            "entradas",
+            "puedo",
+            "recuperar",
+            "pedido"
+        ],
+        "respuesta": "Necesitamos información más concreta de tu compra.\r\n ¿Nos puedes dar el nombre y apellido con el que hiciste la compra?\r\n ¿Cuál es el importe de la compra?\r\n ¿sabrías decirme el día y la hora aproximada en la que hiciste la compra?\r\n ¿Me puedes dar el email al que quieres que te enviemos las entradas?\r\nMuchas gracias por tus respuestas. En breve recibirás un correo del servicio deatención al cliente con tus entradas."
+    },
+    "Me he equivocado en las fechas de la tarjeta.": {
+        "Pregunta": [
+            "Me he equivocado en las fechas de la tarjeta."
+        ],
+        "palabras_clave": [
+            "Me",
+            "equivocado",
+            "fechas",
+            "tarjeta"
+        ],
+        "respuesta": "No te preocupes. La tarjeta se activará cuando la utilices por primera vez en un punto de uso (museo, transporte público, etc.). A partir de ese momento, empezarán a descontarse las horas según la modalidad escogida: 72 h, 48 h o 24 h.\r\nPuedes consultar toda la información sobre nuestra política de devoluciones\r\npinchando en el siguiente enlace: https://www.visitvalencia.com/shop/devoluciones"
+    },
+    "Durante el proceso de compra me pide las fechas de mi visita, ¿tienen que coincidir con las fechas de las entradas?": {
+        "Pregunta": [
+            "Durante el proceso de compra me pide las fechas de mi visita, ¿tienen que coincidir con las fechas de las entradas?"
+        ],
+        "palabras_clave": [
+            "Durante",
+            "proceso",
+            "compra",
+            "pide",
+            "fechas",
+            "visita",
+            "coincidir",
+            "fechas",
+            "entradas"
+        ],
+        "respuesta": "No, las fechas que se rellenan durante el proceso de compra son a fin de estadísticas, no tienen que ser las mismas de las entradas."
+    },
+    "He comprado la Valencia Tourist Card en la web y ahora quiero comprar (xxx) pero no sé como conseguir el descuento.": {
+        "Pregunta": [
+            "He comprado la Valencia Tourist Card en la web y ahora quiero comprar (xxx) pero no sé como conseguir el descuento."
+        ],
+        "palabras_clave": [
+            "He",
+            "comprado",
+            "Valencia",
+            "Tourist",
+            "Card",
+            "web",
+            "ahora",
+            "quiero",
+            "comprar",
+            "xxx",
+            "sé",
+            "conseguir",
+            "descuento"
+        ],
+        "respuesta": "Nosotros podemos darte un código de descuento. Necesito saber la siguiente información:\r\n número de tu pedido online\r\n productos que quieres comprar.\r\nMuchas gracias por la información. En breve recibirás un correo del servicio de\r\natención al cliente con el descuento.\r\nNota: Esta pregunta es común y no hay información en la web\r\nRecuerda que también puedes acudir a una oficina de turismo o directamente a las\r\ntaquillas de los recintos. Al mostrar la tarjeta, te aplicarán el descuento\r\ncorrespondiente."
+    },
+    "Quiero un código descuento. ¿Como puedo conseguir un código descuento para comprar entradas?": {
+        "Pregunta": [
+            "Quiero un código descuento. ¿Como puedo conseguir un código descuento para comprar entradas?"
+        ],
+        "palabras_clave": [
+            "Quiero",
+            "código",
+            "descuento",
+            "puedo",
+            "conseguir",
+            "código",
+            "descuento",
+            "comprar",
+            "entradas"
+        ],
+        "respuesta": "Nosotros podemos darte un código de descuento solamente si has comprado la Valencia Tourist Card, para la compra de otros productos.\r\nNecesito saber la siguiente información:\r\n número de tu pedido online\r\n productos que quieres comprar.\r\n\r\nMuchas gracias por la información. En breve recibirás un correo del servicio de atención al cliente con el descuento.\r\nRecuerda que también puedes acudir a una oficina de turismo o directamente a las taquillas de los recintos. Al mostrar la tarjeta, te aplicarán el descuento correspondiente.\r\n Todavía no he comprado nada: No podemos darte un código de descuento. Pero recuerda que, si compras la Valencia Tourist Card y añades otros productos en el carro, podrás beneficiarte del descuento. Descubre aquí todos los productos con descuentos\r\nValencia Tourist Card.\r\nhttps://tourismbrochures.net/visitvalencia/guias/valencia_tourist_card/"
+    },
+    "He comprado el pase de 72horas, pero no se dónde lo puedo utilizar.": {
+        "Pregunta": [
+            "He comprado el pase de 72horas, pero no se dónde lo puedo utilizar."
+        ],
+        "palabras_clave": [
+            "He",
+            "comprado",
+            "pase",
+            "72horas",
+            "dónde",
+            "puedo",
+            "utilizar"
+        ],
+        "respuesta": "Aquí tienes la guía de descuentos de la Valencia Tourist card con todos los puntos dónde\r\ntienes descuento con la tarjeta.\r\nhttps://www.tourismbrochures.net/visitvalencia/guias/valencia_tourist_card/"
+    },
+    "¿Qué combinación es la mejor si viajamos dos adultos y dos niños de 5 y 12 años?": {
+        "Pregunta": [
+            "¿Qué combinación es la mejor si viajamos dos adultos y dos niños de 5 y 12 años?"
+        ],
+        "palabras_clave": [
+            "combinación",
+            "mejor",
+            "si",
+            "viajamos",
+            "dos",
+            "adultos",
+            "dos",
+            "niños",
+            "5",
+            "12",
+            "años"
+        ],
+        "respuesta": "Si está 3 días: 72 horas\r\nSi está 2 días: 48 horas\r\nSi estas 1 día: 24 horas.\r\nSi está 4 días: 72 horas + 24 horas\r\nSi está 5 días: 72 horas + 48 horas\r\nSi estas 6 día o más: 72 horas y que la recargue de nuevo en cualquier oficina de turismo\r\nNiños:\r\nDisponible para niños de 6 a 12 años. Los niños de hasta 15 años tienen entrada gratis a museos y monumentos municipales; los menores de 6 también pueden viajar gratis en autobuses y trenes de cercanía; y los menores de 10 en metro y tranvía. Consultar descuentos para senior, estudiantes y personas con discapacidad en nuestras Oficinas de\r\nTurismo."
+    },
+    "Estaremos en Valencia de la fecha X a la fecha X. Unos días ¿Qué tarjeta me interesa más?": {
+        "Pregunta": [
+            "Estaremos en Valencia de la fecha X a la fecha X. Unos días ¿Qué tarjeta me interesa más?"
+        ],
+        "palabras_clave": [
+            "Estaremos",
+            "Valencia",
+            "fecha",
+            "X",
+            "fecha",
+            "Unos",
+            "días",
+            "tarjeta",
+            "interesa"
+        ],
+        "respuesta": " Si está 3 días: 72 horas\r\n Si está 2 días: 48 horas\r\n Si estas 1día: 24 horas.\r\n Si está 4 días: 72 horas + 24 horas\r\n Si está 5 días: 72 horas + 48 horas\r\n Si estas 6 día o más: 72 horas y que la recargue de nuevo en cualquier oficina de turismo"
+    },
+    "¿Dónde puedo recoger mis tarjetas en Valencia?": {
+        "Pregunta": [
+            "¿Dónde puedo recoger mis tarjetas en Valencia?"
+        ],
+        "palabras_clave": [
+            "puedo",
+            "recoger",
+            "tarjetas",
             "Valencia"
         ],
-        "respuesta": "El río Turia, ahora convertido en un gran parque urbano, es vital para Valencia. Tras una gran inundación en 1957, el río fue desviado, y su antiguo cauce se transformó en un espacio verde que atraviesa la ciudad. Este parque ofrece áreas recreativas, senderos para bicicletas y peatones, y alberga varios jardines y estructuras arquitectónicas. Es un pulmón verde en el corazón urbano y un lugar popular para el ocio y el deporte."
+        "respuesta": "Puedes recoger tu pedido en cualquiera de nuestra red de oficinas de Turismo València sin coste, dentro de las fechas y horarios de apertura de las mismas. También podrás recoger tus tarjetas en los Kioscos digitales del aeropuerto que funcionan 24 horas al día y en los kioscos de la Plaza del Ayuntamiento en horario de oficina y de la estación Joaquín Sorolla. Solo tendrá que introducir la referencia que aparece en el bono y el e-mail indicado durante el proceso de compra. También podrá hacerlo acercándolo al lector QR.\r\nHORARIO KIOSCOS: 24 horas al día en los kioscos del aeropuerto. Ten en cuenta que la estación Joaquín Sorolla cierra de 00:00 a 06:00 horas y que solo se puede recoger las tarjetas en horario de oficina en el kiosco de la plaza del Ayuntamiento."
     },
-    "¿Qué equipo de fútbol es famoso en Valencia?": {
+    "¿Dónde puedo comprar las tarjetas cuando llegue a Valencia?": {
         "Pregunta": [
-            "¿Qué equipo de fútbol es famoso en Valencia?"
+            "¿Dónde puedo comprar las tarjetas cuando llegue a Valencia?"
         ],
         "palabras_clave": [
-            "equipo",
-            "fútbol",
-            "famoso",
+            "puedo",
+            "comprar",
+            "tarjetas",
+            "llegue",
             "Valencia"
         ],
-        "respuesta": "El Valencia CF es el equipo de fútbol más famoso de la ciudad. Fundado en 1919, ha ganado numerosos títulos nacionales e internacionales, incluyendo la Liga y la Copa del Rey. Juega en el estadio de Mestalla, uno de los más antiguos de España. Es un punto de orgullo local y una parte importante de la cultura deportiva valenciana."
+        "respuesta": "https://www.visitvalencia.com/valencia-tourist-card/puntos-de-venta"
     },
-    "¿Qué es la Albufera y por qué es relevante para Valencia?": {
+    "¿Dónde está la parada de Poeta Querol para coger el Albufera bus Turistic?": {
         "Pregunta": [
-            "¿Qué es la Albufera y por qué es relevante para Valencia?"
+            "¿Dónde está la parada de Poeta Querol para coger el Albufera bus Turistic?"
         ],
         "palabras_clave": [
+            "parada",
+            "Poeta",
+            "Querol",
+            "coger",
             "Albufera",
-            "relevante",
-            "Valencia"
+            "bus",
+            "Turistic"
         ],
-        "respuesta": "La Albufera es un parque natural situado al sur de Valencia, conocido por su gran lago y biodiversidad. Es una zona de gran importancia ecológica, hogar de numerosas especies de aves y un lugar clave para la agricultura del arroz, ingrediente esencial de la paella. Además, ofrece espectaculares puestas de sol y es un destino popular para paseos en barca."
+        "respuesta": "En la calle Poeta Querol: Calle Poeta Querol, 8.\r\nPuedes consultar la ubicación exacta de cada parada en el siguiente link:\r\nhttps://www.visitvalencia.com/sites/default/files/media/downloadable-file/files/horarios-%20bus-turistic-rojo-TB-TA-2022-2023.pdf\r\nEscaneando el código QR del plano puedes acceder a la ubicación de las paradas exacta en Google Maps.\r\nTambién puedes guardar el plano de las paradas del autobús turístico en Google Maps."
     },
-    "¿Cuál es el significado de las Torres de Serranos para Valencia?": {
+    "¿Qué autobuses puedo coger?": {
         "Pregunta": [
-            "¿Cuál es el significado de las Torres de Serranos para Valencia?"
+            "¿Qué autobuses puedo coger?"
         ],
         "palabras_clave": [
-            "significado",
-            "Torres",
-            "Serranos",
-            "Valencia"
+            "autobuses",
+            "puedo",
+            "coger"
         ],
-        "respuesta": "Las Torres de Serranos son una de las doce puertas que formaban parte de la muralla medieval de Valencia. Construidas en el siglo XIV, son un importante monumento histórico y uno de los ejemplos más notables de arquitectura gótica militar en Europa. Originalmente usadas como defensa, hoy en día son un símbolo de la ciudad y ofrecen vistas panorámicas de Valencia."
+        "respuesta": "Aquí tienes las direcciones exactas con las paradas del bus por las que más preguntan.\r\n• Bus Stop 1 - Poeta Querol: Calle Poeta Querol, 8.\r\n• Bus Stop 4 - Ciudad de las Artes y las Ciencias: Avenida Profesor Lopez Piñero, 10\r\n• Bus Stop 6 - Centro Comercial Aqua: Calle Menorca, 19\r\n• Bus Stop 13 - Nuevo Centro. Avenida Pio XII, 2 (explanada del centro comercial)"
     },
-    "¿Qué influencia tuvo la época romana en Valencia?": {
+    "¿Dónde puedo utilizar los tickets de tapa+caña?": {
         "Pregunta": [
-            "¿Qué influencia tuvo la época romana en Valencia?"
+            "¿Dónde puedo utilizar los tickets de tapa+caña?"
         ],
         "palabras_clave": [
-            "influencia",
-            "época",
-            "romana",
-            "Valencia"
+            "puedo",
+            "utilizar",
+            "tickets"
         ],
-        "respuesta": "Valencia, fundada como colonia romana en el 138 a.C. con el nombre de Valentia Edetanorum, tiene una rica herencia de su época romana. Se pueden encontrar restos romanos en varios lugares de la ciudad, como el Almoina, donde se hallan ruinas de templos, casas y baños públicos. Esta época marcó el comienzo del desarrollo urbano de Valencia y su importancia en la región."
+        "respuesta": "https://www.visitvalencia.com/valencia-tourist-card/tapas-gratis"
     },
-    "¿Qué papel juega el Mercado Central en la vida valenciana?": {
+    "¿Dónde hay un listado de establecimientos para la tapa+caña?": {
         "Pregunta": [
-            "¿Qué papel juega el Mercado Central en la vida valenciana?"
+            "¿Dónde hay un listado de establecimientos para la tapa+caña?"
         ],
         "palabras_clave": [
-            "papel",
-            "juega",
-            "Mercado",
-            "Central",
-            "vida",
-            "valenciana"
+            "listado",
+            "establecimientos"
         ],
-        "respuesta": "El Mercado Central de Valencia, situado en un impresionante edificio modernista, es un centro neurálgico de la vida cotidiana valenciana. Es uno de los mercados más antiguos y grandes de Europa, conocido por su amplia variedad de productos frescos, incluyendo frutas, verduras, carnes, y pescados. Es un lugar de encuentro para los habitantes y un escaparate de la rica gastronomía de la región."
+        "respuesta": "https://www.visitvalencia.com/valencia-tourist-card/tapas-gratis"
+    },
+    "¿La entrada a la Catedral está incluida con la Valencia Tourist Card?": {
+        "Pregunta": [
+            "¿La entrada a la Catedral está incluida con la Valencia Tourist Card?"
+        ],
+        "palabras_clave": [
+            "entrada",
+            "Catedral",
+            "incluida",
+            "Valencia",
+            "Tourist",
+            "Card"
+        ],
+        "respuesta": "No, pero tienes un descuento con la entrada del 20%.\r\nDescubre todos los descuentos en la guía de descuentos:\r\nhttps://tourismbrochures.net/visitvalencia//guias/valencia_tourist_card/#page=1"
+    },
+    "¿Qué descuentos hay con la tarjeta de 7 días?": {
+        "Pregunta": [
+            "¿Qué descuentos hay con la tarjeta de 7 días?"
+        ],
+        "palabras_clave": [
+            "descuentos",
+            "tarjeta",
+            "7",
+            "días"
+        ],
+        "respuesta": "https://www.visitvalencia.com/shop/valencia-tourist-card/valencia-discount-card"
+    },
+    "¿Puedo recoger mi tarjeta de 7 días en el quiosco digital?": {
+        "Pregunta": [
+            "¿Puedo recoger mi tarjeta de 7 días en el quiosco digital?"
+        ],
+        "palabras_clave": [
+            "recoger",
+            "tarjeta",
+            "7",
+            "días",
+            "quiosco",
+            "digital"
+        ],
+        "respuesta": "No, sólo puedes recoger la tarjeta 7 días en cualquiera de nuestra red de oficinas de turismo sin coste, dentro de las fechas y horarios de apertura de las mismas. Los horarios de las oficinas son:\r\nhttps://www.visitvalencia.com/planifica-tu-viaje-a-valencia/oficinas-de-turismo-valencia"
+    },
+    "Si compro la tarjeta online, ¿dónde la puedo recoger?": {
+        "Pregunta": [
+            "Si compro la tarjeta online, ¿dónde la puedo recoger?"
+        ],
+        "palabras_clave": [
+            "Si",
+            "compro",
+            "tarjeta",
+            "online",
+            "puedo",
+            "recoger"
+        ],
+        "respuesta": "Puede recoger su pedido en cualquiera de nuestra red de oficinas de Turismo València sin coste, dentro de las fechas y horarios de apertura de las mismas.:\r\nTambién podrás recoger tus tarjetas en los Kioscos digitales del aeropuerto que funcionan 24 horas al día y en los kioscos de la Plaza del Ayuntamiento en horario de oficina y de la estación Joaquín Sorolla. Solo tendrá que introducir la referencia que aparece en el bono y\r\nel e-mail indicado durante el proceso de compra. También podrá hacerlo acercándolo al lector QR.\r\nHORARIO: 24 horas al día en los kioscos del aeropuerto. Ten en cuenta que la estación Joaquín Sorolla cierra de 00:00 a 06:00 horas y que solo se puede recoger las tarjetas en horario de oficina en el kiosco de la plaza del Ayuntamiento.\r\nhttps://www.visitvalencia.com/shop/valencia-tourist-card/valencia-tourist-card"
+    },
+    "¿Puedo llegar al circuito Ricardo Tormo con la tarjeta turística?": {
+        "Pregunta": [
+            "¿Puedo llegar al circuito Ricardo Tormo con la tarjeta turística?"
+        ],
+        "palabras_clave": [
+            "llegar",
+            "circuito",
+            "Ricardo",
+            "Tormo",
+            "tarjeta",
+            "turística"
+        ],
+        "respuesta": "Si, en Metrobus. Son los característicos autobuses amarillos que permiten moverse desde València a las principales urbanizaciones y centros comerciales del extrarradio, así como a la mayoría de\r\nlocalidades de interés del área metropolitana: El Puig, El Saler, Pinedo, Puçol y Sagunto, entre otras.\r\nAquí tienes el plano con todas las localidades: Puedes descargar el plano aquí https://www.visitvalencia.com/sites/default/files/media/downloadable-file/files/plano-metrobus-2023.pdf"
+    },
+    "¿Puedo comprar los tickets directamente en el bus turístico?": {
+        "Pregunta": [
+            "¿Puedo comprar los tickets directamente en el bus turístico?"
+        ],
+        "palabras_clave": [
+            "comprar",
+            "tickets",
+            "directamente",
+            "bus",
+            "turístico"
+        ],
+        "respuesta": "Si, pero te recomendamos que las compres con antelación en el siguiente link. Además con\r\nla VTC tendrás un 10% de descuento en el ticket.\r\nhttps://www.visitvalencia.com/shop/valencia-autobus-turistico/bus-turistico-valencia"
+    },
+    "He visto que hay varios horarios de entrada a Oceanografic. Si cojo la entrada a las 10h, ¿tengo que entrar a las 10h o puedo entrar más tarde? ¿Por ejemplo a las 12 del mediodía?": {
+        "Pregunta": [
+            "He visto que hay varios horarios de entrada a Oceanografic. Si cojo la entrada a las 10h, ¿tengo que entrar a las 10h o puedo entrar más tarde? ¿Por ejemplo a las 12 del mediodía?"
+        ],
+        "palabras_clave": [
+            "He",
+            "visto",
+            "varios",
+            "horarios",
+            "entrada",
+            "Oceanografic",
+            "Si",
+            "cojo",
+            "entrada",
+            "10h",
+            "entrar",
+            "10h",
+            "puedo",
+            "entrar",
+            "tarde",
+            "ejemplo",
+            "12",
+            "mediodía"
+        ],
+        "respuesta": "No hace falta que estés a las 10 en punto, puedes llegar más tarde. Lo que no puedes\r\nhacer es ir en otro día diferente."
+    },
+    "¿Cuánto tiempo tengo para recoger mi pedido en las máquinas expendedoras del aeropuerto?": {
+        "Pregunta": [
+            "¿Cuánto tiempo tengo para recoger mi pedido en las máquinas expendedoras del aeropuerto?"
+        ],
+        "palabras_clave": [
+            "tiempo",
+            "recoger",
+            "pedido",
+            "máquinas",
+            "expendedoras",
+            "aeropuerto"
+        ],
+        "respuesta": "No hay límite de tiempo para recoger tu pedido en las máquinas. Puedes recogerlas el día que quieras y a cualquier hora.\r\nPodrás recoger tus tarjetas en los Kioscos digitales del aeropuerto que funcionan 24 horas al día y en los kioscos de la Plaza del Ayuntamiento en horario de oficina y de la estación Joaquín Sorolla. Solo tendrá que introducir la referencia que aparece en el bono y el e-mail indicado durante el proceso de compra. También podrá hacerlo acercándolo al lector QR.\r\n\r\nHORARIO: 24 horas al día en los kioscos del aeropuerto. Ten en cuenta que la estación Joaquín Sorolla cierra de 00:00 a 06:00 horas y que solo se puede recoger las tarjetas en\r\nhorario de oficina en el kiosco de la plaza del Ayuntamiento."
+    },
+    "¿Hay descuentos para jubilados, familia numerosa, estudiantes, discapacitados etc.?": {
+        "Pregunta": [
+            "¿Hay descuentos para jubilados, familia numerosa, estudiantes, discapacitados etc.?"
+        ],
+        "palabras_clave": [
+            "descuentos",
+            "jubilados",
+            "familia",
+            "numerosa",
+            "estudiantes",
+            "discapacitados",
+            "etc"
+        ],
+        "respuesta": "Descuentos valencia Tourist Card: https://www.visitvalencia.com/valencia-tourist-card/que-es\r\nPara el resto de los productos si no encuentra el tipo de descuento que el chat recomiende que es mejor que compren en taquilla la entrada."
     }
 }

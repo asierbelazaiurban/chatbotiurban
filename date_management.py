@@ -113,7 +113,7 @@ def obtener_eventos(pregunta, chatbot_id):
 
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
-        return "Error al obtener eventos: " + str(e)
+        return False
 
 
 

@@ -17,6 +17,8 @@ from logging import FileHandler
 from logging.handlers import RotatingFileHandler
 from time import sleep
 from urllib.parse import urlparse, urljoin
+from openai import ChatCompletion
+import sys
 
 # ---------------------------
 # Librerías de Terceros
@@ -45,6 +47,7 @@ import pandas as pd
 from tqdm import tqdm  # Importación única de tqdm
 from gensim.models import Word2Vec
 from datasets import Dataset, load_dataset
+import pdfplumber
 
 # Web Scraping y Solicitudes HTTP
 import requests
@@ -75,11 +78,9 @@ from process_docs import process_file
 
 modelo = api.load("glove-wiki-gigaword-50")
 
-
 nltk.download('stopwords')
 nltk.download('punkt')
 app = Flask(__name__)
-
 
 #### Logger ####
 
@@ -111,15 +112,22 @@ app.logger.setLevel(logging.DEBUG)
 
 app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
-#### FIN Logger ####
+#### Logger ####
 
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
+BASE_PDFS_DIR = "data/uploads/pdfs/"
+BASE_PDFS_DIR_JSON = "data/uploads/pdfs/json/"
+BASE_CACHE_DIR =  "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
+
+import re
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -194,7 +202,7 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
     new_prompt = new_prompt_by_id if new_prompt_by_id else (
         "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
-        "en este momento sobre este tema, ¿puedo ayudarte en algo más?'. Actúa como un guía turístico experto, "
+        "en este momento sobre este tema, ¿Puedes ampliarme la pregunta? o ¿Puedo ayudarte en algo mas?'. Actúa como un guía turístico experto, "
         "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
         "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
         "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
@@ -204,12 +212,12 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     )
 
     # Construir el prompt base
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
+    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
 
     # Intentar generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta_original}
@@ -276,13 +284,13 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto"
+    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
@@ -305,9 +313,9 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
     app.logger.info(respuesta_mejorada)
     try:
         respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
-                {"role": "system", "content": f"El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, devuévela en el mismo idioma, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma. Respinde con menos de 75 palaras"},                
+                {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_mejorada}
             ],
             temperature=float(temperature) if temperature else 0.7
@@ -322,13 +330,12 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
 
 
-
 def generar_contexto_con_openai(historial):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
@@ -340,43 +347,7 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-def buscar_en_openai_relacion_con_eventos(frase):
-    app.logger.info("Hemos detectado un evento")
 
-    # Texto fijo a concatenar
-    texto_fijo = "Necesito saber si la frase que te paso está relacionada con eventos, se pregunta sobre eventos, cosas que hacer etc.... pero que solo me contestes con un si o un no. la frase es: "
-    frase_combinada = texto_fijo + frase
-
-    # Establecer la clave de API de OpenAI
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": ""},
-                {"role": "user", "content": frase_combinada}
-            ]
-        )
-
-        # Interpretar la respuesta y normalizarla
-        respuesta = response.choices[0].message['content'].strip().lower()
-        respuesta = unidecode.unidecode(respuesta).replace(".", "")
-
-        app.logger.info(f"Respuesta de OpenAI: {respuesta}")
-
-        if respuesta == "si":
-            app.logger.info("La respuesta es sí, relacionada con eventos")
-            return True
-        elif respuesta == "no":
-            app.logger.info("La respuesta es no, no relacionada con eventos")
-            return False
-        else:
-            app.logger.info("La respuesta no es ni sí ni no")
-            return None
-    except Exception as e:
-        app.logger.error(f"Error al procesar la solicitud: {e}")
-        return None
 
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
@@ -415,7 +386,7 @@ def identificar_saludo_despedida(frase):
     try:
         # Enviar la frase directamente a OpenAI para determinar si es un saludo o despedida
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Identifica si la siguiente frase es exclusivamente un saludo o una despedida, sin información adicional o solicitudes. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
                 {"role": "user", "content": frase}
@@ -444,7 +415,7 @@ def identificar_saludo_despedida(frase):
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_elegida}
@@ -475,13 +446,85 @@ def extraer_palabras_clave(pregunta):
 
     return palabras_clave
 
- ######## Inicio Endpoints ########
+
+####### Inicio Sistema de cache #######
+
+def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
+    app.logger.info(f"Buscando respuesta similar para el chatbot {chatbot_id}")
+
+    cache_file_path = os.path.join(BASE_CACHE_DIR, str(chatbot_id), 'cache.json')
+    if os.path.exists(cache_file_path):
+        with open(cache_file_path, 'r') as file:
+            pares_api = json.load(file)
+            app.logger.info("Archivo de caché encontrado y leído")
+    else:
+        app.logger.info("No se encontró archivo de caché")
+        return None
+
+    preguntas = []
+    respuestas = {}
+    for par in pares_api:
+        if par['respuesta']:
+            preguntas.append(par['pregunta'])
+            respuestas[par['pregunta']] = par['respuesta']
+
+    if not preguntas:
+        app.logger.info("No hay preguntas en el caché para comparar")
+        return None
+
+    app.logger.info("Vectorizando preguntas para comparación")
+    vectorizer = TfidfVectorizer()
+    matriz_tfidf = vectorizer.fit_transform(preguntas)
+
+    pregunta_vectorizada = vectorizer.transform([pregunta_usuario])
+    similitudes = cosine_similarity(pregunta_vectorizada, matriz_tfidf)
+
+    indice_mas_similar = np.argmax(similitudes)
+    similitud_maxima = similitudes[0, indice_mas_similar]
+
+    # Define un umbral para la similitud. Puedes ajustar este valor según sea necesario.
+    umbral_similitud = 0.5
+    if similitud_maxima > umbral_similitud:
+        pregunta_similar = preguntas[indice_mas_similar]
+        app.logger.info(f"Encontrada pregunta similar: {pregunta_similar}")
+        return respuestas[pregunta_similar]
+
+    app.logger.info("No se encontraron preguntas similares con suficiente similitud")
+    return None  # O podrías retornar False si prefieres
 
 
-####### Utils busqueda en Json #######
+## Seguramente no sea necesario
+def guardar_en_cache(pregunta, respuesta, chatbot_id):
+    app.logger.info(f"Guardando en caché para el chatbot {chatbot_id}")
 
-# Suponiendo que la función convertir_a_texto convierte cada item del dataset a un texto
+    # Define el directorio base para el caché, usando BASE_DATASET_DIR
+    cache_dir = os.path.join(BASE_CACHE_DIR, str(chatbot_id))
 
+    # Asegúrate de que el directorio exista
+    os.makedirs(cache_dir, exist_ok=True)
+
+    # Define la ruta completa del archivo de caché
+    cache_file_path = os.path.join(cache_dir, 'cache.json')
+
+    # Lee el archivo de caché existente o inicializa una lista vacía si no existe
+    if os.path.exists(cache_file_path):
+        with open(cache_file_path, 'r') as file:
+            cache_data = json.load(file)
+            app.logger.info("Archivo de caché existente leído")
+    else:
+        cache_data = []
+        app.logger.info("Inicializando nuevo archivo de caché")
+
+    # Añade el nuevo par pregunta-respuesta al caché
+    cache_data.append({'pregunta': pregunta, 'respuesta': respuesta, 'usar_api': 1})
+
+    # Escribe los datos actualizados al archivo de caché
+    with open(cache_file_path, 'w') as file:
+        json.dump(cache_data, file)
+        app.logger.info("Datos guardados en el archivo de caché")
+
+
+####### Fin Sistema de cache #######
 
 # Función auxiliar para mapear etiquetas POS a WordNet POS
 def get_wordnet_pos(token):
@@ -494,13 +537,6 @@ def encode_data(data):
     vectorizer = TfidfVectorizer()
     encoded_data = vectorizer.fit_transform(data)
     return encoded_data, vectorizer
-
-# Procesamiento de consultas de usuario
-def preprocess_query(query, n=1):
-    tokens = nltk.word_tokenize(query)
-    ngrams_list = list(ngrams(tokens, n))
-    processed_query = ' '.join([' '.join(grams) for grams in ngrams_list])
-    return processed_query.lower()
 
 # Búsqueda de similitud
 def perform_search(encoded_data, encoded_query):
@@ -543,44 +579,45 @@ def cargar_dataset(base_dataset_dir, chatbot_id):
         data = json.load(file)
     return data
 
-# Encontrar respuesta
-def encontrar_respuesta(pregunta, datos_del_dataset, vectorizer, contexto, n=1):
-    # Convertir los datos del dataset a texto
-    datos = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+# Procesamiento de consultas de usuario
+def preprocess_query(query):
+    # Preprocesamiento básico de la consulta
+    tokens = nltk.word_tokenize(query.lower())
+    stop_words = set(stopwords.words('spanish'))
+    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
+    return ' '.join(filtered_tokens)
 
-    # Preprocesar la pregunta
-    pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta, n=n)
+def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', umbral_similitud=0.05):
+    datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
 
-    # Codificar la pregunta y los datos con el vectorizer
+    vectorizer = TfidfVectorizer()
+    vectorizer.fit(datos_texto)
+
+    pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
     encoded_query = vectorizer.transform([pregunta_procesada])
-    encoded_data = vectorizer.transform(datos)
 
-    # Realizar la búsqueda de similitud
-    ranked_results, ranked_scores = perform_search(encoded_data, encoded_query)
+    encoded_data = vectorizer.transform(datos_texto)
 
-    # Recuperar los resultados
-    resultados = retrieve_results(datos, ranked_results, ranked_scores)
- 
+    similarity_scores = cosine_similarity(encoded_query, encoded_data)
+    indice_mas_similar = similarity_scores.argmax()
 
-    # Manejar los resultados
-    if not resultados:
-        # Si no hay resultados, seleccionar una respuesta por defecto
-        respuesta_por_defecto = seleccionar_respuesta_por_defecto()
-        return traducir_texto_con_openai(respuesta_por_defecto, "Spanish")
-    else:
-        # Asumiendo que cada elemento en resultados es una tupla (contexto_texto, puntuacion)
-        contexto_texto, puntuacion = resultados[0]
+    if similarity_scores[0, indice_mas_similar] < umbral_similitud:
+        return None
 
-        # Verificar que el contexto_texto sea una lista de cadenas de texto
-        if isinstance(contexto_texto, list) and all(isinstance(item, str) for item in contexto_texto):
-            # Concatenar el texto para formar la respuesta, limitando a 100 palabras
-            respuesta_concatenada = ' '.join(contexto_texto)
-            palabras_respuesta = respuesta_concatenada.split()[:100]
-            contexto_ampliado = ' '.join(palabras_respuesta)
-            return contexto_ampliado
-        else:
-            app.logger.error("La estructura de los resultados no es como se esperaba.")
-            return "Ocurrió un error al procesar la respuesta. La estructura de los resultados es incorrecta."
+    texto = datos_texto[indice_mas_similar]
+    palabras = word_tokenize(texto)
+    indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=['museo', 'gratis'])
+
+    inicio = max(0, indice_palabra_relevante - 50)
+    fin = min(len(palabras), indice_palabra_relevante + 50)
+    return ' '.join(palabras[inicio:fin])
+
+# Encontrar índice de palabra relevante
+def encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=[]):
+    for palabra_clave in palabras_clave:
+        if palabra_clave in palabras:
+            return palabras.index(palabra_clave)
+    return len(palabras) // 2
 
 def seleccionar_respuesta_por_defecto():
     # Devuelve una respuesta por defecto de la lista
@@ -591,7 +628,7 @@ def traducir_texto_con_openai(texto, idioma_destino):
     try:
         prompt = f"Traduce este texto al {idioma_destino}: {texto}"
         response = openai.Completion.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             prompt=prompt,
             max_tokens=60
         )
@@ -613,46 +650,118 @@ respuestas_por_defecto = [
     "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
 ]
 
-def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.7):
+
+def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
-    modelo = SentenceTransformer('paraphrase-MiniLM-L6-v2')  # Un modelo preentrenado
+    modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
 
     if not os.path.exists(json_file_path):
         app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None, False
+        return None
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
 
-    # Crear una lista de todas las palabras clave
-    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
-    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
-
-    # Calcular los embeddings para las palabras clave y la pregunta del usuario
-    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
+    # Genera embeddings para la pregunta del usuario
     embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
 
-    # Calcular la similitud semántica
-    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
-
-    # Encontrar la mejor coincidencia si supera el umbral
+    # Primera pasada: buscar por similitud con las preguntas completas
+    preguntas = [entry["Pregunta"][0] for entry in preguntas_respuestas.values()]
+    embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_preguntas)[0]
     mejor_coincidencia = similitudes.argmax()
     max_similitud = similitudes[mejor_coincidencia].item()
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud}") 
-        return respuesta_mejor_coincidencia, True
+        return respuesta_mejor_coincidencia
+
+    # Segunda pasada: buscar por similitud con palabras clave si no se encuentra coincidencia en la primera pasada
+    palabras_clave = [" ".join(entry["palabras_clave"]) for entry in preguntas_respuestas.values()]
+    embeddings_palabras_clave = modelo.encode(palabras_clave, convert_to_tensor=True)
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
+    mejor_coincidencia = similitudes.argmax()
+    max_similitud = similitudes[mejor_coincidencia].item()
+
+    if max_similitud >= umbral_similitud:
+        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        return respuesta_mejor_coincidencia
+
+    app.logger.info("No se encontró una coincidencia adecuada")
+    return False
+
+
+
+def comprobar_coherencia_gpt(pregunta, respuesta):
+
+    # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
+    respuesta_traducida = openai.ChatCompletion.create(
+        model=model_gpt if model_gpt else "gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
+            {"role": "user", "content": respuesta_mejorada}
+        ]
+    )
+    
+    respuesta_traducida = respuesta_traducida.choices[0].message['content'].strip()
+
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta_traducida}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
+
+    response = ChatCompletion.create(
+        model="gpt-4",  # O el modelo que prefieras
+        messages=[
+            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    respuesta_gpt = response.choices[0].message['content'].strip().lower()
+    # Limpiar la respuesta de puntuación y espacios adicionales
+    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
+
+    app.logger.info(respuesta_gpt)
+
+    # Evaluar la respuesta
+    if respuesta_gpt == "true":
+        return True
     else:
-        app.logger.info("No se encontró una coincidencia adecuada")
-        return None, False
+        return False
+
+
 
 ####### FIN Utils busqueda en Json #######
 
+import json
+
+def safe_encode_to_json(content):
+    app.logger.info("Iniciando safe_encode_to_json")
+
+    def encode_item(item):
+        if isinstance(item, str):
+            encoded_str = item.encode('utf-8', 'ignore').decode('utf-8')
+            app.logger.info(f"Codificando cadena: original='{item[:30]}...', codificado='{encoded_str[:30]}...'")
+            return encoded_str
+        elif isinstance(item, dict):
+            app.logger.info(f"Procesando diccionario: {list(item.keys())[:5]}...")
+            return {k: encode_item(v) for k, v in item.items()}
+        elif isinstance(item, list):
+            app.logger.info(f"Procesando lista: longitud={len(item)}")
+            return [encode_item(x) for x in item]
+        app.logger.info(f"Tipo no procesado: {type(item)}")
+        return item
+
+    app.logger.info("Codificando contenido para JSON")
+    safe_content = encode_item(content)
+    app.logger.info("Contenido codificado con éxito")
+    json_output = json.dumps(safe_content, ensure_ascii=False, indent=4)
+    app.logger.info("Codificación JSON completada con éxito")
+    return json_output
+
 
 ####### Inicio Endpoints #######
+
 @app.route('/ask', methods=['POST'])
 def ask():
     app.logger.info("Solicitud recibida en /ask")
@@ -660,6 +769,7 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
+        app.logger.info(f"Chatbot ID: {chatbot_id}")
         fuente_respuesta = "ninguna"
 
         if 'pares_pregunta_respuesta' in data:
@@ -667,57 +777,81 @@ def ask():
             ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
             ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
             contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+            app.logger.info(f"Última pregunta recibida: {ultima_pregunta}, Contexto: {contexto}")
 
             if ultima_respuesta == "":
-                app.logger.info(f"Última pregunta recibida: {ultima_pregunta}")
                 respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                app.logger.info("Verificando si es un saludo o despedida")
+                if respuesta_saludo_despedida:
+                    fuente_respuesta = 'saludo_o_despedida'
+                    ultima_respuesta = respuesta_saludo_despedida
+                    app.logger.info("Respuesta de saludo/despedida encontrada")
 
-                if respuesta_saludo_despedida != False:
-                    return jsonify({'respuesta': respuesta_saludo_despedida, 'fuente': 'saludo_o_despedida'})
+                if not ultima_respuesta:
+                    app.logger.info("Buscando en respuestas preestablecidas NLP")
+                    respuesta_preestablecida = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                    if respuesta_preestablecida:
+                        fuente_respuesta = 'preestablecida'
+                        ultima_respuesta = respuesta_preestablecida
+                        app.logger.info("Respuesta preestablecida encontrada")
 
-                respuesta_preestablecida, encontrada_en_json = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                if encontrada_en_json:
-                    ultima_respuesta = respuesta_preestablecida
-                    fuente_respuesta = "preestablecida"
-                elif buscar_en_openai_relacion_con_eventos(ultima_pregunta):
-                    ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                    fuente_respuesta = "eventos"
-                else:
-                    app.logger.info("Entrando en la sección del dataset")
-                    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-                    if os.path.exists(dataset_file_path):
-                        with open(dataset_file_path, 'r') as file:
-                            datos_del_dataset = json.load(file)
+                if not ultima_respuesta:
+                    app.logger.info("Buscando en eventos relacionados")
+                    respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
+                    if respuesta_eventos and respuesta_eventos != False:
+                        fuente_respuesta = 'eventos'
+                        ultima_respuesta = respuesta_eventos
+                        app.logger.info("Respuesta de eventos relacionados encontrada")
 
-                        vectorizer = TfidfVectorizer()
-                        prepared_data = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
-                        vectorizer.fit(prepared_data)
+                """pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
+                if not ultima_respuesta and os.path.exists(pdf_file_path):
+                    app.logger.info("Buscando en documentos PDF indexados")
+                    with open(pdf_file_path, 'r') as file:
+                        datos_del_pdf = json.load(file)
+                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
+                    app.logger.info("respuesta_del_pdf")
+                    app.logger.info(respuesta_del_pdf)
+                    if respuesta_del_pdf:
+                        fuente_respuesta = 'Docs'
+                        ultima_respuesta = respuesta_del_pdf
+                        app.logger.info("Respuesta encontrada en documentos PDF")"""
 
-                        respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, vectorizer, contexto)
-                        app.logger.info(f"Respuesta del dataset: {respuesta_del_dataset}")
+                dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                if not ultima_respuesta and os.path.exists(dataset_file_path):
+                    app.logger.info("Buscando en el dataset")
+                    with open(dataset_file_path, 'r') as file:
+                        datos_del_dataset = json.load(file)
+                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+                    if respuesta_del_dataset:
+                        fuente_respuesta = 'dataset'
+                        ultima_respuesta = respuesta_del_dataset
+                        app.logger.info("Respuesta encontrada en el dataset")
 
-                        if respuesta_del_dataset:
-                            ultima_respuesta = respuesta_del_dataset
-                            fuente_respuesta = "dataset"
-                        else:
-                            ultima_respuesta = seleccionar_respuesta_por_defecto()
-                            fuente_respuesta = "respuesta_por_defecto"
+                if not ultima_respuesta:
+                    app.logger.info("Seleccionando una respuesta por defecto")
+                    fuente_respuesta = 'respuesta_por_defecto'
+                    ultima_respuesta = seleccionar_respuesta_por_defecto()
+                    app.logger.info("Respuesta por defecto seleccionada")
 
-                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                    pregunta=ultima_pregunta, 
-                    respuesta=ultima_respuesta, 
-                    new_prompt="", 
-                    contexto_adicional=contexto, 
-                    temperature="", 
-                    model_gpt="", 
-                    chatbot_id=chatbot_id
-                )
-                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-                fuente_respuesta = "mejorada"
+                if ultima_respuesta and ultima_respuesta != False:
+                    app.logger.info("Mejorando la respuesta con OpenAI")
+                    ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                        pregunta=ultima_pregunta, 
+                        respuesta=ultima_respuesta, 
+                        new_prompt="", 
+                        contexto_adicional=contexto, 
+                        temperature="", 
+                        model_gpt="", 
+                        chatbot_id=chatbot_id
+                    )
+                    ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+                    fuente_respuesta = 'mejorada'
+                    app.logger.info("Respuesta mejorada con OpenAI")
 
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
             else:
+                app.logger.info("Respondiendo con respuesta existente")
                 return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
@@ -733,67 +867,63 @@ def ask():
 
 @app.route('/uploads', methods=['POST'])
 def upload_file():
-    try:
-        logging.info("Procesando solicitud de carga de archivo")
+    if 'documento' not in request.files:
+        return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
 
-        if 'documento' not in request.files:
-            app.logger.warning("Archivo 'documento' no encontrado en la solicitud")
-            return jsonify({"respuesta": "No se encontró el archivo 'documento'", "codigo_error": 1})
-        
-        uploaded_file = request.files['documento']
-        chatbot_id = request.form.get('chatbot_id')
-        app.logger.info(f"Archivo recibido: {uploaded_file.filename}, Chatbot ID: {chatbot_id}")
+    uploaded_file = request.files['documento']
+    chatbot_id = request.form.get('chatbot_id')
 
-        if uploaded_file.filename == '':
-            app.logger.warning("Nombre de archivo vacío")
-            return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
+    if uploaded_file.filename == '':
+        return jsonify({"respuesta": "No se seleccionó ningún archivo", "codigo_error": 1})
 
-        docs_folder = os.path.join(BASE_DIR_DOCS, str(chatbot_id))
-        os.makedirs(docs_folder, exist_ok=True)
-        app.logger.info(f"Carpeta del chatbot creada o ya existente: {docs_folder}")
+    extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        return jsonify({"respuesta": "Formato de archivo no permitido", "codigo_error": 1})
 
-        file_extension = os.path.splitext(uploaded_file.filename)[1][1:].lower()
-        file_path = os.path.join(docs_folder, uploaded_file.filename)
-        uploaded_file.save(file_path)
-        app.logger.info(f"Archivo guardado en: {file_path}")
+    # Guardar archivo físicamente en el directorio 'docs'
+    docs_folder = os.path.join('data', 'uploads', 'docs', str(chatbot_id))
+    os.makedirs(docs_folder, exist_ok=True)
+    file_path = os.path.join(docs_folder, uploaded_file.filename)
+    uploaded_file.save(file_path)
 
-        readable_content = process_file(file_path, file_extension)
-        if readable_content is None:
-            app.logger.error("No se pudo procesar el archivo")
-            return jsonify({"respuesta": "Error al procesar el archivo", "codigo_error": 1})
+    # Procesar contenido del archivo
+    readable_content = process_file(file_path, extension)
+    readable_content = readable_content.encode('utf-8', 'ignore').decode('utf-8')
 
-        # Contar palabras en el contenido
-        word_count = len(readable_content.split())
+    # Actualizar dataset.json
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+    os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
 
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, f"{chatbot_id}", "dataset.json")
-        os.makedirs(os.path.dirname(dataset_file_path), exist_ok=True)
+    dataset_entries = {}
+    if os.path.exists(dataset_file_path):
+        with open(dataset_file_path, 'rb') as json_file:
+            file_content = json_file.read()
+            if file_content:
+                decoded_content = file_content.decode('utf-8', 'ignore')
+                try:
+                    dataset_entries = json.loads(decoded_content)
+                except json.decoder.JSONDecodeError:
+                    dataset_entries = {}
+            else:
+                dataset_entries = {}
 
-        dataset_entries = {}
-        if os.path.exists(dataset_file_path):
-            with open(dataset_file_path, 'r', encoding='utf-8') as json_file:
-                dataset_entries = json.load(json_file)
-                app.logger.info("Archivo JSON del dataset existente cargado")
+    # Añadir entrada al dataset
+    dataset_entries[uploaded_file.filename] = {
+        "indice": uploaded_file.filename,
+        "url": file_path,
+        "contenido": readable_content
+    }
 
-        indice = uploaded_file.filename
-        dataset_entries[indice] = {
-            "indice": indice,
-            "url": file_path,
-            "dialogue": readable_content
-        }
+    # Escribir cambios en dataset.json
+    with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+        json_content = safe_encode_to_json(dataset_entries)
+        json_file_to_write.write(json_content)
 
-        with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
-            json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
-            app.logger.info("Archivo JSON del dataset actualizado y guardado")
-
-        return jsonify({
-            "respuesta": "Archivo procesado y añadido al dataset con éxito.",
-            "word_count": word_count,  # Incluir el recuento de palabras en la respuesta
-            "codigo_error": 0
-        })
-
-    except Exception as e:
-        app.logger.error(f"Error durante el procesamiento general. Error: {e}")
-        return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
+    return jsonify({
+        "respuesta": "Archivo procesado y añadido al dataset con éxito.",
+        "word_count": len(readable_content.split()),
+        "codigo_error": 0
+    })
 
 
 
@@ -848,7 +978,9 @@ def save_text():
         }
 
         # Guardar el archivo del dataset actualizado
+        app.logger.info("Aqui si")
         with open(dataset_file_path, 'w', encoding='utf-8') as json_file_to_write:
+            app.logger.info("Aqui NO")
             json.dump(dataset_entries, json_file_to_write, ensure_ascii=False, indent=4)
 
         return jsonify({
@@ -1083,6 +1215,46 @@ def delete_urls():
         app.logger.error(f"Error al eliminar URLs: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/delete_dataset_entries', methods=['POST'])
+def delete_dataset_entries():
+    data = request.json
+    urls_to_delete = set(data.get('urls', []))
+    chatbot_id = data.get('chatbot_id')
+
+    if not urls_to_delete or not chatbot_id:
+        app.logger.warning("Faltan 'urls' o 'chatbot_id' en la solicitud")
+        return jsonify({"error": "Missing 'urls' or 'chatbot_id'"}), 400
+
+    BASE_DATASET_DIR = 'data/uploads/datasets'
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("Archivo del dataset no encontrado")
+        return jsonify({"status": "error", "message": "Dataset file not found"}), 404
+
+    try:
+        with open(dataset_file_path, 'r+') as file:
+            dataset = json.load(file)
+            urls_in_dataset = {entry['url'] for entry in dataset}
+            urls_not_found = urls_to_delete - urls_in_dataset
+
+            if urls_not_found:
+                app.logger.info(f"URLs no encontradas en el dataset: {urls_not_found}")
+
+            updated_dataset = [entry for entry in dataset if entry['url'] not in urls_to_delete]
+
+            file.seek(0)
+            file.truncate()
+            json.dump(updated_dataset, file, indent=4)
+
+        app.logger.info("Proceso de eliminación completado con éxito")
+        return jsonify({"status": "success", "message": "Dataset entries deleted successfully", "urls_not_found": list(urls_not_found)})
+    except json.JSONDecodeError:
+        app.logger.error("Error al leer el archivo JSON")
+        return jsonify({"status": "error", "message": "Invalid JSON format in dataset file"}), 500
+    except Exception as e:
+        app.logger.error(f"Error inesperado: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @app.route('/pre_established_answers', methods=['POST'])
@@ -1163,7 +1335,7 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-4')
+    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
 
     if not new_prompt or not chatbot_id:
         app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
