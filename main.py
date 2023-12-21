@@ -496,7 +496,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     if similitud_maxima > umbral_similitud:
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
-        es_coherente = comprobar_coherencia_gpt(pregunta_usuario, respuesta_similar)
+        es_coherente = coherencia_pregunta_respuesta_cache(pregunta_usuario, respuesta_similar)
         if es_coherente:
             return respuesta_similar
         else:
@@ -506,6 +506,27 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
         print("No se encontraron preguntas similares con suficiente similitud")
         return False
 
+def coherencia_pregunta_respuesta_cache(pregunta, pregunta):
+ 
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{pregunta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
+
+    response = ChatCompletion.create(
+        model="gpt-4",  # O el modelo que prefieras
+        messages=[
+            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    respuesta_gpt = response.choices[0].message['content'].strip().lower()
+
+    app.logger.info(respuesta_gpt)
+
+    # Evaluar la respuesta
+    if respuesta_gpt == "true":
+        return True
+    else:
+        return False
 
 
 ####### Fin Sistema de cache #######
@@ -681,7 +702,7 @@ def comprobar_coherencia_gpt(pregunta, respuesta):
 
     # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
     respuesta_traducida = openai.ChatCompletion.create(
-        model=model_gpt if model_gpt else "gpt-4-1106-preview",
+        model="gpt-4-1106-preview",
         messages=[
             {"role": "system", "content": f".No traduzcas los enlaces déjalos como están. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Si la pregunta es en ingles responde en ingles y asi con todo los idiomas, catalán, frances y todos los que tengas disponibles. No le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma."},                
             {"role": "user", "content": respuesta_mejorada}
