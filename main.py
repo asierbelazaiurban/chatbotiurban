@@ -815,12 +815,12 @@ def ask():
                         fuente_respuesta = 'dataset'
                         ultima_respuesta = respuesta_del_dataset
                         app.logger.info("Respuesta encontrada en el dataset")
-                else
-                    app.logger.info("Seleccionando una respuesta por defecto")
-                    fuente_respuesta = 'respuesta_por_defecto'
-                    ultima_respuesta = seleccionar_respuesta_por_defecto()
-                    ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta):
-                    app.logger.info("Respuesta por defecto seleccionada" 
+                    else
+                        app.logger.info("Seleccionando una respuesta por defecto")
+                        fuente_respuesta = 'respuesta_por_defecto'
+                        ultima_respuesta = seleccionar_respuesta_por_defecto()
+                        ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta):
+                        app.logger.info("Respuesta por defecto seleccionada" 
 
                 if ultima_respuesta and ultima_respuesta != False:
                     app.logger.info("Mejorando la respuesta con OpenAI")
