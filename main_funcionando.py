@@ -738,62 +738,87 @@ def ask():
     try:
         data = request.get_json()
         chatbot_id = data.get('chatbot_id', 'default_id')
-        pares_pregunta_respuesta = data.get('pares_pregunta_respuesta', [])
-        ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta'] if pares_pregunta_respuesta else ""
-        ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta'] if pares_pregunta_respuesta else ""
-        contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+        app.logger.info(f"Chatbot ID: {chatbot_id}")
+        fuente_respuesta = "ninguna"
 
-        respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
-        if respuesta_cache:
-            return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
+        if 'pares_pregunta_respuesta' in data:
+            pares_pregunta_respuesta = data['pares_pregunta_respuesta']
+            ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta']
+            ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta']
+            contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
+            app.logger.info(f"Última pregunta recibida: {ultima_pregunta}, Contexto: {contexto}")
 
-        if ultima_respuesta == "":
-            ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
-            if ultima_respuesta:
-                fuente_respuesta = 'saludo_o_despedida'
+            if ultima_respuesta == "":
+                respuesta_saludo_despedida = identificar_saludo_despedida(ultima_pregunta)
+                app.logger.info("Verificando si es un saludo o despedida")
+                if respuesta_saludo_despedida:
+                    fuente_respuesta = 'saludo_o_despedida'
+                    ultima_respuesta = respuesta_saludo_despedida
+                    app.logger.info("Respuesta de saludo/despedida encontrada")
 
-            if not ultima_respuesta:
-                ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                if ultima_respuesta:
-                    fuente_respuesta = 'preestablecida'
+                if not ultima_respuesta:
+                    app.logger.info("Buscando en respuestas preestablecidas NLP")
+                    respuesta_preestablecida = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                    if respuesta_preestablecida:
+                        fuente_respuesta = 'preestablecida'
+                        ultima_respuesta = respuesta_preestablecida
+                        app.logger.info("Respuesta preestablecida encontrada")
 
-            if not ultima_respuesta:
-                ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                if ultima_respuesta:
-                    fuente_respuesta = 'eventos'
+                if not ultima_respuesta:
+                    app.logger.info("Buscando en eventos relacionados")
+                    respuesta_eventos = obtener_eventos(ultima_pregunta, chatbot_id)
+                    if respuesta_eventos and respuesta_eventos != False:
+                        fuente_respuesta = 'eventos'
+                        ultima_respuesta = respuesta_eventos
+                        app.logger.info("Respuesta de eventos relacionados encontrada")
 
-            dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-            if not ultima_respuesta and os.path.exists(dataset_file_path):
-                with open(dataset_file_path, 'r') as file:
-                    datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
-                if ultima_respuesta:
-                    fuente_respuesta = 'dataset'
+                dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+                if not ultima_respuesta and os.path.exists(dataset_file_path):
+                    app.logger.info("Buscando en el dataset")
+                    with open(dataset_file_path, 'r') as file:
+                        datos_del_dataset = json.load(file)
+                    app.logger.info("Antes de encontrar_respuestar")
+                    respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+                    app.logger.info("Despues de encontrar_respuestar")
+                    if respuesta_del_dataset:
+                        fuente_respuesta = 'dataset'
+                        ultima_respuesta = respuesta_del_dataset
+                        app.logger.info("Respuesta encontrada en el dataset")
+                    else:
+                        app.logger.info("Seleccionando una respuesta por defecto")
+                        fuente_respuesta = 'respuesta_por_defecto'
+                        ultima_respuesta = seleccionar_respuesta_por_defecto()
+                        ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+                        app.logger.info("Respuesta por defecto seleccionada")
 
-            if not ultima_respuesta:
-                fuente_respuesta = 'respuesta_por_defecto'
-                ultima_respuesta = seleccionar_respuesta_por_defecto()
-                ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+                if ultima_respuesta and ultima_respuesta != False:
+                    app.logger.info("Mejorando la respuesta con OpenAI")
+                    ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                        pregunta=ultima_pregunta, 
+                        respuesta=ultima_respuesta, 
+                        new_prompt="", 
+                        contexto_adicional=contexto, 
+                        temperature="", 
+                        model_gpt="", 
+                        chatbot_id=chatbot_id
+                    )
+                    ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+                    fuente_respuesta = 'mejorada'
+                    app.logger.info("Respuesta mejorada con OpenAI")
 
-            if ultima_respuesta:
-                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                    pregunta=ultima_pregunta, 
-                    respuesta=ultima_respuesta, 
-                    new_prompt="", 
-                    contexto_adicional=contexto, 
-                    temperature="", 
-                    model_gpt="", 
-                    chatbot_id=chatbot_id
-                )
-                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-                fuente_respuesta = 'mejorada'
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
-            return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
+            else:
+                app.logger.info("Respondiendo con respuesta existente")
+                return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
 
         else:
-            return jsonify({'respuesta': ultima_respuesta, 'fuente': 'existente'})
+            app.logger.warning("Formato de solicitud incorrecto")
+            return jsonify({'error': 'Formato de solicitud incorrecto'}), 400
 
     except Exception as e:
+        app.logger.error(f"Error en /ask: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 

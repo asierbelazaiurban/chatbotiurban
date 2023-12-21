@@ -104,6 +104,12 @@ def obtener_eventos(pregunta, chatbot_id):
         response.raise_for_status()
 
         eventos_data = response.json()
+
+        # Verifica si la respuesta contiene un error
+        if 'error' in eventos_data:
+            app.logger.error("Error en la respuesta de la API: %s", eventos_data['error'])
+            return False
+
         eventos_string = json.dumps(eventos_data.get('events', []))
         eventos_string = eventos_string.replace('\xa0', ' ').encode('utf-8', 'ignore').decode('utf-8')
         eventos_string = eventos_string.replace('"', '').replace('\\', '').replace('[', '').replace(']', '').replace('{', '').replace('}', '').replace(',', '. ')
@@ -114,6 +120,5 @@ def obtener_eventos(pregunta, chatbot_id):
     except requests.exceptions.RequestException as e:
         app.logger.error("Error en la solicitud HTTP: %s", e)
         return False
-
 
 
