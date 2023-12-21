@@ -506,6 +506,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
     # Umbral de similitud para considerar una respuesta válida
     UMBRAL_SIMILITUD = 0.7
+    
     if similitud_maxima > UMBRAL_SIMILITUD:
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
