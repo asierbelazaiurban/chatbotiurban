@@ -650,6 +650,7 @@ respuestas_por_defecto = [
     "Nuestra búsqueda no ha dado resultados específicos, pero podemos ayudarte más. Escríbenos a info@iurban.es."
 ]
 
+
 def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbral_similitud=0.5):
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
@@ -663,29 +664,34 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
 
-    palabras_clave = [entry["palabras_clave"] for entry in preguntas_respuestas.values()]
-    palabras_clave_flat = [' '.join(palabras) for palabras in palabras_clave]
-
-    embeddings_palabras_clave = modelo.encode(palabras_clave_flat, convert_to_tensor=True)
+    # Genera embeddings para la pregunta del usuario
     embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
 
-    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
-
+    # Primera pasada: buscar por similitud con las preguntas completas
+    preguntas = [entry["Pregunta"][0] for entry in preguntas_respuestas.values()]
+    embeddings_preguntas = modelo.encode(preguntas, convert_to_tensor=True)
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_preguntas)[0]
     mejor_coincidencia = similitudes.argmax()
     max_similitud = similitudes[mejor_coincidencia].item()
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
-        
-        if comprobar_coherencia_gpt(pregunta_usuario, respuesta_mejor_coincidencia):
-            app.logger.info(f"Respuesta encontrada con una similitud de {max_similitud} y coherencia verificada")
-            return respuesta_mejor_coincidencia
-        else:
-            app.logger.info("La respuesta no es coherente según GPT")
-            return False
-    else:
-        app.logger.info("No se encontró una coincidencia adecuada")
-        return False
+        return respuesta_mejor_coincidencia
+
+    # Segunda pasada: buscar por similitud con palabras clave si no se encuentra coincidencia en la primera pasada
+    palabras_clave = [" ".join(entry["palabras_clave"]) for entry in preguntas_respuestas.values()]
+    embeddings_palabras_clave = modelo.encode(palabras_clave, convert_to_tensor=True)
+    similitudes = util.pytorch_cos_sim(embedding_pregunta_usuario, embeddings_palabras_clave)[0]
+    mejor_coincidencia = similitudes.argmax()
+    max_similitud = similitudes[mejor_coincidencia].item()
+
+    if max_similitud >= umbral_similitud:
+        respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        return respuesta_mejor_coincidencia
+
+    app.logger.info("No se encontró una coincidencia adecuada")
+    return False
+
 
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
