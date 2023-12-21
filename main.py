@@ -693,7 +693,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     return False
 
 
-
 def comprobar_coherencia_gpt(pregunta, respuesta):
 
     # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
@@ -803,35 +802,25 @@ def ask():
                         ultima_respuesta = respuesta_eventos
                         app.logger.info("Respuesta de eventos relacionados encontrada")
 
-                """pdf_file_path = os.path.join(BASE_PDFS_DIR_JSON, str(chatbot_id), 'pdf.json')
-                if not ultima_respuesta and os.path.exists(pdf_file_path):
-                    app.logger.info("Buscando en documentos PDF indexados")
-                    with open(pdf_file_path, 'r') as file:
-                        datos_del_pdf = json.load(file)
-                    respuesta_del_pdf = encontrar_respuesta(ultima_pregunta, datos_del_pdf, contexto)
-                    app.logger.info("respuesta_del_pdf")
-                    app.logger.info(respuesta_del_pdf)
-                    if respuesta_del_pdf:
-                        fuente_respuesta = 'Docs'
-                        ultima_respuesta = respuesta_del_pdf
-                        app.logger.info("Respuesta encontrada en documentos PDF")"""
-
                 dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
                 if not ultima_respuesta and os.path.exists(dataset_file_path):
                     app.logger.info("Buscando en el dataset")
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
+
+                    app.logger.info("Antes de encontrar_respuestar")
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+                    app.logger.info("Despues de encontrar_respuestar")
                     if respuesta_del_dataset:
                         fuente_respuesta = 'dataset'
                         ultima_respuesta = respuesta_del_dataset
                         app.logger.info("Respuesta encontrada en el dataset")
-
-                if not ultima_respuesta:
+                else
                     app.logger.info("Seleccionando una respuesta por defecto")
                     fuente_respuesta = 'respuesta_por_defecto'
                     ultima_respuesta = seleccionar_respuesta_por_defecto()
-                    app.logger.info("Respuesta por defecto seleccionada")
+                    ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta):
+                    app.logger.info("Respuesta por defecto seleccionada" 
 
                 if ultima_respuesta and ultima_respuesta != False:
                     app.logger.info("Mejorando la respuesta con OpenAI")
@@ -911,7 +900,7 @@ def upload_file():
     dataset_entries[uploaded_file.filename] = {
         "indice": uploaded_file.filename,
         "url": file_path,
-        "contenido": readable_content
+        "dialogue": readable_content
     }
 
     # Escribir cambios en dataset.json
