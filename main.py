@@ -695,7 +695,19 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
+
+    # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
+    respuesta_traducida = openai.ChatCompletion.create(
+        model=model_gpt if model_gpt else "gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": f"Responde con menos de 75 palabras. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
+            {"role": "user", "content": respuesta_mejorada}
+        ]
+    )
+    
+    respuesta_traducida = respuesta_traducida.choices[0].message['content'].strip()
+
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta_traducida}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
 
     response = ChatCompletion.create(
         model="gpt-4",  # O el modelo que prefieras
