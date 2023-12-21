@@ -540,10 +540,10 @@ def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
 
     # Procesar la respuesta del modelo
     respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    respuesta_gpt = response.choices[0].message['content'].strip().lower()
     # Limpiar la respuesta de puntuación y espacios adicionales
     respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
-
+    
+    app.logger.info("respuesta_gpt")
     app.logger.info(respuesta_gpt)
 
     # Evaluar la respuesta
@@ -725,6 +725,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
 def comprobar_coherencia_gpt(pregunta, respuesta):
 
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
     # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
     respuesta_traducida = openai.ChatCompletion.create(
         model="gpt-4-1106-preview",
