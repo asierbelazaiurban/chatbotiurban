@@ -510,12 +510,9 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
         app.logger.info(f"Respuesta encontrada: {respuesta_similar}")
-        es_coherente = coherencia_pregunta_respuesta_cache(pregunta_usuario, respuesta_similar)
-        if es_coherente:
-            return respuesta_similar
-        else:
-            app.logger.info("La respuesta no es coherente con la pregunta")
-            return False
+      
+        return respuesta_similar
+     
     else:
         app.logger.info("No se encontraron preguntas similares con suficiente similitud")
         return False
