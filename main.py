@@ -284,7 +284,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
                       "proporciona el contacto: info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Si la pregunta es en ingles oresponde en ingles y asi con todo los idiomasm, traduce litrealmete. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
+    prompt_base = f"Si la pregunta es en ingles responde en ingles y asi con todo los idiomas, catalán, frances y todos los que tengas disponibles. Traduce litrealmete. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
@@ -701,7 +701,7 @@ def comprobar_coherencia_gpt(pregunta, respuesta):
     respuesta_traducida = openai.ChatCompletion.create(
         model=model_gpt if model_gpt else "gpt-4-1106-preview",
         messages=[
-            {"role": "system", "content": f".No traduzcas los enlaces déjalos como están. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
+            {"role": "system", "content": f".No traduzcas los enlaces déjalos como están. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Si la pregunta es en ingles responde en ingles y asi con todo los idiomas, catalán, frances y todos los que tengas disponibles. No le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma."},                
             {"role": "user", "content": respuesta_mejorada}
         ]
     )
