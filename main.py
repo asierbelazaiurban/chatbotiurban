@@ -506,9 +506,9 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
         print("No se encontraron preguntas similares con suficiente similitud")
         return False
 
-def coherencia_pregunta_respuesta_cache(pregunta, pregunta):
+def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
  
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{pregunta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
+    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
 
     response = ChatCompletion.create(
         model="gpt-4",  # O el modelo que prefieras
