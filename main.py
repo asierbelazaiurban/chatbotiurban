@@ -300,6 +300,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
         improved_response = response.choices[0].message['content'].strip()
         respuesta_mejorada = improved_response
         app.logger.info("Respuesta generada con éxito.")
+        return respuesta_mejorada
         
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
