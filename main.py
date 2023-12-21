@@ -505,15 +505,17 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     similitud_maxima = similitudes[0, indice_mas_similar]
 
     # Umbral de similitud para considerar una respuesta válida
-    UMBRAL_SIMILITUD = 0.7
-    
+    UMBRAL_SIMILITUD = 0.5
     if similitud_maxima > UMBRAL_SIMILITUD:
         pregunta_similar = preguntas[indice_mas_similar]
         respuesta_similar = respuestas[pregunta_similar]
         app.logger.info(f"Respuesta encontrada: {respuesta_similar}")
-      
-        return respuesta_similar
-     
+        es_coherente = coherencia_pregunta_respuesta_cache(pregunta_usuario, respuesta_similar)
+        if es_coherente:
+            return respuesta_similar
+        else:
+            app.logger.info("La respuesta no es coherente con la pregunta")
+            return False
     else:
         app.logger.info("No se encontraron preguntas similares con suficiente similitud")
         return False
@@ -538,10 +540,17 @@ def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
 
     # Procesar la respuesta del modelo
     respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    app.logger.info(f"Respuesta del modelo: {respuesta_gpt}")
+    respuesta_gpt = response.choices[0].message['content'].strip().lower()
+    # Limpiar la respuesta de puntuación y espacios adicionales
+    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
+
+    app.logger.info(respuesta_gpt)
 
     # Evaluar la respuesta
-    return respuesta_gpt == "true"
+    if respuesta_gpt == "true":
+        return True
+    else:
+        return False
 
 
 
