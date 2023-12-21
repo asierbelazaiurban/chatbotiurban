@@ -792,9 +792,11 @@ def ask():
         ultima_pregunta = pares_pregunta_respuesta[-1]['pregunta'] if pares_pregunta_respuesta else ""
         ultima_respuesta = pares_pregunta_respuesta[-1]['respuesta'] if pares_pregunta_respuesta else ""
         contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
-        app.logger.info("Antes de encontrar_respuesta")
+       
+        app.logger.info("Antes de encontrar_respuesta cache")
         respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
-        app.logger.info("despues de encontrar_respuesta")
+        app.logger.info("despues de encontrar_respuesta cache")
+        app.logger.info(respuesta_cache)
         if respuesta_cache:
             return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
 
