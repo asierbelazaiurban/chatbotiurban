@@ -807,7 +807,6 @@ def ask():
                     app.logger.info("Buscando en el dataset")
                     with open(dataset_file_path, 'r') as file:
                         datos_del_dataset = json.load(file)
-
                     app.logger.info("Antes de encontrar_respuestar")
                     respuesta_del_dataset = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
                     app.logger.info("Despues de encontrar_respuestar")
@@ -815,12 +814,12 @@ def ask():
                         fuente_respuesta = 'dataset'
                         ultima_respuesta = respuesta_del_dataset
                         app.logger.info("Respuesta encontrada en el dataset")
-                    else
+                    else:
                         app.logger.info("Seleccionando una respuesta por defecto")
                         fuente_respuesta = 'respuesta_por_defecto'
                         ultima_respuesta = seleccionar_respuesta_por_defecto()
-                        ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta):
-                        app.logger.info("Respuesta por defecto seleccionada" 
+                        ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+                        app.logger.info("Respuesta por defecto seleccionada")
 
                 if ultima_respuesta and ultima_respuesta != False:
                     app.logger.info("Mejorando la respuesta con OpenAI")
