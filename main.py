@@ -145,7 +145,7 @@ es_client = Elasticsearch(
 if not es_client.indices.exists(index=INDICE_ELASTICSEARCH):
     es_client.indices.create(index=INDICE_ELASTICSEARCH)"""
 
-ELASTIC_PASSWORD = "@1Urb4n2022"
+ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"
 
 # Found in the 'Manage Deployment' page
 CLOUD_ID = "1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvJDdlZGM5YTRhZDg5MTQ4ZTViMWE1NjkwYjYxMDE0OWEzJDk1NmI2MTRjODAxMzQ3MWU5NDY0ZDAxMTdjMTJkNjc5"
