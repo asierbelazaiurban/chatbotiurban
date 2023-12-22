@@ -135,7 +135,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 # Configuración global
-INDICE_ELASTICSEARCH = 'busca-asier-iurban'
+"""INDICE_ELASTICSEARCH = 'busca-asier-iurban'
 
 es_client = Elasticsearch(
     cloud_id="1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvJDdlZGM5YTRhZDg5MTQ4ZTViMWE1NjkwYjYxMDE0OWEzJDk1NmI2MTRjODAxMzQ3MWU5NDY0ZDAxMTdjMTJkNjc5",
@@ -143,7 +143,21 @@ es_client = Elasticsearch(
 )
 # Crear el índice en Elasticsearch si no existe
 if not es_client.indices.exists(index=INDICE_ELASTICSEARCH):
-    es_client.indices.create(index=INDICE_ELASTICSEARCH)
+    es_client.indices.create(index=INDICE_ELASTICSEARCH)"""
+
+ELASTIC_PASSWORD = "@1Urb4n2022"
+
+# Found in the 'Manage Deployment' page
+CLOUD_ID = "1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvJDdlZGM5YTRhZDg5MTQ4ZTViMWE1NjkwYjYxMDE0OWEzJDk1NmI2MTRjODAxMzQ3MWU5NDY0ZDAxMTdjMTJkNjc5"
+
+# Create the client instance
+client = Elasticsearch(
+    cloud_id=CLOUD_ID,
+    basic_auth=("elastic", ELASTIC_PASSWORD)
+)
+
+# Successful response!
+client.info()
 
 
 
