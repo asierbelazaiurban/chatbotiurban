@@ -1496,6 +1496,8 @@ def train_with_dataset():
     else:
         return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
 
+
+@app.route('/fine_tuning', methods=['POST'])
 def fine_tuning():
     app.logger.info("Iniciando el proceso de afinamiento.")
     
