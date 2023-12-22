@@ -1470,32 +1470,37 @@ def train_with_dataset():
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(dataset_file_path):
-        raw_datasets = load_dataset('json', data_files=dataset_file_path, field='dialogue')
-        tokenized_datasets = raw_datasets.map(
-            lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
-            batched=True
-        )
+        raw_datasets = load_dataset('json', data_files=dataset_file_path)
 
-        training_args = TrainingArguments(
-            output_dir=f'./model_output_training_{chatbot_id}',
-            num_train_epochs=3,
-            per_device_train_batch_size=2,
-            save_steps=10_000,
-            save_total_limit=2,
-        )
+        # Verificar si la estructura del JSON es la correcta
+        if 'text' in raw_datasets['train'].features:
+            tokenized_datasets = raw_datasets.map(
+                lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
+                batched=True
+            )
 
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=tokenized_datasets["train"],
-            tokenizer=tokenizer
-        )
+            training_args = TrainingArguments(
+                output_dir=f'./model_output_training_{chatbot_id}',
+                num_train_epochs=3,
+                per_device_train_batch_size=2,
+                save_steps=10_000,
+                save_total_limit=2,
+            )
 
-        trainer.train()
-        return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=tokenized_datasets["train"],
+                tokenizer=tokenizer
+            )
+
+            trainer.train()
+            return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
+        else:
+            app.logger.error("La estructura del JSON no es la esperada.")
+            return jsonify({'error': 'Estructura del archivo JSON incorrecta'}), 500
     else:
         return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
-
 
 @app.route('/fine_tuning', methods=['POST'])
 def fine_tuning():
