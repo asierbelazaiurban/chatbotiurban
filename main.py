@@ -1417,35 +1417,41 @@ def fine_tuning():
     
     data = request.json
     chatbot_id = data.get('chatbot_id')
-
     if not chatbot_id:
         app.logger.error("Falta chatbot_id en la solicitud.")
         return jsonify({'error': 'Falta chatbot_id'}), 400
 
-    app.logger.info(f"Procesando solicitud de afinamiento para chatbot_id: {chatbot_id}")
-
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-
     model_name = 'EleutherAI/gpt-neo-2.7B'
-    app.logger.info(f"Inicializando el modelo y tokenizer para afinamiento con el modelo {model_name}")
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(json_file_path):
-        app.logger.info(f"Archivo encontrado para afinamiento: {json_file_path}")
-        finetune_file_path = prepare_data_for_finetuning(json_file_path)
-        if finetune_file_path:
-            app.logger.info(f"Comenzando el proceso de afinamiento para {chatbot_id}")
-            if not finetune_model(model, tokenizer, finetune_file_path, f'./model_output_finetuning_{chatbot_id}'):
-                app.logger.error("Error durante el afinamiento.")
-                return jsonify({'error': 'Error durante el afinamiento'}), 500
-        else:
-            app.logger.error("Error en prepare_data_for_finetuning.")
-            return jsonify({'error': 'Error en prepare_data_for_finetuning'}), 500
+        raw_datasets = load_dataset('json', data_files=json_file_path)
+        tokenized_datasets = raw_datasets.map(
+            lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
+            batched=True
+        )
 
-    app.logger.info(f"Proceso de afinamiento completado exitosamente para chatbot_id {chatbot_id}")
-    return jsonify({'message': f'Afinamiento completado para chatbot_id {chatbot_id}'}), 200
+        training_args = TrainingArguments(
+            output_dir=f'./model_output_finetuning_{chatbot_id}',
+            num_train_epochs=3,
+            per_device_train_batch_size=2,
+            save_steps=10_000,
+            save_total_limit=2,
+        )
 
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_datasets["train"],
+            tokenizer=tokenizer
+        )
+
+        trainer.train()
+        return jsonify({'message': f'Afinamiento completado para chatbot_id {chatbot_id}'}), 200
+    else:
+        return jsonify({'error': 'Archivo de afinamiento no encontrado'}), 404
 
 
 @app.route('/train_with_dataset', methods=['POST'])
@@ -1454,46 +1460,42 @@ def train_with_dataset():
     
     data = request.json
     chatbot_id = data.get('chatbot_id')
-
     if not chatbot_id:
         app.logger.error("Falta chatbot_id en la solicitud.")
         return jsonify({'error': 'Falta chatbot_id'}), 400
 
-    app.logger.info(f"Procesando solicitud de entrenamiento para chatbot_id: {chatbot_id}")
-
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-
     model_name = 'EleutherAI/gpt-neo-2.7B'
-    app.logger.info(f"Inicializando el modelo y tokenizer para entrenamiento con el modelo {model_name}")
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(dataset_file_path):
-        app.logger.info(f"Archivo encontrado para entrenamiento: {dataset_file_path}")
-        try:
-            train_dataset = TextDataset(tokenizer=tokenizer, file_path=dataset_file_path, block_size=128)
-            data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-            training_args = TrainingArguments(
-                output_dir=f'./model_output_training_{chatbot_id}',
-                overwrite_output_dir=True,
-                num_train_epochs=3,
-                per_device_train_batch_size=2,
-                save_steps=10_000,
-                save_total_limit=2,
-            )
-            trainer = Trainer(
-                model=model,
-                args=training_args,
-                data_collator=data_collator,
-                train_dataset=train_dataset
-            )
-            trainer.train()
-        except Exception as e:
-            app.logger.error(f"Error durante el entrenamiento: {e}")
-            return jsonify({'error': 'Error durante el entrenamiento'}), 500
+        raw_datasets = load_dataset('json', data_files=dataset_file_path)
+        tokenized_datasets = raw_datasets.map(
+            lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
+            batched=True
+        )
 
-    app.logger.info(f"Proceso de entrenamiento completado exitosamente para chatbot_id {chatbot_id}")
-    return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
+        training_args = TrainingArguments(
+            output_dir=f'./model_output_training_{chatbot_id}',
+            num_train_epochs=3,
+            per_device_train_batch_size=2,
+            save_steps=10_000,
+            save_total_limit=2,
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_datasets["train"],
+            tokenizer=tokenizer
+        )
+
+        trainer.train()
+        return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
+    else:
+        return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
+
 
 
 
