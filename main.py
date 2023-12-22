@@ -1411,9 +1411,9 @@ def list_folders():
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
 
-@app.route('/train_and_fine_tuning', methods=['POST'])
-def train_and_fine_tuning():
-    app.logger.info("Iniciando el proceso de entrenamiento y afinamiento.")
+@app.route('/fine_tuning', methods=['POST'])
+def fine_tuning():
+    app.logger.info("Iniciando el proceso de afinamiento.")
     
     data = request.json
     chatbot_id = data.get('chatbot_id')
@@ -1422,15 +1422,12 @@ def train_and_fine_tuning():
         app.logger.error("Falta chatbot_id en la solicitud.")
         return jsonify({'error': 'Falta chatbot_id'}), 400
 
-    app.logger.info(f"Procesando solicitud para chatbot_id: {chatbot_id}")
+    app.logger.info(f"Procesando solicitud de afinamiento para chatbot_id: {chatbot_id}")
 
-    # Rutas a los archivos de datos
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
-    # Inicialización del modelo y el tokenizer
     model_name = 'EleutherAI/gpt-neo-2.7B'
-    app.logger.info(f"Inicializando el modelo y tokenizer con el modelo {model_name}")
+    app.logger.info(f"Inicializando el modelo y tokenizer para afinamiento con el modelo {model_name}")
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
@@ -1445,6 +1442,31 @@ def train_and_fine_tuning():
         else:
             app.logger.error("Error en prepare_data_for_finetuning.")
             return jsonify({'error': 'Error en prepare_data_for_finetuning'}), 500
+
+    app.logger.info(f"Proceso de afinamiento completado exitosamente para chatbot_id {chatbot_id}")
+    return jsonify({'message': f'Afinamiento completado para chatbot_id {chatbot_id}'}), 200
+
+
+
+@app.route('/train_with_dataset', methods=['POST'])
+def train_with_dataset():
+    app.logger.info("Iniciando el proceso de entrenamiento con dataset.")
+    
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+
+    if not chatbot_id:
+        app.logger.error("Falta chatbot_id en la solicitud.")
+        return jsonify({'error': 'Falta chatbot_id'}), 400
+
+    app.logger.info(f"Procesando solicitud de entrenamiento para chatbot_id: {chatbot_id}")
+
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    model_name = 'EleutherAI/gpt-neo-2.7B'
+    app.logger.info(f"Inicializando el modelo y tokenizer para entrenamiento con el modelo {model_name}")
+    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+    model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(dataset_file_path):
         app.logger.info(f"Archivo encontrado para entrenamiento: {dataset_file_path}")
@@ -1470,8 +1492,9 @@ def train_and_fine_tuning():
             app.logger.error(f"Error durante el entrenamiento: {e}")
             return jsonify({'error': 'Error durante el entrenamiento'}), 500
 
-    app.logger.info(f"Proceso completado exitosamente para chatbot_id {chatbot_id}")
-    return jsonify({'message': f'Proceso completado para chatbot_id {chatbot_id}'}), 200
+    app.logger.info(f"Proceso de entrenamiento completado exitosamente para chatbot_id {chatbot_id}")
+    return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
+
 
 
 
