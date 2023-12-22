@@ -36,7 +36,9 @@ from transformers import (AutoModelForSeq2SeqLM, AutoModelForSequenceClassificat
 from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
 from deep_translator import GoogleTranslator
-
+from elasticsearch import Elasticsearch, helpers
+from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM, GPT2Tokenizer, TextDataset, DataCollatorForLanguageModeling
+from transformers import Trainer, TrainingArguments
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -77,6 +79,10 @@ from process_docs import process_file
 # ---------------------------
 
 modelo = api.load("glove-wiki-gigaword-50")
+
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+openai.api_key = OPENAI_API_KEY
+
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -126,6 +132,15 @@ UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
+
+# Configuración global
+INDICE_ELASTICSEARCH = 'documentos_texto'
+es_client = Elasticsearch()
+
+# Crear el índice en Elasticsearch si no existe
+if not es_client.indices.exists(index=INDICE_ELASTICSEARCH):
+    es_client.indices.create(index=INDICE_ELASTICSEARCH)
+
 
 import re
 
@@ -349,8 +364,6 @@ def generar_contexto_con_openai(historial):
         return ""
 
 
-
-
 def identificar_saludo_despedida(frase):
     app.logger.info("Determinando si la frase es un saludo o despedida")
 
@@ -451,10 +464,6 @@ def extraer_palabras_clave(pregunta):
 
 ####### Inicio Sistema de cache #######
 
-import requests
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 
 # Suponiendo que ya tienes definida la función comprobar_coherencia_gpt
 
@@ -516,136 +525,132 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
         return False
 
 
-def coherencia_pregunta_respuesta_cache(pregunta, respuesta):
-    # Crear el prompt para el modelo
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta}'. Responde solo True o False, sin signos de puntuación y la primera letra en mayúscula."
-
-    # Intentar generar una respuesta utilizando GPT
-    try:
-        response = ChatCompletion.create(
-            model="gpt-4",  # O el modelo que prefieras
-            messages=[
-                {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-    except Exception as e:
-        app.logger.error(f"Error al generar la respuesta del modelo: {e}")
-        return False
-
-    # Procesar la respuesta del modelo
-    respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    # Limpiar la respuesta de puntuación y espacios adicionales
-    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
-    
-    app.logger.info("respuesta_gpt")
-    app.logger.info(respuesta_gpt)
-
-    # Evaluar la respuesta
-    if respuesta_gpt == "true":
-        return True
-    else:
-        return False
-
-
 ####### Fin Sistema de cache #######
 
-# Función auxiliar para mapear etiquetas POS a WordNet POS
-def get_wordnet_pos(token):
-    tag = nltk.pos_tag([token])[0][1][0].upper()
-    tag_dict = {"J": wordnet.ADJ, "N": wordnet.NOUN, "V": wordnet.VERB, "R": wordnet.ADV}
-    return tag_dict.get(tag, wordnet.NOUN)
 
-# Codificación TF-IDF
-def encode_data(data):
-    vectorizer = TfidfVectorizer()
-    encoded_data = vectorizer.fit_transform(data)
-    return encoded_data, vectorizer
+####### NUEVO SITEMA DE BUSQUEDA #######
+def preprocess_text(text):
+    app.logger.info("Preprocesando texto")
+    text = text.lower()
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
-# Búsqueda de similitud
-def perform_search(encoded_data, encoded_query):
-    similarity_scores = cosine_similarity(encoded_data, encoded_query)
-    ranked_results = np.argsort(similarity_scores, axis=0)[::-1]
-    ranked_scores = np.sort(similarity_scores, axis=0)[::-1]
-    return ranked_results.flatten(), ranked_scores.flatten()
-
-# Recuperación de resultados
-def retrieve_results(data, ranked_results, ranked_scores, context=1, min_words=20):
-    results = []
-    data_len = len(data)
-    unique_results = set()
-    for idx, score in zip(ranked_results, ranked_scores):
-        start = max(0, idx - context)
-        end = min(data_len, idx + context + 1)
-        context_data = data[start:end]
-        context_str = " ".join(context_data)
-        if len(context_str.split()) >= min_words:
-            if context_str not in unique_results:
-                results.append((context_data, score))
-                unique_results.add(context_str)
-    return results
-
-# Convertir elemento del dataset a texto
-def convertir_a_texto(item):
-    if isinstance(item, dict):
-        return ' '.join(str(value) for value in item.values())
-    elif isinstance(item, list):
-        return ' '.join(str(element) for element in item)
-    elif isinstance(item, str):
-        return item
-    else:
-        return str(item)
-
-# Cargar dataset
-def cargar_dataset(base_dataset_dir, chatbot_id):
-    dataset_file_path = os.path.join(base_dataset_dir, str(chatbot_id), 'dataset.json')
-    with open(dataset_file_path, 'r') as file:
+def load_and_preprocess_data(file_path):
+    app.logger.info(f"Cargando y preprocesando datos desde {file_path}")
+    with open(file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
+    for item in data:
+        item['text'] = preprocess_text(item['text'])
+    app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
 
-# Procesamiento de consultas de usuario
-def preprocess_query(query):
-    # Preprocesamiento básico de la consulta
-    tokens = nltk.word_tokenize(query.lower())
-    stop_words = set(stopwords.words('spanish'))
-    filtered_tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
-    return ' '.join(filtered_tokens)
+def generate_gpt_embeddings(text):
+    app.logger.info("Generando embedding de GPT para el texto")
+    response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
+    return response['data'][0]['embedding']
 
-def encontrar_respuesta(pregunta, datos_del_dataset, contexto='', umbral_similitud=0.05):
-    datos_texto = [convertir_a_texto(item['dialogue']) for item in datos_del_dataset.values()]
+def index_data_to_elasticsearch(dataset):
+    app.logger.info("Indexando datos y embeddings en Elasticsearch")
+    actions = []
+    for item in dataset:
+        embedding = generate_gpt_embeddings(item['text'])
+        action = {
+            "_index": INDICE_ELASTICSEARCH,
+            "_id": item['id'],
+            "_source": {
+                "text": item['text'],
+                "embedding": embedding
+            }
+        }
+        actions.append(action)
+    helpers.bulk(es_client, actions)
+    app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
 
-    vectorizer = TfidfVectorizer()
-    vectorizer.fit(datos_texto)
+def search_in_elasticsearch(query):
+    app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
+    query_embedding = generate_gpt_embeddings(query)
+    search_query = {
+        "script_score": {
+            "query": {"match_all": {}},
+            "script": {
+                "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                "params": {"query_vector": query_embedding}
+            }
+        }
+    }
+    response = es_client.search(index=INDICE_ELASTICSEARCH, body=search_query)
+    app.logger.info("Búsqueda completada en Elasticsearch")
+    return response
 
-    pregunta_procesada = preprocess_query(pregunta + " " + contexto if contexto else pregunta)
-    encoded_query = vectorizer.transform([pregunta_procesada])
+def generar_respuesta(texto):
+    app.logger.info(f"Generando respuesta con GPT-4 para el texto: {texto}")
+    response = openai.Completion.create(engine="gpt-4-1106-preview", prompt=texto, max_tokens=150)
+    return response.choices[0].text.strip()
 
-    encoded_data = vectorizer.transform(datos_texto)
+def encontrar_respuesta(ultima_pregunta, contexto=None):
+    app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
+    pregunta_procesada = preprocess_text(ultima_pregunta)
+    
+    # Procesar el contexto si está disponible
+    contexto_procesado = preprocess_text(contexto) if contexto else ""
 
-    similarity_scores = cosine_similarity(encoded_query, encoded_data)
-    indice_mas_similar = similarity_scores.argmax()
+    # Realizar la búsqueda en Elasticsearch
+    if contexto_procesado:
+        resultados_busqueda = search_in_elasticsearch(contexto_procesado)
+        textos_combinados = " ".join([hit['_source']['text'] for hit in resultados_busqueda['hits']['hits']])
+    else:
+        textos_combinados = ""
 
-    if similarity_scores[0, indice_mas_similar] < umbral_similitud:
-        return None
+    # Preparar el texto completo para GPT-4
+    texto_completo_para_gpt = f"Pregunta: {pregunta_procesada}\nContexto: {textos_combinados}"
+    
+    # Generar una respuesta con GPT-4
+    respuesta = generar_respuesta(texto_completo_para_gpt)
+    return respuesta
 
-    texto = datos_texto[indice_mas_similar]
-    palabras = word_tokenize(texto)
-    indice_palabra_relevante = encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=['museo', 'gratis'])
 
-    inicio = max(0, indice_palabra_relevante - 50)
-    fin = min(len(palabras), indice_palabra_relevante + 50)
-    return ' '.join(palabras[inicio:fin])
+def prepare_data_for_finetuning(json_file_path):
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+    text_data = ""
+    for item in data.values():
+        question = item["Pregunta"][0]
+        answer = item["respuesta"]
+        text_data += f"Pregunta: {question}\nRespuesta: {answer}\n\n"
+    temp_file_path = 'temp_finetune_data.txt'
+    with open(temp_file_path, 'w', encoding='utf-8') as file:
+        file.write(text_data)
+    return temp_file_path
 
-# Encontrar índice de palabra relevante
-def encontrar_indice_palabra_relevante(palabras, pregunta_procesada, palabras_clave=[]):
-    for palabra_clave in palabras_clave:
-        if palabra_clave in palabras:
-            return palabras.index(palabra_clave)
-    return len(palabras) // 2
+def finetune_model(model, tokenizer, file_path, output_dir):
+    train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        overwrite_output_dir=True,
+        num_train_epochs=3,
+        per_device_train_batch_size=2,
+        save_steps=10_000,
+        save_total_limit=2,
+    )
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        data_collator=data_collator,
+        train_dataset=train_dataset
+    )
+    trainer.train()
 
-def seleccionar_respuesta_por_defecto():
-    # Devuelve una respuesta por defecto de la lista
-    return random.choice(respuestas_por_defecto)
+####### FIN NUEVO SITEMA DE BUSQUEDA #######
+
+
+
+
+# Nuevo Procesamiento de consultas de usuario
+
 
 def traducir_texto_con_openai(texto, idioma_destino):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
@@ -679,7 +684,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     app.logger.info("Iniciando búsqueda en respuestas preestablecidas con NLP")
 
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+
 
     if not os.path.exists(json_file_path):
         app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
@@ -1385,12 +1390,54 @@ def events():
         app.logger.error("Error al mejorar la respuesta para el evento concatenado.")
         return jsonify({"error": "Error al mejorar la respuesta"}), 500
 
-
 @app.route('/list_chatbot_ids', methods=['GET'])
 def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
+
+@app.route('/train_and_fine_tuning', methods=['POST'])
+def train_and_fine_tuning():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+
+    if not chatbot_id:
+        return jsonify({'error': 'Falta chatbot_id'}), 400
+
+    # Rutas a los archivos de datos
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    # Inicialización del modelo y el tokenizer
+    model_name = 'EleutherAI/gpt-neo-2.7B'  # Este es un modelo grande, asegúrate de tener suficiente RAM y GPU
+    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+    model = GPTNeoForCausalLM.from_pretrained(model_name)
+
+    if os.path.exists(json_file_path):
+        finetune_file_path = prepare_data_for_finetuning(json_file_path)
+        finetune_model(model, tokenizer, finetune_file_path, f'./model_output_finetuning_{chatbot_id}')
+
+    if os.path.exists(dataset_file_path):
+        train_dataset = TextDataset(tokenizer=tokenizer, file_path=dataset_file_path, block_size=128)
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+        training_args = TrainingArguments(
+            output_dir=f'./model_output_training_{chatbot_id}',
+            overwrite_output_dir=True,
+            num_train_epochs=3,
+            per_device_train_batch_size=2,
+            save_steps=10_000,
+            save_total_limit=2,
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            data_collator=data_collator,
+            train_dataset=train_dataset
+        )
+        trainer.train()
+
+    return jsonify({'message': f'Proceso completado para chatbot_id {chatbot_id}'}), 200
+
 
 
 @app.route('/run_tests', methods=['POST'])
