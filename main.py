@@ -39,6 +39,7 @@ from deep_translator import GoogleTranslator
 from elasticsearch import Elasticsearch, helpers
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM, GPT2Tokenizer, TextDataset, DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
+from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -633,23 +634,30 @@ def prepare_data_for_finetuning(json_file_path):
     return temp_file_path
 
 def finetune_model(model, tokenizer, file_path, output_dir):
-    train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        overwrite_output_dir=True,
-        num_train_epochs=3,
-        per_device_train_batch_size=2,
-        save_steps=10_000,
-        save_total_limit=2,
-    )
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        data_collator=data_collator,
-        train_dataset=train_dataset
-    )
-    trainer.train()
+    try:
+        # Configuración y entrenamiento como antes
+        train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            overwrite_output_dir=True,
+            num_train_epochs=3,
+            per_device_train_batch_size=2,
+            save_steps=10_000,
+            save_total_limit=2,
+        )
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            data_collator=data_collator,
+            train_dataset=train_dataset
+        )
+        trainer.train()
+
+        return True  # Entrenamiento completado con éxito
+    except Exception as e:
+        print(f"Error durante el afinamiento: {e}")
+        return False 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
@@ -1405,44 +1413,64 @@ def list_folders():
 
 @app.route('/train_and_fine_tuning', methods=['POST'])
 def train_and_fine_tuning():
+    app.logger.info("Iniciando el proceso de entrenamiento y afinamiento.")
+    
     data = request.json
     chatbot_id = data.get('chatbot_id')
 
     if not chatbot_id:
+        app.logger.error("Falta chatbot_id en la solicitud.")
         return jsonify({'error': 'Falta chatbot_id'}), 400
+
+    app.logger.info(f"Procesando solicitud para chatbot_id: {chatbot_id}")
 
     # Rutas a los archivos de datos
     json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
     # Inicialización del modelo y el tokenizer
-    model_name = 'EleutherAI/gpt-neo-2.7B'  # Este es un modelo grande, asegúrate de tener suficiente RAM y GPU
+    model_name = 'EleutherAI/gpt-neo-2.7B'
+    app.logger.info(f"Inicializando el modelo y tokenizer con el modelo {model_name}")
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(json_file_path):
+        app.logger.info(f"Archivo encontrado para afinamiento: {json_file_path}")
         finetune_file_path = prepare_data_for_finetuning(json_file_path)
-        finetune_model(model, tokenizer, finetune_file_path, f'./model_output_finetuning_{chatbot_id}')
+        if finetune_file_path:
+            app.logger.info(f"Comenzando el proceso de afinamiento para {chatbot_id}")
+            if not finetune_model(model, tokenizer, finetune_file_path, f'./model_output_finetuning_{chatbot_id}'):
+                app.logger.error("Error durante el afinamiento.")
+                return jsonify({'error': 'Error durante el afinamiento'}), 500
+        else:
+            app.logger.error("Error en prepare_data_for_finetuning.")
+            return jsonify({'error': 'Error en prepare_data_for_finetuning'}), 500
 
     if os.path.exists(dataset_file_path):
-        train_dataset = TextDataset(tokenizer=tokenizer, file_path=dataset_file_path, block_size=128)
-        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-        training_args = TrainingArguments(
-            output_dir=f'./model_output_training_{chatbot_id}',
-            overwrite_output_dir=True,
-            num_train_epochs=3,
-            per_device_train_batch_size=2,
-            save_steps=10_000,
-            save_total_limit=2,
-        )
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            data_collator=data_collator,
-            train_dataset=train_dataset
-        )
-        trainer.train()
+        app.logger.info(f"Archivo encontrado para entrenamiento: {dataset_file_path}")
+        try:
+            train_dataset = TextDataset(tokenizer=tokenizer, file_path=dataset_file_path, block_size=128)
+            data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+            training_args = TrainingArguments(
+                output_dir=f'./model_output_training_{chatbot_id}',
+                overwrite_output_dir=True,
+                num_train_epochs=3,
+                per_device_train_batch_size=2,
+                save_steps=10_000,
+                save_total_limit=2,
+            )
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                data_collator=data_collator,
+                train_dataset=train_dataset
+            )
+            trainer.train()
+        except Exception as e:
+            app.logger.error(f"Error durante el entrenamiento: {e}")
+            return jsonify({'error': 'Error durante el entrenamiento'}), 500
 
+    app.logger.info(f"Proceso completado exitosamente para chatbot_id {chatbot_id}")
     return jsonify({'message': f'Proceso completado para chatbot_id {chatbot_id}'}), 200
 
 
