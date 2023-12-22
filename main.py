@@ -135,7 +135,7 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 # Configuración global
-INDICE_ELASTICSEARCH = 'index-iurban'
+INDICE_ELASTICSEARCH = 'índice-de-búsqueda-iurban'
 
 es_client = Elasticsearch(
     cloud_id="1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvJDdlZGM5YTRhZDg5MTQ4ZTViMWE1NjkwYjYxMDE0OWEzJDk1NmI2MTRjODAxMzQ3MWU5NDY0ZDAxMTdjMTJkNjc5",
