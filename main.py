@@ -1496,7 +1496,46 @@ def train_with_dataset():
     else:
         return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
 
+def fine_tuning():
+    app.logger.info("Iniciando el proceso de afinamiento.")
+    
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    if not chatbot_id:
+        app.logger.error("Falta chatbot_id en la solicitud.")
+        return jsonify({'error': 'Falta chatbot_id'}), 400
 
+    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
+    model_name = 'EleutherAI/gpt-neo-2.7B'
+    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+    model = GPTNeoForCausalLM.from_pretrained(model_name)
+
+    if os.path.exists(json_file_path):
+        raw_datasets = load_dataset('json', data_files=json_file_path, field='dialogue')
+        tokenized_datasets = raw_datasets.map(
+            lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
+            batched=True
+        )
+
+        training_args = TrainingArguments(
+            output_dir=f'./model_output_finetuning_{chatbot_id}',
+            num_train_epochs=3,
+            per_device_train_batch_size=2,
+            save_steps=10_000,
+            save_total_limit=2,
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_datasets["train"],
+            tokenizer=tokenizer
+        )
+
+        trainer.train()
+        return jsonify({'message': f'Afinamiento completado para chatbot_id {chatbot_id}'}), 200
+    else:
+        return jsonify({'error': 'Archivo de afinamiento no encontrado'}), 404
 
 
 @app.route('/run_tests', methods=['POST'])
