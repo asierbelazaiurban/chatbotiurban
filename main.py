@@ -120,6 +120,7 @@ app.logger.info('Inicio de la aplicación ChatbotIUrban')
 
 #### Logger ####
 
+
 MAX_TOKENS_PER_SEGMENT = 7000  # Establecer un límite seguro de tokens por segmento
 BASE_DATASET_DIR = "data/uploads/datasets/"
 BASE_PDFS_DIR = "data/uploads/pdfs/"
