@@ -19,6 +19,7 @@ from time import sleep
 from urllib.parse import urlparse, urljoin
 from openai import ChatCompletion
 import sys
+from datasets import load_dataset
 
 # ---------------------------
 # Librerías de Terceros
@@ -1411,7 +1412,6 @@ def list_folders():
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
 
-@app.route('/fine_tuning', methods=['POST'])
 def fine_tuning():
     app.logger.info("Iniciando el proceso de afinamiento.")
     
@@ -1427,7 +1427,7 @@ def fine_tuning():
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(json_file_path):
-        raw_datasets = load_dataset('json', data_files=json_file_path)
+        raw_datasets = load_dataset('json', data_files=json_file_path, field='dialogue')
         tokenized_datasets = raw_datasets.map(
             lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
             batched=True
@@ -1470,7 +1470,7 @@ def train_with_dataset():
     model = GPTNeoForCausalLM.from_pretrained(model_name)
 
     if os.path.exists(dataset_file_path):
-        raw_datasets = load_dataset('json', data_files=dataset_file_path)
+        raw_datasets = load_dataset('json', data_files=dataset_file_path, field='dialogue')
         tokenized_datasets = raw_datasets.map(
             lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
             batched=True
@@ -1495,7 +1495,6 @@ def train_with_dataset():
         return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
     else:
         return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
-
 
 
 
