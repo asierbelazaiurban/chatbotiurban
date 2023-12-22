@@ -135,18 +135,17 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 # Configuración global
-INDICE_ELASTICSEARCH = 'índice-de-búsqueda-iurban'
+INDICE_ELASTICSEARCH = 'busca-asier-iurban'
 
 es_client = Elasticsearch(
     cloud_id="1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvJDdlZGM5YTRhZDg5MTQ4ZTViMWE1NjkwYjYxMDE0OWEzJDk1NmI2MTRjODAxMzQ3MWU5NDY0ZDAxMTdjMTJkNjc5",
-    api_key=os.environ.get('ELASTICSEARCH_API_KEY')
+    api_key="aFlBbmtJd0JYOHBWMWlhY05IRDk6dlhlWVpIck1UTWE4Ti03NjM5QjdGdw=="
 )
 # Crear el índice en Elasticsearch si no existe
 if not es_client.indices.exists(index=INDICE_ELASTICSEARCH):
     es_client.indices.create(index=INDICE_ELASTICSEARCH)
 
 
-import re
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
