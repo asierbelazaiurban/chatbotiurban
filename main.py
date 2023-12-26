@@ -224,20 +224,17 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         except Exception as e:
             app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
-    # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt predeterminado
+    # Utilizar el prompt específico si está disponible, de lo contrario usar un prompt personalizado
     new_prompt = new_prompt_by_id if new_prompt_by_id else (
-        "Mantén la coherencia con la pregunta y, si la respuesta no se alinea, indica 'No tengo información "
-        "en este momento sobre este tema, ¿Puedes ampliarme la pregunta? o ¿Puedo ayudarte en algo mas?'. Actúa como un guía turístico experto, "
-        "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
-        "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
-        "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
-        "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
-        "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-        "proporciona el contacto: info@iurban.es."
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
 
     # Construir el prompt base
-    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
+    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
 
     # Intentar generar la respuesta mejorada
     try:
@@ -248,113 +245,60 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
                 {"role": "user", "content": respuesta_original}
             ]
         )
-        return response.choices[0].message['content'].strip()
+        return response.choices[0].essage['content'].strip()
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
-        return None
+        return False
 
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
     # Verificar si hay pregunta y respuesta
     if not pregunta or not respuesta:
         app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
-        return None
+        return False
 
     # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    app.logger.info("Entrando en OpenAI")
-
     # Definir las rutas base para los prompts
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
-
-    # Inicializar la variable para almacenar el new_prompt obtenido por chatbot_id
-    new_prompt_by_id = None
+    new_prompt = ""
 
     # Intentar cargar el new_prompt desde los prompts, según chatbot_id
     if chatbot_id:
         prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
             with open(prompt_file_path, 'r') as file:
-                new_prompt_by_id = file.read()
-            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+                new_prompt = file.read()
         except Exception as e:
-            app.logger.info(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
-    # Utilizar new_prompt_by_id si no viene vacío, de lo contrario usar new_prompt proporcionado
-    if new_prompt_by_id:
-        new_prompt = new_prompt_by_id
-    elif new_prompt:
-        prompt_file_path_direct = os.path.join(BASE_PROMPTS_DIR, new_prompt)
-        try:
-            with open(prompt_file_path_direct, 'r') as file:
-                new_prompt_direct = file.read()
-            new_prompt = new_prompt_direct
-            app.logger.info(f"Prompt cargado con éxito directamente desde {prompt_file_path_direct}.")
-        except Exception as e:
-            app.logger.info(f"Error al cargar prompt directamente desde {prompt_file_path_direct}: {e}")
-
-    # Verificar si hay contexto adicional. Si no hay, detener el proceso y devolver un mensaje
-    if not contexto_adicional:
-        contexto_adicional = "";
-
-    # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
+    # Si no se ha proporcionado new_prompt, usar un prompt personalizado
     if not new_prompt:
-        new_prompt = ("Mantén la coherencia con la pregunta. Actúa como un guía turístico experto, "
-                      "presentando tus respuestas en forma de listas para facilitar la planificación diaria de actividades. "
-                      "Es crucial responder en el mismo idioma que la pregunta. Al finalizar tu respuesta, recuerda sugerir "
-                      "'Si deseas más información, crea tu ruta con Cicerone o consulta las rutas de expertos locales'. "
-                      "Si careces de la información solicitada, evita comenzar con 'Lo siento, no puedo darte información específica'. "
-                      "En su lugar, aconseja planificar con Cicerone para una experiencia personalizada. Para cualquier duda, "
-                      "proporciona el contacto: info@iurban.es.")
+        new_prompt = ("Somos una agencia de turismo especializada. Mejora la respuesta con estas instrucciones claras: "
+                      "1. Mantén la coherencia con la pregunta original. "
+                      "2. Responde siempre en el mismo idioma de la pregunta. "
+                      "3. Si falta información, sugiere contactar a info@iurban.es.")
 
     # Construir el prompt base
-    prompt_base = f"Si la pregunta es en ingles responde en ingles y asi con todo los idiomas, catalán, frances y todos los que tengas disponibles. Traduce litrealmete. Nunca respondas cosas que no tengan relacion entre Pregunta: {pregunta}\n y Respuesta: {respuesta}Si hay algun tema con la codificación o caracteres, por ejemplo (Lo siento, pero parece que hay un problema con la codificación de caracteres en tu pregunta o similar...)no te refieras  ni comentes el problema {contexto_adicional}\n\nPregunta reciente: {pregunta}\nRespuesta original: {respuesta}\n--\n {new_prompt}, siempre en el idioma del contexto, No respondas con mas de 75 palabras."
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta}\n--\n{new_prompt}"
     app.logger.info(prompt_base)
 
     # Generar la respuesta mejorada
     try:
         response = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-preview",
+            model="gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
             ],
-            temperature=float(temperature) if temperature else 0.5
+            temperature=0.5
         )
-        improved_response = response.choices[0].message['content'].strip()
-        respuesta_mejorada = improved_response
-        app.logger.info("Respuesta generada con éxito.")
-        app.logger.info("Respuesta mejorada a mostrar")
-        return respuesta_mejorada
-        
+        return response.choices[0].message['content'].strip()
     except Exception as e:
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
-        return None
+        return False
 
-
-    """# Intentar traducir la respuesta mejorada
-    app.logger.info("pregunta")
-    app.logger.info(pregunta)
-    app.logger.info("respuesta_mejorada")
-    app.logger.info(respuesta_mejorada)
-    try:
-        respuesta_traducida = openai.ChatCompletion.create(
-            model=model_gpt if model_gpt else "gpt-4-1106-preview",
-            messages=[
-                {"role": "system", "content": f"El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la pregunta: {pregunta} y la respuesta::{respuesta_mejorada}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
-                {"role": "user", "content": respuesta_mejorada}
-            ],
-            temperature=float(temperature) if temperature else 0.7
-        )
-        respuesta_mejorada = respuesta_traducida.choices[0].message['content'].strip()
-    except Exception as e:
-        app.logger.error(f"Error al traducir la respuesta: {e}")
-
-    app.logger.info("respuesta_mejorada final")
-    app.logger.info(respuesta_mejorada)
-    return respuesta_mejorada
-"""
 
 
 def generar_contexto_con_openai(historial):
@@ -697,6 +641,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
+# Función para encontrar la mejor respuesta en el dataset
 def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None, chatbot_id=""):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
