@@ -565,6 +565,7 @@ def load_and_preprocess_data(file_path):
     return data
 
 
+
 def generate_gpt_embeddings(text):
     app.logger.info("Generando embedding de GPT para el texto")
     response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
