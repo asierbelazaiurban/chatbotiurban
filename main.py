@@ -140,7 +140,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 # Configuración global
 
 
-INDICE_ELASTICSEARCH = 'busca-asier-iurban'
+INDICE_ELASTICSEARCH = 'search-asier-iurban'
 ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"
 
 # Found in the 'Manage Deployment' page
