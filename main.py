@@ -615,22 +615,43 @@ def generar_respuesta(texto):
     )
     return response.choices[0].message['content'].strip()
 
+def seleccionar_mejor_respuesta(resultados):
+    mejor_puntuacion = -1
+    mejor_respuesta = ""
+    for hit in resultados['hits']['hits']:
+        respuesta_potencial = hit['_source']['text']
+        puntuacion = hit['_score']  # Utiliza el puntaje de relevancia de Elasticsearch
+
+        if puntuacion > mejor_puntuacion:
+            mejor_puntuacion = puntuacion
+            mejor_respuesta = respuesta_potencial
+
+    return mejor_respuesta
+
 def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
-    contexto_procesado = preprocess_text(contexto) if contexto else ""
-    texto_busqueda = contexto_procesado
-    if datos_del_dataset:
+    
+    # Si no hay contexto, busca directamente en el dataset
+    if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
-        texto_busqueda += f" {textos_dataset}"
-    if texto_busqueda:
-        resultados_busqueda = search_in_elasticsearch(texto_busqueda)
-        textos_combinados = " ".join([hit['_source']['text'] for hit in resultados_busqueda['hits']['hits']])
-    else:
-        textos_combinados = ""
-    texto_completo_para_gpt = f"Pregunta: {pregunta_procesada}\nContexto: {textos_combinados}"
-    respuesta = generar_respuesta(texto_completo_para_gpt)
-    return respuesta
+        resultados_busqueda = search_in_elasticsearch(textos_dataset)
+        return seleccionar_mejor_respuesta(resultados_busqueda)
+
+    # Si hay contexto, lo procesa y lo incluye en la búsqueda
+    contexto_procesado = preprocess_text(contexto) if contexto else ""
+    texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
+    resultados_busqueda = search_in_elasticsearch(texto_busqueda)
+    
+    mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
+
+    # Utiliza GPT solo si no se encuentra una respuesta en el dataset
+    if not mejor_respuesta:
+        texto_completo_para_gpt = f"Pregunta: {pregunta_procesada}\nContexto: {contexto_procesado}"
+        mejor_respuesta = generar_respuesta(texto_completo_para_gpt)
+
+    return mejor_respuesta
+
 
 def prepare_data_for_finetuning(json_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as file:
