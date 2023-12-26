@@ -542,12 +542,10 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
 def preprocess_text(text):
     if isinstance(text, dict):
-        text = text.get('clave_del_texto', '')  # Cambia 'clave_del_texto' por la clave real
-
+        text = text.get('clave_del_texto', '')  # Reemplaza 'clave_del_texto' con la clave real
     if not isinstance(text, str):
         app.logger.warning(f"Se esperaba una cadena, pero se recibió: {type(text)}")
         return ""
-
     app.logger.info("Preprocesando texto")
     text = text.lower()
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
@@ -560,13 +558,11 @@ def load_and_preprocess_data(file_path):
     app.logger.info(f"Cargando y preprocesando datos desde {file_path}")
     with open(file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
-
     for item in data:
         if isinstance(item['text'], str):
             item['text'] = preprocess_text(item['text'])
         else:
             app.logger.warning(f"El item no es una cadena: {item}")
-
     app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
 
@@ -610,25 +606,28 @@ def search_in_elasticsearch(query):
 
 def generar_respuesta(texto):
     app.logger.info(f"Generando respuesta con GPT-4 para el texto: {texto}")
-    response = openai.Completion.create(engine="gpt-4-1106-preview", prompt=texto, max_tokens=150)
-    return response.choices[0].text.strip()
+    response = openai.ChatCompletion.create(
+        model="gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": "Por favor, responde a la siguiente pregunta."},
+            {"role": "user", "content": texto}
+        ]
+    )
+    return response.choices[0].message['content'].strip()
 
 def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
     contexto_procesado = preprocess_text(contexto) if contexto else ""
     texto_busqueda = contexto_procesado
-
     if datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
         texto_busqueda += f" {textos_dataset}"
-
     if texto_busqueda:
         resultados_busqueda = search_in_elasticsearch(texto_busqueda)
         textos_combinados = " ".join([hit['_source']['text'] for hit in resultados_busqueda['hits']['hits']])
     else:
         textos_combinados = ""
-
     texto_completo_para_gpt = f"Pregunta: {pregunta_procesada}\nContexto: {textos_combinados}"
     respuesta = generar_respuesta(texto_completo_para_gpt)
     return respuesta
@@ -665,12 +664,11 @@ def finetune_model(model, tokenizer, file_path, output_dir):
             train_dataset=train_dataset
         )
         trainer.train()
-
         return True
     except Exception as e:
         print(f"Error durante el afinamiento: {e}")
         return False
-        
+
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
