@@ -530,11 +530,10 @@ def index_data_to_elasticsearch(dataset, indice_elasticsearch):
     bulk(es_client, actions)
     app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
 
-def search_in_elasticsearch(query):
+def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
     query_embedding = generate_gpt_embeddings(query)
 
-    # Define la consulta con script_score dentro del body
     search_query = {
         "query": {
             "script_score": {
@@ -547,11 +546,11 @@ def search_in_elasticsearch(query):
         }
     }
 
-    # Realiza la búsqueda usando el cuerpo de la consulta
-    response = es_client.search(index=INDICE_ELASTICSEARCH, body=search_query)
+    response = es_client.search(index=indice_elasticsearch, body=search_query)
     app.logger.info("Búsqueda completada en Elasticsearch")
     app.logger.info(response)
     return response
+
 
 def generar_respuesta(texto):
     app.logger.info(f"Generando respuesta con GPT-4 para el texto: {texto}")
