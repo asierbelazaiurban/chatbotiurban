@@ -832,11 +832,13 @@ def ask():
 
             if not ultima_respuesta:
                 ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                ultima_respuesta = False
                 if ultima_respuesta:
                     fuente_respuesta = 'preestablecida'
 
             if not ultima_respuesta:
                 ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                ultima_respuesta = False
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
 
