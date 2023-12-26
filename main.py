@@ -485,7 +485,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 # Función para preprocesar texto
 def preprocess_text(text):
     if isinstance(text, dict):
-        text = text.get('clave_del_texto', '')  # Reemplaza 'clave_del_texto' con la clave real
+        text = text.get('clave_del_texto', '')  # Asegúrate de que 'clave_del_texto' sea la clave correcta
     if not isinstance(text, str):
         app.logger.warning(f"Se esperaba una cadena, pero se recibió: {type(text)}")
         return ""
@@ -497,7 +497,6 @@ def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-# Función para cargar y preprocesar datos
 def load_and_preprocess_data(file_path):
     app.logger.info(f"Cargando y preprocesando datos desde {file_path}")
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -510,13 +509,11 @@ def load_and_preprocess_data(file_path):
     app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
 
-# Función para generar embeddings de GPT
 def generate_gpt_embeddings(text):
     app.logger.info("Generando embedding de GPT para el texto")
     response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
     return response['data'][0]['embedding']
 
-# Función para indexar datos en Elasticsearch
 def index_data_to_elasticsearch(dataset):
     actions = []
     for item in dataset:
@@ -533,7 +530,6 @@ def index_data_to_elasticsearch(dataset):
     bulk(es_client, actions)
     app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
 
-# Función para buscar en Elasticsearch
 def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
     query_embedding = generate_gpt_embeddings(query)
@@ -565,14 +561,11 @@ def generar_respuesta(texto):
     )
     return response.choices[0].message['content'].strip()
 
-# Función para cargar un dataset
 def cargar_dataset(chatbot_id):
-    BASE_DATASET_DIR = "ruta_a_tu_directorio_de_dataset"
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     with open(dataset_file_path, 'r', encoding='utf-8') as file:
         return json.load(file)
 
-# Función para seleccionar la mejor respuesta
 def seleccionar_mejor_respuesta(resultados):
     mejor_puntuacion = -1
     mejor_respuesta = ""
@@ -584,7 +577,6 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
-# Función para mejorar respuestas generales con OpenAI
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
     if not pregunta or not respuesta:
         app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
@@ -618,17 +610,16 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
-# Función para encontrar la mejor respuesta en el dataset
 def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
-        resultados_busqueda = search_in_elasticsearch(textos_dataset)
+        resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
         contexto_procesado = preprocess_text(contexto) if contexto else ""
         texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
-        resultados_busqueda = search_in_elasticsearch(texto_busqueda)
+        resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(
@@ -638,7 +629,6 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
         )
     return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
 
-# Función para preparar datos para el afinamiento de modelos
 def prepare_data_for_finetuning(json_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -652,8 +642,8 @@ def prepare_data_for_finetuning(json_file_path):
         file.write(text_data)
     return temp_file_path
 
-# Función para afinar un modelo
 def finetune_model(model, tokenizer, file_path, output_dir):
+    from transformers import TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
     try:
         train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
         data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
@@ -674,7 +664,7 @@ def finetune_model(model, tokenizer, file_path, output_dir):
         trainer.train()
         return True
     except Exception as e:
-        print(f"Error durante el afinamiento: {e}")
+        app.logger.error(f"Error durante el afinamiento: {e}")
         return False
 
 
