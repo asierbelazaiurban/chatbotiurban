@@ -624,27 +624,33 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
+def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id, indice_elasticsearch=INDICE_ELASTICSEARCH):
     pregunta_procesada = preprocess_text(ultima_pregunta)
 
+    # Si no hay contexto, busca directamente en el dataset
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
-        resultados_busqueda = search_in_elasticsearch(textos_dataset)
+        resultados_busqueda = search_in_elasticsearch(textos_dataset, indice_elasticsearch)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
         contexto_procesado = preprocess_text(contexto) if contexto else ""
         texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
-        resultados_busqueda = search_in_elasticsearch(texto_busqueda)
+        resultados_busqueda = search_in_elasticsearch(texto_busqueda, indice_elasticsearch)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
+    # Si se encuentra una respuesta, mejorarla con GPT
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(
             pregunta=ultima_pregunta,
             respuesta=mejor_respuesta,
+            new_prompt="",
+            contexto_adicional=contexto,
+            temperature="0.7",
+            model_gpt="gpt-4-1106-preview",
             chatbot_id=chatbot_id
         )
 
-    return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
+    return mejor_respuesta if mejor_respuesta else False
 
 
 def prepare_data_for_finetuning(json_file_path):
