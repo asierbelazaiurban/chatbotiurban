@@ -670,6 +670,7 @@ def finetune_model(model, tokenizer, file_path, output_dir):
     except Exception as e:
         print(f"Error durante el afinamiento: {e}")
         return False
+        
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
