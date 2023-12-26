@@ -359,7 +359,6 @@ def identificar_saludo_despedida(frase):
             ]
         )
 
-
         # Interpretar la respuesta
         respuesta = response.choices[0].message['content'].strip().lower()
         respuesta = unidecode.unidecode(respuesta)
