@@ -39,6 +39,8 @@ from sentence_transformers import SentenceTransformer, util
 import gensim.downloader as api
 from deep_translator import GoogleTranslator
 from elasticsearch import Elasticsearch, helpers
+from elasticsearch.helpers import bulk
+
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM, GPT2Tokenizer, TextDataset, DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
 from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
@@ -511,13 +513,13 @@ def generate_gpt_embeddings(text):
     response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
     return response['data'][0]['embedding']
 
-def index_data_to_elasticsearch(dataset):
-    app.logger.info("Indexando datos y embeddings en Elasticsearch")
+def index_data_to_elasticsearch(dataset, indice_elasticsearch):
+    # Asegúrate de que el mapeo del índice es adecuado para tus necesidades
     actions = []
     for item in dataset:
         embedding = generate_gpt_embeddings(item['text'])
         action = {
-            "_index": INDICE_ELASTICSEARCH,
+            "_index": indice_elasticsearch,
             "_id": item['id'],
             "_source": {
                 "text": item['text'],
@@ -525,7 +527,7 @@ def index_data_to_elasticsearch(dataset):
             }
         }
         actions.append(action)
-    helpers.bulk(es_client, actions)
+    bulk(es_client, actions)
     app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
 
 def search_in_elasticsearch(query):
@@ -628,29 +630,29 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
-# Función para encontrar la mejor respuesta en el dataset
-def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None, chatbot_id=""):
-    app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
+def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id, indice_elasticsearch):
     pregunta_procesada = preprocess_text(ultima_pregunta)
 
+    # Si no hay contexto, busca directamente en el dataset
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
-        resultados_busqueda = search_in_elasticsearch(textos_dataset)
+        resultados_busqueda = search_in_elasticsearch(textos_dataset, indice_elasticsearch)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
         contexto_procesado = preprocess_text(contexto) if contexto else ""
         texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
-        resultados_busqueda = search_in_elasticsearch(texto_busqueda)
+        resultados_busqueda = search_in_elasticsearch(texto_busqueda, indice_elasticsearch)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
+    # Si se encuentra una respuesta, mejorarla con GPT
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(
-            pregunta=ultima_pregunta, 
-            respuesta=mejor_respuesta, 
-            new_prompt="", 
-            contexto_adicional=contexto, 
-            temperature="", 
-            model_gpt="", 
+            pregunta=ultima_pregunta,
+            respuesta=mejor_respuesta,
+            new_prompt="",
+            contexto_adicional=contexto,
+            temperature="0.7",
+            model_gpt="gpt-4-1106-preview",
             chatbot_id=chatbot_id
         )
 
