@@ -553,10 +553,17 @@ def load_and_preprocess_data(file_path):
     app.logger.info(f"Cargando y preprocesando datos desde {file_path}")
     with open(file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
+    
     for item in data:
-        item['text'] = preprocess_text(item['text'])
+        # Asegurarse de que 'text' es una cadena antes de llamar a preprocess_text
+        if isinstance(item['text'], str):
+            item['text'] = preprocess_text(item['text'])
+        else:
+            app.logger.warning(f"El item no es una cadena: {item}")
+
     app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
+
 
 def generate_gpt_embeddings(text):
     app.logger.info("Generando embedding de GPT para el texto")
