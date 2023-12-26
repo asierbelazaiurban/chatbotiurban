@@ -251,48 +251,45 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
         return False
 
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
-    # Verificar si hay pregunta y respuesta
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", contexto_adicional="", temperature="", model_gpt="", chatbot_id=""):
     if not pregunta or not respuesta:
         app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
         return False
 
-    # Configurar la clave API de OpenAI
     openai.api_key = os.environ.get('OPENAI_API_KEY')
 
-    # Definir las rutas base para los prompts
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
-    new_prompt = ""
 
-    # Intentar cargar el new_prompt desde los prompts, según chatbot_id
-    if chatbot_id:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+    prompt_personalizado = None
+    if new_prompt:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, new_prompt)
         try:
             with open(prompt_file_path, 'r') as file:
-                new_prompt = file.read()
+                prompt_personalizado = file.read()
         except Exception as e:
-            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+            app.logger.error(f"Error al cargar prompt personalizado: {e}")
 
-    # Si no se ha proporcionado new_prompt, usar un prompt personalizado
-    if not new_prompt:
-        new_prompt = ("Somos una agencia de turismo especializada. Mejora la respuesta con estas instrucciones claras: "
-                      "1. Mantén la coherencia con la pregunta original. "
-                      "2. Responde siempre en el mismo idioma de la pregunta. "
-                      "3. Si falta información, sugiere contactar a info@iurban.es.")
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
+    )
 
-    # Construir el prompt base
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta}\n--\n{new_prompt}"
-    app.logger.info(prompt_base)
+    if contexto_adicional:
+        final_prompt += f" Contexto adicional: {contexto_adicional}"
 
-    # Generar la respuesta mejorada
+    prompt_base = f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma del contexto"
+
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model=model_gpt if model_gpt else "gpt-4-1106-preview",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": respuesta}
             ],
-            temperature=0.5
+            temperature=float(temperature) if temperature else 0.5
         )
         return response.choices[0].message['content'].strip()
     except Exception as e:
@@ -586,15 +583,6 @@ def seleccionar_mejor_respuesta(resultados):
 
 # Función para encontrar la mejor respuesta en el dataset
 
-Para integrar la función mejorar_respuesta_generales_con_openai en el flujo de trabajo existente, primero debes definir esta función y luego modificar encontrar_respuesta para utilizarla. Aquí te muestro cómo hacerlo:
-
-Primero, la función mejorar_respuesta_generales_con_openai:
-
-python
-Copy code
-import os
-import openai
-
 def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
     # Verificar si hay pregunta y respuesta
     if not pregunta or not respuesta:
@@ -646,24 +634,28 @@ def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None, 
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
 
-    # Si no hay contexto, busca directamente en el dataset
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
         resultados_busqueda = search_in_elasticsearch(textos_dataset)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
-        # Si hay contexto, lo procesa y lo incluye en la búsqueda
         contexto_procesado = preprocess_text(contexto) if contexto else ""
         texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
         resultados_busqueda = search_in_elasticsearch(texto_busqueda)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-    # Si se encuentra una respuesta, mejorarla con GPT
     if mejor_respuesta:
-        return mejorar_respuesta_generales_con_openai(ultima_pregunta, mejor_respuesta, chatbot_id)
+        return mejorar_respuesta_generales_con_openai(
+            pregunta=ultima_pregunta, 
+            respuesta=mejor_respuesta, 
+            new_prompt="", 
+            contexto_adicional=contexto, 
+            temperature="", 
+            model_gpt="", 
+            chatbot_id=chatbot_id
+        )
 
     return mejor_respuesta if mejor_respuesta else False
-
 
 
 def prepare_data_for_finetuning(json_file_path):
