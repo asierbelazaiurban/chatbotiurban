@@ -918,6 +918,7 @@ def ask():
 
 
 
+
 @app.route('/uploads', methods=['POST'])
 def upload_file():
     if 'documento' not in request.files:
