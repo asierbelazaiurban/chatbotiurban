@@ -893,7 +893,7 @@ def ask():
                 fuente_respuesta = 'respuesta_por_defecto'
                 #ultima_respuesta = seleccionar_respuesta_por_defecto()
                 #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
-                ultima_respuesta False
+                ultima_respuesta = False
 
             if ultima_respuesta:
                 ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
