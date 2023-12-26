@@ -541,6 +541,13 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
 def preprocess_text(text):
+    if isinstance(text, dict):
+        text = text.get('clave_del_texto', '')  # Cambia 'clave_del_texto' por la clave real
+
+    if not isinstance(text, str):
+        app.logger.warning(f"Se esperaba una cadena, pero se recibió: {type(text)}")
+        return ""
+
     app.logger.info("Preprocesando texto")
     text = text.lower()
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
@@ -553,9 +560,8 @@ def load_and_preprocess_data(file_path):
     app.logger.info(f"Cargando y preprocesando datos desde {file_path}")
     with open(file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
-    
+
     for item in data:
-        # Asegurarse de que 'text' es una cadena antes de llamar a preprocess_text
         if isinstance(item['text'], str):
             item['text'] = preprocess_text(item['text'])
         else:
@@ -563,8 +569,6 @@ def load_and_preprocess_data(file_path):
 
     app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
-
-
 
 def generate_gpt_embeddings(text):
     app.logger.info("Generando embedding de GPT para el texto")
