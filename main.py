@@ -641,25 +641,28 @@ def seleccionar_mejor_respuesta(resultados):
     return mejor_respuesta
 
 # Función para encontrar la mejor respuesta en el dataset
-def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None):
+def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None, chatbot_id=""):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
-    
+
     # Si no hay contexto, busca directamente en el dataset
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
         resultados_busqueda = search_in_elasticsearch(textos_dataset)
-        return seleccionar_mejor_respuesta(resultados_busqueda)
+        mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
+    else:
+        # Si hay contexto, lo procesa y lo incluye en la búsqueda
+        contexto_procesado = preprocess_text(contexto) if contexto else ""
+        texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
+        resultados_busqueda = search_in_elasticsearch(texto_busqueda)
+        mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-    # Si hay contexto, lo procesa y lo incluye en la búsqueda
-    contexto_procesado = preprocess_text(contexto) if contexto else ""
-    texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
-    resultados_busqueda = search_in_elasticsearch(texto_busqueda)
-    
-    mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
+    # Si se encuentra una respuesta, mejorarla con GPT
+    if mejor_respuesta:
+        return mejorar_respuesta_generales_con_openai(ultima_pregunta, mejor_respuesta, chatbot_id)
 
-    # Devuelve la mejor respuesta encontrada o una indicación de falta de información
-    return mejor_respuesta if mejor_respuesta else False
+    return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
+
 
 
 
