@@ -538,6 +538,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
 
 ####### NUEVO SITEMA DE BUSQUEDA #######
+
 def preprocess_text(text):
     app.logger.info("Preprocesando texto")
     text = text.lower()
@@ -599,27 +600,25 @@ def generar_respuesta(texto):
     response = openai.Completion.create(engine="gpt-4-1106-preview", prompt=texto, max_tokens=150)
     return response.choices[0].text.strip()
 
-def encontrar_respuesta(ultima_pregunta, contexto=None):
+def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
-    
-    # Procesar el contexto si está disponible
     contexto_procesado = preprocess_text(contexto) if contexto else ""
+    texto_busqueda = contexto_procesado
 
-    # Realizar la búsqueda en Elasticsearch
-    if contexto_procesado:
-        resultados_busqueda = search_in_elasticsearch(contexto_procesado)
+    if datos_del_dataset:
+        textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
+        texto_busqueda += f" {textos_dataset}"
+
+    if texto_busqueda:
+        resultados_busqueda = search_in_elasticsearch(texto_busqueda)
         textos_combinados = " ".join([hit['_source']['text'] for hit in resultados_busqueda['hits']['hits']])
     else:
         textos_combinados = ""
 
-    # Preparar el texto completo para GPT-4
     texto_completo_para_gpt = f"Pregunta: {pregunta_procesada}\nContexto: {textos_combinados}"
-    
-    # Generar una respuesta con GPT-4
     respuesta = generar_respuesta(texto_completo_para_gpt)
     return respuesta
-
 
 def prepare_data_for_finetuning(json_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -636,7 +635,6 @@ def prepare_data_for_finetuning(json_file_path):
 
 def finetune_model(model, tokenizer, file_path, output_dir):
     try:
-        # Configuración y entrenamiento como antes
         train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
         data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
         training_args = TrainingArguments(
@@ -655,14 +653,12 @@ def finetune_model(model, tokenizer, file_path, output_dir):
         )
         trainer.train()
 
-        return True  # Entrenamiento completado con éxito
+        return True
     except Exception as e:
         print(f"Error durante el afinamiento: {e}")
-        return False 
+        return False
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
-
-
 
 
 # Nuevo Procesamiento de consultas de usuario
@@ -841,7 +837,7 @@ def ask():
                 ultima_respuesta = False
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
-                    
+
 
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
             if not ultima_respuesta and os.path.exists(dataset_file_path):
