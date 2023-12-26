@@ -641,6 +641,62 @@ def seleccionar_mejor_respuesta(resultados):
     return mejor_respuesta
 
 # Función para encontrar la mejor respuesta en el dataset
+
+Para integrar la función mejorar_respuesta_generales_con_openai en el flujo de trabajo existente, primero debes definir esta función y luego modificar encontrar_respuesta para utilizarla. Aquí te muestro cómo hacerlo:
+
+Primero, la función mejorar_respuesta_generales_con_openai:
+
+python
+Copy code
+import os
+import openai
+
+def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
+    # Verificar si hay pregunta y respuesta
+    if not pregunta or not respuesta:
+        app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
+        return None
+
+    # Configurar la clave API de OpenAI
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Definir las rutas base para los prompts
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+    new_prompt = ""
+
+    # Intentar cargar el new_prompt desde los prompts, según chatbot_id
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+        try:
+            with open(prompt_file_path, 'r') as file:
+                new_prompt = file.read()
+        except Exception as e:
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+
+    # Si no se ha proporcionado new_prompt, usar un prompt predeterminado
+    if not new_prompt:
+        new_prompt = ("Por favor, mejora la respuesta manteniendo la coherencia con la pregunta original. "
+                      "Responde en el mismo idioma de la pregunta.")
+
+    # Construir el prompt base
+    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta}\n--\n{new_prompt}"
+    app.logger.info(prompt_base)
+
+    # Generar la respuesta mejorada
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4-1106-preview",
+            messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": respuesta}
+            ],
+            temperature=0.5
+        )
+        return response.choices[0].message['content'].strip()
+    except Exception as e:
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        return None
+
 def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None, chatbot_id=""):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
@@ -661,8 +717,7 @@ def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None, 
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(ultima_pregunta, mejor_respuesta, chatbot_id)
 
-    return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
-
+    return mejor_respuesta if mejor_respuesta else False
 
 
 
