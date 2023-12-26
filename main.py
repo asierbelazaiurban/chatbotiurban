@@ -577,39 +577,6 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
-def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
-    if not pregunta or not respuesta:
-        app.logger.info("Pregunta o respuesta no proporcionada. No se puede procesar la mejora.")
-        return None
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-    BASE_PROMPTS_DIR = "data/uploads/prompts/"
-    new_prompt = ""
-    if chatbot_id:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
-        try:
-            with open(prompt_file_path, 'r') as file:
-                new_prompt = file.read()
-        except Exception as e:
-            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
-    if not new_prompt:
-        new_prompt = ("Por favor, mejora la respuesta manteniendo la coherencia con la pregunta original. "
-                      "Responde en el mismo idioma de la pregunta.")
-    prompt_base = f"Pregunta: {pregunta}\nRespuesta: {respuesta}\n--\n{new_prompt}"
-    app.logger.info(prompt_base)
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
-            messages=[
-                {"role": "system", "content": prompt_base},
-                {"role": "user", "content": respuesta}
-            ],
-            temperature=0.5
-        )
-        return response.choices[0].message['content'].strip()
-    except Exception as e:
-        app.logger.error(f"Error al interactuar con OpenAI: {e}")
-        return None
-
 def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
