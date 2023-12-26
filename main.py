@@ -882,7 +882,7 @@ def ask():
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto, INDICE_ELASTICSEARCH)
                 if ultima_respuesta:
                     fuente_respuesta = 'dataset'
 
