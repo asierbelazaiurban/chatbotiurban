@@ -630,7 +630,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, chatbot_id=""):
         app.logger.error(f"Error al interactuar con OpenAI: {e}")
         return None
 
-def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id, indice_elasticsearch):
+def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id, indice_elasticsearch=INDICE_ELASTICSEARCH):
     pregunta_procesada = preprocess_text(ultima_pregunta)
 
     # Si no hay contexto, busca directamente en el dataset
