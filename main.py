@@ -615,6 +615,11 @@ def generar_respuesta(texto):
     )
     return response.choices[0].message['content'].strip()
 
+def cargar_dataset(chatbot_id):
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+    with open(dataset_file_path, 'r', encoding='utf-8') as file:
+        return json.load(file)
+
 def seleccionar_mejor_respuesta(resultados):
     mejor_puntuacion = -1
     mejor_respuesta = ""
@@ -628,6 +633,7 @@ def seleccionar_mejor_respuesta(resultados):
 
     return mejor_respuesta
 
+# Función para encontrar la mejor respuesta en el dataset
 def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None):
     app.logger.info(f"Encontrando respuesta para la pregunta: {ultima_pregunta}")
     pregunta_procesada = preprocess_text(ultima_pregunta)
@@ -645,12 +651,9 @@ def encontrar_respuesta(ultima_pregunta, contexto=None, datos_del_dataset=None):
     
     mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-    # Utiliza GPT solo si no se encuentra una respuesta en el dataset
-    if not mejor_respuesta:
-        texto_completo_para_gpt = f"Pregunta: {pregunta_procesada}\nContexto: {contexto_procesado}"
-        mejor_respuesta = generar_respuesta(texto_completo_para_gpt)
+    # Devuelve la mejor respuesta encontrada o una indicación de falta de información
+    return mejor_respuesta if mejor_respuesta else False
 
-    return mejor_respuesta
 
 
 def prepare_data_for_finetuning(json_file_path):
