@@ -608,6 +608,7 @@ def search_in_elasticsearch(query):
     # Realiza la búsqueda usando el cuerpo de la consulta
     response = es_client.search(index=INDICE_ELASTICSEARCH, body=search_query)
     app.logger.info("Búsqueda completada en Elasticsearch")
+    app.logger.info(response)
     return response
 
 def generar_respuesta(texto):
