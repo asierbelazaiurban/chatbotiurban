@@ -134,6 +134,7 @@ BASE_CACHE_DIR =  "data/uploads/cache/"
 BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
+BASE_PROMPTS_DIR = "data/uploads/prompts/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
