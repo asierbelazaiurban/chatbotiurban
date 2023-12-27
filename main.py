@@ -566,9 +566,11 @@ def seleccionar_mejor_respuesta(resultados):
     return mejor_respuesta
 
 
-
-def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
+def encontrar_respuesta(ultima_pregunta, contexto, chatbot_id):
     # Funciones adicionales como preprocess_text, search_in_elasticsearch, seleccionar_mejor_respuesta se asumen definidas en otro lugar
+
+    # Llamada a la función cargar_dataset para obtener los datos del dataset
+    datos_del_dataset = cargar_dataset(chatbot_id)
 
     pregunta_procesada = preprocess_text(ultima_pregunta)
     mejor_respuesta = None
@@ -583,9 +585,9 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
         resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-    # Si no se encuentra una respuesta, retornar False
     if not mejor_respuesta:
         return "No se ha encontrado una respuesta adecuada"
+
 
     # Proceso de mejora de la respuesta con OpenAI
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
@@ -852,7 +854,7 @@ def ask():
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto, INDICE_ELASTICSEARCH)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, contexto, chatbot_id)
                 if ultima_respuesta:
                     fuente_respuesta = 'dataset'
 
