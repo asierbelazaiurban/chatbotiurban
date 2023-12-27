@@ -510,7 +510,7 @@ def load_and_preprocess_data(file_path):
     app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
 
- cache_embeddings = {}
+cache_embeddings = {}
 
 def obtener_o_generar_embedding(texto):
     if texto in cache_embeddings:
