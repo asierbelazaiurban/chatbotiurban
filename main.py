@@ -171,7 +171,7 @@ if not os.path.exists(BASE_GPT2_DIR):
 
 # Descarga y guarda el tokenizer en la carpeta especificada
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-tokenizer.save_pretrained(BASE_GPT2_DIR)""""
+tokenizer.save_pretrained(BASE_GPT2_DIR)"""
 
 model_name = "gpt2" 
 
