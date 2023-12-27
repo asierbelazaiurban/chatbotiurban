@@ -577,7 +577,11 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
-def encontrar_respuesta(ultima_pregunta, contexto_adicional="", datos_del_dataset, chatbot_id):
+def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
+    
+    if not contexto 
+        contexto = ""
+
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
@@ -614,10 +618,10 @@ def encontrar_respuesta(ultima_pregunta, contexto_adicional="", datos_del_datase
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles."
     )
 
-    if contexto_adicional:
-        final_prompt += f" Contexto adicional: {contexto_adicional}"
+    if contexto:
+        final_prompt += f" Contexto adicional: {contexto}"
 
-    contexto = f"Contexto: {contexto_adicional}\n" if contexto_adicional else ""
+    contexto = f"Contexto: {contexto}\n" if contexto else ""
     prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta"
 
     if mejor_respuesta:
