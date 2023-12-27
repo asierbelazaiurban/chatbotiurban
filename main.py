@@ -167,13 +167,19 @@ if not os.path.exists(BASE_GPT2_DIR):
     os.makedirs(BASE_GPT2_DIR)
 
 # Nombre del modelo de GPT-2 que deseas descargar
-model_name = "gpt2"  # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
+ # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
 
 # Descarga y guarda el tokenizer en la carpeta especificada
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 tokenizer.save_pretrained(BASE_GPT2_DIR)""""
 
+model_name = "gpt2" 
 
+# Cargar el tokenizer
+tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+
+# Cargar el modelo
+model = GPT2LMHeadModel.from_pretrained(model_name)
 
 
 
@@ -627,7 +633,6 @@ def seleccionar_mejor_respuesta(resultados):
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-
 
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
