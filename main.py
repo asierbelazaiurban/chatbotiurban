@@ -551,16 +551,26 @@ def search_in_elasticsearch(query, indice_elasticsearch):
     return response
 
 # Función para generar respuestas con GPT-4
-def generar_respuesta(texto):
+def generar_respuesta(texto, max_length=2047):
     app.logger.info(f"Generando respuesta con GPT-4 para el texto: {texto}")
+
+    # Preprocesa el texto para reducir su longitud si es necesario
+    texto_procesado = preprocess_text(texto)
+    
+    # Comprueba la longitud del texto procesado
+    if len(texto_procesado) > max_length:
+        app.logger.warning(f"Texto demasiado largo, truncando a {max_length} caracteres.")
+        texto_procesado = texto_procesado[:max_length]
+
     response = openai.ChatCompletion.create(
         model="gpt-4-1106-preview",
         messages=[
             {"role": "system", "content": "Por favor, responde a la siguiente pregunta."},
-            {"role": "user", "content": texto}
+            {"role": "user", "content": texto_procesado}
         ]
     )
     return response.choices[0].message['content'].strip()
+
 
 def cargar_dataset(chatbot_id):
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
