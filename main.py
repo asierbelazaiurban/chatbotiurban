@@ -590,7 +590,7 @@ def encontrar_respuesta(ultima_pregunta, contexto_adicional, datos_del_dataset, 
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
     app.logger.info("mejor_respuesta")
-    app.logger.info(mejor_respuesta
+    app.logger.info(mejor_respuesta)
 
     # Definir las rutas base para los prompts
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
