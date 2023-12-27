@@ -549,10 +549,11 @@ def obtener_o_generar_embedding(texto):
     return embedding   
 
 def generate_gpt_embeddings(text):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True, max_length=512)
     with torch.no_grad():
         outputs = model(**inputs)
-    return outputs.last_hidden_state.mean(dim=1).cpu().numpy()
+    # Tomar la salida del último token como representación del embedding
+    return outputs.logits[:, -1, :].cpu().numpy()
 
 def index_data_to_elasticsearch(dataset, es_client, index_name):
     actions = []
