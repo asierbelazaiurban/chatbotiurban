@@ -523,9 +523,19 @@ def obtener_o_generar_embedding(texto):
     return embedding   
 
 def generate_gpt_embeddings(text):
-    app.logger.info("Generando embedding de GPT para el texto")
-    response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
-    return response['data'][0]['embedding']
+    try:
+        app.logger.info("Generando embedding de GPT para el texto")
+        response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
+        
+        # Verificar si 'data' es una lista y contiene al menos un elemento
+        if isinstance(response.get('data'), list) and len(response['data']) > 0:
+            return response['data'][0].get('embedding')
+        else:
+            app.logger.error("La respuesta no tiene el formato esperado: 'data' no es una lista o está vacía.")
+            return None
+    except Exception as e:
+        app.logger.error(f"Error al generar el embedding: {e}")
+        return None
 
 
 def index_data_to_elasticsearch(dataset):
@@ -1479,95 +1489,7 @@ def list_folders():
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
 
-def fine_tuning():
-    app.logger.info("Iniciando el proceso de afinamiento.")
-    
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        app.logger.error("Falta chatbot_id en la solicitud.")
-        return jsonify({'error': 'Falta chatbot_id'}), 400
 
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-    model_name = 'EleutherAI/gpt-neo-2.7B'
-    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-    model = GPTNeoForCausalLM.from_pretrained(model_name)
-
-    if os.path.exists(json_file_path):
-        raw_datasets = load_dataset('json', data_files=json_file_path, field='dialogue')
-        tokenized_datasets = raw_datasets.map(
-            lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
-            batched=True
-        )
-
-        training_args = TrainingArguments(
-            output_dir=f'./model_output_finetuning_{chatbot_id}',
-            num_train_epochs=3,
-            per_device_train_batch_size=2,
-            save_steps=10_000,
-            save_total_limit=2,
-        )
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=tokenized_datasets["train"],
-            tokenizer=tokenizer
-        )
-
-        trainer.train()
-        return jsonify({'message': f'Afinamiento completado para chatbot_id {chatbot_id}'}), 200
-    else:
-        return jsonify({'error': 'Archivo de afinamiento no encontrado'}), 404
-
-
-@app.route('/train_with_dataset', methods=['POST'])
-def train_with_dataset():
-    app.logger.info("Iniciando el proceso de entrenamiento con dataset.")
-    
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        app.logger.error("Falta chatbot_id en la solicitud.")
-        return jsonify({'error': 'Falta chatbot_id'}), 400
-
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    model_name = 'EleutherAI/gpt-neo-2.7B'
-    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-    model = GPTNeoForCausalLM.from_pretrained(model_name)
-
-    if os.path.exists(dataset_file_path):
-        raw_datasets = load_dataset('json', data_files=dataset_file_path)
-
-        # Verificar si la estructura del JSON es la correcta
-        if 'text' in raw_datasets['train'].features:
-            tokenized_datasets = raw_datasets.map(
-                lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
-                batched=True
-            )
-
-            training_args = TrainingArguments(
-                output_dir=f'./model_output_training_{chatbot_id}',
-                num_train_epochs=3,
-                per_device_train_batch_size=2,
-                save_steps=10_000,
-                save_total_limit=2,
-            )
-
-            trainer = Trainer(
-                model=model,
-                args=training_args,
-                train_dataset=tokenized_datasets["train"],
-                tokenizer=tokenizer
-            )
-
-            trainer.train()
-            return jsonify({'message': f'Entrenamiento completado para chatbot_id {chatbot_id}'}), 200
-        else:
-            app.logger.error("La estructura del JSON no es la esperada.")
-            return jsonify({'error': 'Estructura del archivo JSON incorrecta'}), 500
-    else:
-        return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
@@ -1591,7 +1513,7 @@ def finetune():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-        
+
 
 @app.route('/run_tests', methods=['POST'])
 def run_tests():
