@@ -650,7 +650,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
         contexto_procesado = preprocess_text(contexto) if contexto else ""
-        resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
+        resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
 
