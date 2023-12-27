@@ -549,8 +549,6 @@ def search_in_elasticsearch(query, indice_elasticsearch):
     return response
 
 
-
-
 def cargar_dataset(chatbot_id):
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     with open(dataset_file_path, 'r', encoding='utf-8') as file:
@@ -567,8 +565,14 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
+
+
 def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
+    # Funciones adicionales como preprocess_text, search_in_elasticsearch, seleccionar_mejor_respuesta se asumen definidas en otro lugar
+
     pregunta_procesada = preprocess_text(ultima_pregunta)
+    mejor_respuesta = None
+
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
         resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
@@ -578,13 +582,51 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
         texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
         resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
-    if mejor_respuesta:
-        return mejorar_respuesta_generales_con_openai(
-            pregunta=ultima_pregunta,
-            respuesta=mejor_respuesta,
-            chatbot_id=chatbot_id
+
+    # Si no se encuentra una respuesta, retornar False
+    if not mejor_respuesta:
+        return False
+
+    # Proceso de mejora de la respuesta con OpenAI
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+
+    new_prompt_by_id = None
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+        try:
+            with open(prompt_file_path, 'r') as file:
+                new_prompt_by_id = file.read()
+            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+        except Exception as e:
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+
+    new_prompt = new_prompt_by_id if new_prompt_by_id else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original y el contexto proporcionado. "
+        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
+    )
+
+    # Construir el prompt base teniendo en cuenta el contexto
+    prompt_base = f"Contexto: {contexto}\n Pregunta: {ultima_pregunta}\nRespuesta: {mejor_respuesta}\n--\n{new_prompt}. Asegúrate de mantener la coherencia con el contexto y la pregunta al responder."
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4-1106-preview",  # Cambiar según el modelo que se esté utilizando
+            messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": mejor_respuesta}
+            ],
+            temperature=0.5  # Ajustar según sea necesario
         )
-    return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
+        mejor_respuesta_mejorada = response.choices[0].message['content'].strip()
+        return mejor_respuesta_mejorada
+    except Exception as e:
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        return mejor_respuesta  # Retorna la respuesta original si la mejora falla
+
+
 
 def prepare_data_for_finetuning(json_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -820,7 +862,7 @@ def ask():
                 #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
                 ultima_respuesta = False
 
-            if ultima_respuesta:
+            if ultima_respuesta and fuente_respuesta != 'dataset':
                 ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                     pregunta=ultima_pregunta, 
                     respuesta=ultima_respuesta, 
