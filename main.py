@@ -576,6 +576,23 @@ def index_data_to_elasticsearch(dataset, es_client, index_name):
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
+
+def extraer_ideas_clave_con_gpt2(texto, max_length=50):
+    # Formular una solicitud al modelo para identificar ideas clave
+    prompt = f"Texto: {texto}\n\nIdeas clave:"
+    
+    # Codificar el prompt para el modelo
+    inputs = tokenizer.encode(prompt, return_tensors='pt', max_length=1024, truncation=True)
+    
+    # Generar la respuesta del modelo
+    outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
+    
+    # Decodificar y limpiar la respuesta
+    ideas_clave = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    ideas_clave = ideas_clave.replace(prompt, "").strip()  # Limpiar el prompt del resultado
+    
+    return ideas_clave
+
 def generar_resumen_con_gpt2(texto, max_length=200):
     # Formular una solicitud de resumen al modelo
     prompt = f"Resumen: {texto}\n\nResumen Corto:"
@@ -596,9 +613,14 @@ def generar_resumen_con_gpt2(texto, max_length=200):
 def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
 
-    query_resumida = generar_resumen_con_gpt2(query)
-    fragmentos = dividir_texto_largo(query)
+    # Extraer ideas clave de la consulta
+    query_resumida = extraer_ideas_clave_con_gpt2(query)
+    app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
+
+    # Realizar la búsqueda con la consulta resumida
+    fragmentos = dividir_texto_largo(query_resumida)
     resultados_combinados = []
+
 
     for fragmento in fragmentos:
         embedding = obtener_o_generar_embedding(fragmento)
