@@ -230,13 +230,13 @@ def mejorar_respuesta_con_openai(respuesta_original, pregunta, chatbot_id):
     new_prompt = new_prompt_by_id if new_prompt_by_id else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
         "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE"
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
 
-    # Construir el prompt base
-    prompt_base = f"Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{new_prompt}. Respondiendo siempre en el idioma del contexto"
+    contexto = f"Contexto: {contexto}\n" if contexto else ""
+    prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
 
     # Intentar generar la respuesta mejorada
     try:
@@ -596,33 +596,19 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
     app.logger.info("mejor_respuesta")
     app.logger.info(mejor_respuesta)
 
-    # Definir las rutas base para los prompts
-    BASE_PROMPTS_DIR = "data/uploads/prompts/"
-
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-
-    prompt_personalizado = None
-    if new_prompt:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+    # Intentar cargar el prompt específico desde los prompts, según chatbot_id
+    new_prompt_by_id = None
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
             with open(prompt_file_path, 'r') as file:
-                prompt_personalizado = file.read()
+                new_prompt_by_id = file.read()
+            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
         except Exception as e:
-            app.logger.error(f"Error al cargar prompt personalizado: {e}")
-
-    final_prompt = prompt_personalizado if prompt_personalizado else (
-        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE"
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
-    )
-
-    if contexto:
-        final_prompt += f" Contexto adicional: {contexto}"
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
     contexto = f"Contexto: {contexto}\n" if contexto else ""
-    prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {respuesta_original}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta"
+    prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
 
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(
