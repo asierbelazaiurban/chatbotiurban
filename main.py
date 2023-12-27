@@ -264,7 +264,7 @@ def mejorar_respuesta_generales_con_openai(pregunta, respuesta, new_prompt="", c
 
     prompt_personalizado = None
     if new_prompt:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
             with open(prompt_file_path, 'r') as file:
                 prompt_personalizado = file.read()
