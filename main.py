@@ -770,17 +770,21 @@ def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_promp
         f"Pregunta: {pregunta}\n y Respuesta: {seccion}\n--\n{final_prompt}. Respondiendo siempre en el idioma del contexto"
     )
 
-    # Llamada a la API de OpenAI
     try:
-        response = openai.Completion.create(
-            engine="gpt-3.5-turbo-1106",
-            prompt=prompt_base,
-            max_tokens=4097  # Máximo número de tokens
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-1106",  # Cambiar según el modelo que se esté utilizando
+            messages=[
+                {"role": "system", "content": prompt_base}
+            ],
+            max_tokens=3900,
+            temperature=0.5  # Ajustar según sea necesario
         )
-        return response.choices[0].text.strip()
+        mejor_respuesta_mejorada = response.choices[0].message['content'].strip()
+        return mejor_respuesta_mejorada
     except Exception as e:
-        app.logger.error(f"Error al llamar a OpenAI: {e}")
-        return ""
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        return mejor_respuesta  # Retorna la respuesta original si la mejora falla
+
 
 
 ####### FIN BUSQUEDA Alternativa #######
