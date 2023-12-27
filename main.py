@@ -69,10 +69,12 @@ from werkzeug.datastructures import FileStorage
 import chardet
 import evaluate
 import unidecode
+import json
 from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
 from transformers import GPT2Tokenizer, GPT2Model
+from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 
 # ---------------------------
 # Módulos Locales
@@ -173,14 +175,10 @@ if not os.path.exists(BASE_GPT2_DIR):
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 tokenizer.save_pretrained(BASE_GPT2_DIR)"""
 
-model_name = "gpt2" 
-
-# Cargar el tokenizer
-tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-
-# Cargar el modelo
-model = GPT2LMHeadModel.from_pretrained(model_name)
-
+# Modelos y tokenizadores
+tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+tokenizer.pad_token = tokenizer.eos_token
+model = GPT2LMHeadModel.from_pretrained("gpt2")
 
 
 def allowed_file(filename, chatbot_id):
@@ -514,12 +512,12 @@ def preprocess_text(text):
     if not isinstance(text, str):
         return ""
     text = text.lower()
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)  # Elimina URLs
-    text = re.sub(r'@\w+', '', text)  # Elimina menciones
-    text = re.sub(r'#\w+', '', text)  # Elimina hashtags
-    text = text.translate(str.maketrans('', '', string.punctuation))  # Elimina puntuación
-    text = re.sub(r'\d+', '', text)  # Elimina números
-    text = re.sub(r'\s+', ' ', text).strip()  # Elimina espacios extra
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)
+    text = re.sub(r'@\w+', '', text)
+    text = re.sub(r'#\w+', '', text)
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
     return text
 
 def load_and_preprocess_data(file_path):
@@ -552,7 +550,6 @@ def generate_gpt_embeddings(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True, max_length=512)
     with torch.no_grad():
         outputs = model(**inputs)
-    # Tomar la salida del último token como representación del embedding
     return outputs.logits[:, -1, :].cpu().numpy()
 
 def index_data_to_elasticsearch(dataset, es_client, index_name):
@@ -576,51 +573,28 @@ def index_data_to_elasticsearch(dataset, es_client, index_name):
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
-
 def extraer_ideas_clave_con_gpt2(texto, max_length=50):
-    # Formular una solicitud al modelo para identificar ideas clave
     prompt = f"Texto: {texto}\n\nIdeas clave:"
-    
-    # Codificar el prompt para el modelo
     inputs = tokenizer.encode(prompt, return_tensors='pt', max_length=1024, truncation=True)
-    
-    # Generar la respuesta del modelo
     outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
-    
-    # Decodificar y limpiar la respuesta
     ideas_clave = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    ideas_clave = ideas_clave.replace(prompt, "").strip()  # Limpiar el prompt del resultado
-    
+    ideas_clave = ideas_clave.replace(prompt, "").strip()
     return ideas_clave
 
 def generar_resumen_con_gpt2(texto, max_length=200):
-    # Formular una solicitud de resumen al modelo
     prompt = f"Resumen: {texto}\n\nResumen Corto:"
-    
-    # Codificar el prompt para el modelo
     inputs = tokenizer.encode(prompt, return_tensors='pt', max_length=1024, truncation=True)
-    
-    # Generar la respuesta del modelo
     outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
-    
-    # Decodificar y limpiar la respuesta
     resumen = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    resumen = resumen.replace(prompt, "").strip()  # Limpiar el prompt del resultado
-    
+    resumen = resumen.replace(prompt, "").strip()
     return resumen
 
-
-def search_in_elasticsearch(query, indice_elasticsearch):
+def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
-
-    # Extraer ideas clave de la consulta
     query_resumida = extraer_ideas_clave_con_gpt2(query)
     app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
-
-    # Realizar la búsqueda con la consulta resumida
     fragmentos = dividir_texto_largo(query_resumida)
     resultados_combinados = []
-
 
     for fragmento in fragmentos:
         embedding = obtener_o_generar_embedding(fragmento)
@@ -633,35 +607,32 @@ def search_in_elasticsearch(query, indice_elasticsearch):
                         "params": {"query_vector": embedding}
                     }
                 }
-            }
+            },
+            "size": max_size
         }
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         resultados_combinados.extend(respuesta['hits']['hits'])
 
-    # Eliminar duplicados y ordenar por relevancia
     resultados_unicos = {}
     for resultado in resultados_combinados:
         id_doc = resultado['_id']
         if id_doc not in resultados_unicos:
             resultados_unicos[id_doc] = resultado
         else:
-            # Actualizar con el resultado de mayor score
             if resultado['_score'] > resultados_unicos[id_doc]['_score']:
                 resultados_unicos[id_doc] = resultado
 
-    # Ordenar los resultados por su puntuación (_score)
     resultados_ordenados = sorted(resultados_unicos.values(), key=lambda x: x['_score'], reverse=True)
+    for resultado in resultados_ordenados:
+        resultado['_source']['text'] = resultado['_source']['text'][:max_size]
 
     return resultados_ordenados
-
 
 def generar_respuesta_con_gpt2(texto, max_length=2047):
     texto_procesado = preprocess_text(texto)[:max_length]
     inputs = tokenizer.encode(texto_procesado, return_tensors='pt')
     outputs = model.generate(inputs, max_length=max_length)
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-
 
 def cargar_dataset(chatbot_id):
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
@@ -671,9 +642,7 @@ def cargar_dataset(chatbot_id):
 def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
-
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
@@ -685,12 +654,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-    app.logger.info("mejor_respuesta")
-    app.logger.info(mejor_respuesta)
-
-    # Intentar cargar el prompt específico desde los prompts, según chatbot_id
     prompt_personalizado = None
-
     prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
     try:
         with open(prompt_file_path, 'r') as file:
@@ -706,27 +670,15 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
 
-
     contexto = f"Contexto: {contexto}\n" if contexto else ""
     prompt_base = f"Contexto: {contexto} regunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
 
     if mejor_respuesta:
-        return mejorar_respuesta_generales_con_openai(
-            pregunta=ultima_pregunta,
-            respuesta=mejor_respuesta,
-            new_prompt="",  # Añade un prompt personalizado si lo tienes
-            contexto_adicional=contexto,  # Añade contexto adicional si es necesario
-            temperature="",  # Establece la temperatura si es necesario
-            model_gpt="gpt-4-1106-preview",  # Especifica el modelo de GPT-4 a utilizar
-            chatbot_id=chatbot_id
-        )
-        
-    return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
+        respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
+        return respuesta_corta
+    return "No se encontró una respuesta adecuada en el dataset."
 
-
-import json
-from transformers import GPT2Tokenizer, GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
-
+# Fine-tuning de GPT-2
 def prepare_data_for_finetuning(json_file_path, output_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -736,10 +688,8 @@ def prepare_data_for_finetuning(json_file_path, output_file_path):
             if dialogue:
                 file.write(f"{dialogue}\n\n")
 
-# Fine-tuning de GPT-2
 def finetune_gpt2(file_path, output_dir, model_name="gpt2", epochs=1, batch_size=2):
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-    tokenizer.pad_token = tokenizer.eos_token
     model = GPT2LMHeadModel.from_pretrained(model_name)
     train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
@@ -1538,6 +1488,7 @@ def finetune():
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
+        app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
 
 
