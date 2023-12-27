@@ -670,7 +670,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     )
 
     contexto = f"Contexto: {contexto}\n" if contexto else ""
-    prompt_base = f"Contexto: {contexto} Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
+    prompt_base = f"{contexto} Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
 
     if mejor_respuesta:
         respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
