@@ -515,6 +515,7 @@ def generate_gpt_embeddings(text):
     response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
     return response['data'][0]['embedding']
 
+
 def index_data_to_elasticsearch(dataset):
     actions = []
     for item in dataset:
@@ -530,6 +531,7 @@ def index_data_to_elasticsearch(dataset):
         actions.append(action)
     bulk(es_client, actions)
     app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
+
 
 def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
