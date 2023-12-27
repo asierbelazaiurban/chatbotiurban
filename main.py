@@ -44,6 +44,7 @@ from elasticsearch.helpers import bulk
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM, GPT2Tokenizer, TextDataset, DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
 from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
+from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -690,30 +691,37 @@ def prepare_data_for_finetuning(json_file_path):
         file.write(text_data)
     return temp_file_path
 
-def finetune_model(model, tokenizer, file_path, output_dir):
-    from transformers import TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
-    try:
-        train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
-        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            overwrite_output_dir=True,
-            num_train_epochs=3,
-            per_device_train_batch_size=2,
-            save_steps=10_000,
-            save_total_limit=2,
-        )
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            data_collator=data_collator,
-            train_dataset=train_dataset
-        )
-        trainer.train()
-        return True
-    except Exception as e:
-        app.logger.error(f"Error durante el afinamiento: {e}")
-        return False
+def finetune_gpt2(file_path, output_dir, model_name="gpt2", epochs=3, batch_size=2):
+    model = GPT2LMHeadModel.from_pretrained(model_name)
+    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+    tokenizer.pad_token = tokenizer.eos_token
+    train_dataset = TextDataset(
+        tokenizer=tokenizer,
+        file_path=file_path,
+        block_size=128
+    )
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer, 
+        mlm=False
+    )
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        overwrite_output_dir=True,
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        save_steps=10_000,
+        save_total_limit=2,
+    )
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        data_collator=data_collator,
+        train_dataset=train_dataset
+    )
+    trainer.train()
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+
 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
@@ -1561,48 +1569,29 @@ def train_with_dataset():
     else:
         return jsonify({'error': 'Archivo de entrenamiento no encontrado'}), 404
 
-@app.route('/fine_tuning', methods=['POST'])
-def fine_tuning():
-    app.logger.info("Iniciando el proceso de afinamiento.")
-    
-    data = request.json
-    chatbot_id = data.get('chatbot_id')
-    if not chatbot_id:
-        app.logger.error("Falta chatbot_id en la solicitud.")
-        return jsonify({'error': 'Falta chatbot_id'}), 400
+@app.route('/finetune', methods=['POST'])
+def finetune():
+    try:
+        data = request.get_json()
+        chatbot_id = data.get("chatbot_id")
+        if not chatbot_id:
+            return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-    json_file_path = f'data/uploads/pre_established_answers/{chatbot_id}/pre_established_answers.json'
-    model_name = 'EleutherAI/gpt-neo-2.7B'
-    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-    model = GPTNeoForCausalLM.from_pretrained(model_name)
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
-    if os.path.exists(json_file_path):
-        raw_datasets = load_dataset('json', data_files=json_file_path, field='dialogue')
-        tokenized_datasets = raw_datasets.map(
-            lambda examples: tokenizer(examples['text'], truncation=True, padding='max_length'), 
-            batched=True
-        )
+        file_path = prepare_data_for_finetuning(dataset_file_path)
+        if not file_path:
+            return jsonify({"error": "Error al preparar los datos para el fine-tuning"}), 500
 
-        training_args = TrainingArguments(
-            output_dir=f'./model_output_finetuning_{chatbot_id}',
-            num_train_epochs=3,
-            per_device_train_batch_size=2,
-            save_steps=10_000,
-            save_total_limit=2,
-        )
+        output_dir = f"finetuned_model_{chatbot_id}"
 
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=tokenized_datasets["train"],
-            tokenizer=tokenizer
-        )
+        finetune_gpt2(file_path, output_dir)
 
-        trainer.train()
-        return jsonify({'message': f'Afinamiento completado para chatbot_id {chatbot_id}'}), 200
-    else:
-        return jsonify({'error': 'Archivo de afinamiento no encontrado'}), 404
+        return jsonify({"message": "Fine-tuning completado con éxito"}), 200
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
 
 @app.route('/run_tests', methods=['POST'])
 def run_tests():
