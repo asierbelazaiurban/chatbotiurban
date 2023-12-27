@@ -578,10 +578,7 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
-def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
-    
-    if not contexto: 
-        contexto = ""
+def encontrar_respuesta(ultima_pregunta, contexto='', datos_del_dataset, chatbot_id):
 
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
@@ -599,13 +596,13 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
 
     # Intentar cargar el prompt específico desde los prompts, según chatbot_id
     prompt_personalizado = None
-    if new_prompt:
-        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
-        try:
-            with open(prompt_file_path, 'r') as file:
-                prompt_personalizado = file.read()
-        except Exception as e:
-            app.logger.error(f"Error al cargar prompt personalizado: {e}")
+
+    prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+    try:
+        with open(prompt_file_path, 'r') as file:
+            prompt_personalizado = file.read()
+    except Exception as e:
+        app.logger.error(f"Error al cargar prompt personalizado: {e}")
 
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
