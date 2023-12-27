@@ -579,7 +579,7 @@ def seleccionar_mejor_respuesta(resultados):
 
 def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
     
-    if not contexto 
+    if not contexto: 
         contexto = ""
 
     pregunta_procesada = preprocess_text(ultima_pregunta)
