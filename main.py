@@ -695,18 +695,38 @@ def dividir_en_secciones(texto, limite_tokens = 3900):
 
     return secciones
 
-
 def procesar_y_combinar(secciones, pregunta, contexto):
     respuestas = []
     contexto_actual = contexto
 
+    # Procesar cada sección individualmente
     for seccion in secciones:
         respuesta = enviar_a_api(seccion, pregunta, contexto_actual)
         respuestas.append(respuesta)
-        contexto_actual = respuesta
+        contexto_actual += " " + respuesta
 
-    respuesta_final = " ".join(respuestas)
-    return respuesta_final
+    # Combinar todas las respuestas para formar un texto único
+    texto_combinado = " ".join(respuestas)
+
+    # Llamar a la API de OpenAI para generar una respuesta coherente y lógica
+    prompt_final = (
+        f"Contexto: {contexto}\n"
+        f"Pregunta: {pregunta}\n"
+        f"Respuestas individuales: {texto_combinado}\n\n"
+        "Genera una respuesta final coherente y lógica basada en las respuestas individuales."
+    )
+    
+    try:
+        response = openai.Completion.create(
+            engine="gpt-4-1106-preview",
+            prompt=prompt_final,
+            max_tokens=4097  # Máximo número de tokens
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        app.logger.error(f"Error al llamar a OpenAI para la respuesta final: {e}")
+        return None
+
 
 def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_prompt=None):
     # Comprobación inicial
@@ -745,13 +765,16 @@ def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_promp
     )
 
     # Llamada a la API de OpenAI
-    response = openai.Completion.create(
-        engine="gpt-4-1106-preview",
-        prompt=prompt_base,
-        max_tokens=4097  # Máximo número de tokens
-    )
-    return response.choices[0].text.strip()
-
+    try:
+        response = openai.Completion.create(
+            engine="gpt-3.5-turbo-1106",
+            prompt=prompt_base,
+            max_tokens=4097  # Máximo número de tokens
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        app.logger.error(f"Error al llamar a OpenAI: {e}")
+        return False
 
 ####### FIN BUSQUEDA Alternativa #######
 
