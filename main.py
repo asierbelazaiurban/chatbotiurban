@@ -653,6 +653,10 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
+
+        app.logger.info("eeeeeee mejor_respuesta es:")
+        app.logger.info(mejor_respuesta)
+
     prompt_personalizado = None
     prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
     try:
