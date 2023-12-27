@@ -510,6 +510,17 @@ def load_and_preprocess_data(file_path):
     app.logger.info("Datos cargados y preprocesados exitosamente")
     return data
 
+ cache_embeddings = {}
+
+def obtener_o_generar_embedding(texto):
+    if texto in cache_embeddings:
+        app.logger.info("Usando embedding almacenado en cache")
+        return cache_embeddings[texto]
+    app.logger.info("Generando nuevo embedding y almacenando en cache")
+    embedding = generate_gpt_embeddings(texto)
+    cache_embeddings[texto] = embedding
+    return embedding   
+
 def generate_gpt_embeddings(text):
     app.logger.info("Generando embedding de GPT para el texto")
     response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
@@ -525,44 +536,55 @@ def index_data_to_elasticsearch(dataset):
             "_id": item['id'],
             "_source": {
                 "text": item['text'],
-                "embedding": embedding
+                "embedding": embedding.tolist()
             }
         }
         actions.append(action)
     bulk(es_client, actions)
     app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
 
+def dividir_texto_largo(texto, max_longitud=MAX_TOKENS_PER_SEGMENT):
+    return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
-def search_in_elasticsearch(query, indice_elasticsearch, max_length=2047):
+def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
 
-    # Dividir el query en fragmentos si es demasiado largo
-    if len(query) > max_length:
-        fragments = [query[i:i+max_length] for i in range(0, len(query), max_length)]
-    else:
-        fragments = [query]
+    fragmentos = dividir_texto_largo(query)
+    resultados_combinados = []
 
-    combined_results = []
-    for fragment in fragments:
-        query_embedding = generate_gpt_embeddings(fragment)
-        search_query = {
+    for fragmento in fragmentos:
+        embedding = obtener_o_generar_embedding(fragmento)
+        query_busqueda = {
             "query": {
                 "script_score": {
                     "query": {"match_all": {}},
                     "script": {
                         "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
-                        "params": {"query_vector": query_embedding}
+                        "params": {"query_vector": embedding}
                     }
                 }
             }
         }
-        response = es_client.search(index=indice_elasticsearch, body=search_query)
-        combined_results.extend(response['hits']['hits'])
+        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
+        resultados_combinados.extend(respuesta['hits']['hits'])
 
-    # Aquí puedes implementar lógica para filtrar y ordenar los resultados combinados
-    # Por ejemplo, eliminar duplicados, ordenar por relevancia, etc.
+    # Eliminar duplicados y ordenar por relevancia
+    resultados_unicos = {}
+    for resultado in resultados_combinados:
+        id_doc = resultado['_id']
+        if id_doc not in resultados_unicos:
+            resultados_unicos[id_doc] = resultado
+        else:
+            # Actualizar con el resultado de mayor score
+            if resultado['_score'] > resultados_unicos[id_doc]['_score']:
+                resultados_unicos[id_doc] = resultado
 
-    return combined_results
+    # Ordenar los resultados por su puntuación (_score)
+    resultados_ordenados = sorted(resultados_unicos.values(), key=lambda x: x['_score'], reverse=True)
+
+    return resultados_ordenados
+
+
 
 # Función para generar respuestas con GPT-4
 def generar_respuesta(texto, max_length=2047):
@@ -602,7 +624,8 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
-def encontrar_respuesta(ultima_pregunta, contexto="", datos_del_dataset="", chatbot_id=""):
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+
 
     pregunta_procesada = preprocess_text(ultima_pregunta)
     if not contexto and datos_del_dataset:
