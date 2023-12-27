@@ -159,16 +159,16 @@ es_client = Elasticsearch(
 )
 
 
+# Crea la carpeta si no existe
 if not os.path.exists(BASE_GPT2_DIR):
-    os.makedirs(BASE_GPT2_DIR)  # Crea la carpeta si no existe
+    os.makedirs(BASE_GPT2_DIR)
 
-model_name = "gpt2"  # Puedes elegir un modelo específico como "gpt2-medium", "gpt2-large", etc.
-model = GPT2LMHeadModel.from_pretrained(model_name)
+# Nombre del modelo de GPT-2 que deseas descargar
+model_name = "gpt2"  # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
+
+# Descarga y guarda el tokenizer en la carpeta especificada
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-
-# Carga el modelo y el tokenizer fine-tuned
-tokenizer = GPT2Tokenizer.from_pretrained(BASE_GPT2_DIR)
-model = GPT2Model.from_pretrained(BASE_GPT2_DIR)
+tokenizer.save_pretrained(BASE_GPT2_DIR)
 
 
 
