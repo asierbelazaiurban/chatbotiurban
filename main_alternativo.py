@@ -155,7 +155,6 @@ es_client = Elasticsearch(
 )
 
 
-
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
     app.logger.info(f'Tiempo total en {function_name}: {time.time() - start_time:.2f} segundos')
@@ -549,17 +548,6 @@ def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(response)
     return response
 
-# Función para generar respuestas con GPT-4
-def generar_respuesta(texto):
-    app.logger.info(f"Generando respuesta con GPT-4 para el texto: {texto}")
-    response = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": "Por favor, responde a la siguiente pregunta."},
-            {"role": "user", "content": texto}
-        ]
-    )
-    return response.choices[0].message['content'].strip()
 
 def cargar_dataset(chatbot_id):
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
@@ -577,10 +565,18 @@ def seleccionar_mejor_respuesta(resultados):
             mejor_respuesta = respuesta_potencial
     return mejor_respuesta
 
-def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
+
+def encontrar_respuesta(ultima_pregunta, contexto, chatbot_id):
+    # Funciones adicionales como preprocess_text, search_in_elasticsearch, seleccionar_mejor_respuesta se asumen definidas en otro lugar
+
+    # Llamada a la función cargar_dataset para obtener los datos del dataset
+    datos_del_dataset = cargar_dataset(chatbot_id)
+
     pregunta_procesada = preprocess_text(ultima_pregunta)
+    mejor_respuesta = None
+
     if not contexto and datos_del_dataset:
-        textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
+        textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
         resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
@@ -589,20 +585,49 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
         resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-    app.logger.info("mejor_respuesta")
-    app.logger.info(mejor_respuesta)
-    if mejor_respuesta:
-        return mejorar_respuesta_generales_con_openai(
-            pregunta=ultima_pregunta,
-            respuesta=mejor_respuesta,
-            new_prompt="",  # Añade un prompt personalizado si lo tienes
-            contexto_adicional=contexto,  # Añade contexto adicional si es necesario
-            temperature="",  # Establece la temperatura si es necesario
-            model_gpt="gpt-4-1106-preview",  # Especifica el modelo de GPT-4 a utilizar
-            chatbot_id=chatbot_id
+    if not mejor_respuesta:
+        return "No se ha encontrado una respuesta adecuada"
+
+
+    # Proceso de mejora de la respuesta con OpenAI
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+
+    new_prompt_by_id = None
+    if chatbot_id:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+        try:
+            with open(prompt_file_path, 'r') as file:
+                new_prompt_by_id = file.read()
+            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+        except Exception as e:
+            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+
+    new_prompt = new_prompt_by_id if new_prompt_by_id else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original y el contexto proporcionado. "
+        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
+    )
+
+    # Construir el prompt base teniendo en cuenta el contexto
+    prompt_base = f"Contexto: {contexto}\n Pregunta: {ultima_pregunta}\nRespuesta: {mejor_respuesta}\n--\n{new_prompt}. Asegúrate de mantener la coherencia con el contexto y la pregunta al responder."
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4-1106-preview",  # Cambiar según el modelo que se esté utilizando
+            messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": mejor_respuesta}
+            ],
+            temperature=0.5  # Ajustar según sea necesario
         )
-        
-    return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
+        mejor_respuesta_mejorada = response.choices[0].message['content'].strip()
+        return mejor_respuesta_mejorada
+    except Exception as e:
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        return mejor_respuesta  # Retorna la respuesta original si la mejora falla
+
 
 
 def prepare_data_for_finetuning(json_file_path):
@@ -645,6 +670,124 @@ def finetune_model(model, tokenizer, file_path, output_dir):
 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
+
+
+####### BUSQUEDA Alternativa #######
+
+def dividir_en_secciones(texto, limite_tokens=3900):
+    palabras = texto.split()
+    secciones = []
+    seccion_actual = ""
+    tokens_actuales = 0
+
+    for palabra in palabras:
+        tokens_palabra = len(palabra) / 4  # Asumiendo 4 caracteres por token
+        if tokens_actuales + tokens_palabra > limite_tokens:
+            secciones.append(seccion_actual.strip())
+            seccion_actual = palabra
+            tokens_actuales = tokens_palabra
+        else:
+            seccion_actual += " " + palabra
+            tokens_actuales += tokens_palabra
+
+    if seccion_actual:
+        secciones.append(seccion_actual.strip())
+
+    return secciones
+
+
+def procesar_y_combinar(secciones, pregunta, contexto):
+    respuestas = []
+    contexto_actual = contexto
+
+    for seccion in secciones:
+        respuesta = enviar_a_api(seccion, pregunta, contexto_actual)
+        if respuesta:  # Verificar que la respuesta no esté vacía
+            respuestas.append(respuesta)
+            contexto_actual += " " + respuesta
+        else:
+            app.logger.error("Error al procesar la sección, se recibió una respuesta vacía.")
+            break  # O manejar el error como prefieras
+
+    texto_combinado = " ".join(respuestas)
+
+    prompt_final = (
+        f"Contexto: {contexto}\n"
+        f"Pregunta: {pregunta}\n"
+        f"Respuestas individuales: {texto_combinado}\n\n"
+        "Genera una respuesta final coherente y lógica basada en las respuestas individuales."
+    )
+    
+    try:
+        response = openai.Completion.create(
+            engine="gpt-3.5-turbo-1106",
+            prompt=prompt_final,
+            max_tokens=4097
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        app.logger.error(f"Error al llamar a OpenAI para la respuesta final: {e}")
+        return ""
+
+    return texto_combinado
+
+
+
+def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_prompt=None):
+    # Comprobación inicial
+    if not pregunta or not seccion:
+        app.logger.info("Pregunta o sección no proporcionada. No se puede procesar la mejora.")
+        return ""
+
+    # Configuración de la clave API
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Manejo del prompt personalizado
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+    prompt_personalizado = None
+    if new_prompt:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        try:
+            with open(prompt_file_path, 'r') as file:
+                prompt_personalizado = file.read()
+        except Exception as e:
+            app.logger.error(f"Error al cargar prompt personalizado: {e}")
+            return ""
+
+    # Prompt final
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles."
+    )
+
+    if contexto_adicional:
+        final_prompt += f" Contexto adicional: {contexto_adicional}"
+
+    prompt_base = (
+        f"Responde con menos de 50 palabras. Nunca respondas cosas que no tengan relación entre "
+        f"Pregunta: {pregunta}\n y Respuesta: {seccion}\n--\n{final_prompt}. Respondiendo siempre en el idioma del contexto"
+    )
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-1106",  # Cambiar según el modelo que se esté utilizando
+            messages=[
+                {"role": "system", "content": prompt_base}
+            ],
+            max_tokens=3900,
+            temperature=0.5  # Ajustar según sea necesario
+        )
+        mejor_respuesta_mejorada = response.choices[0].message['content'].strip()
+        return mejor_respuesta_mejorada
+    except Exception as e:
+        app.logger.error(f"Error al interactuar con OpenAI: {e}")
+        return mejor_respuesta  # Retorna la respuesta original si la mejora falla
+
+
+
+####### FIN BUSQUEDA Alternativa #######
 
 
 # Nuevo Procesamiento de consultas de usuario
@@ -808,7 +951,8 @@ def ask():
             return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
 
         if ultima_respuesta == "":
-            ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
+            ##ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
+            ultima_respuesta = False
             if ultima_respuesta:
                 fuente_respuesta = 'saludo_o_despedida'
 
@@ -825,13 +969,24 @@ def ask():
                     fuente_respuesta = 'eventos'
 
 
+            app.logger.info(f"Cargando dataset para chatbot_id {chatbot_id}")
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
             if not ultima_respuesta and os.path.exists(dataset_file_path):
+                app.logger.info(f"Cargando dataset desde {dataset_file_path} para chatbot_id {chatbot_id}")
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, contexto, INDICE_ELASTICSEARCH)
-                if ultima_respuesta:
-                    fuente_respuesta = 'dataset'
+                    texto_dataset = " ".join([dato['dialogue'] for dato in datos_del_dataset.values()])
+                app.logger.info("Dividiendo el dataset en secciones")
+                secciones = dividir_en_secciones(texto_dataset)
+                app.logger.info("Procesando y combinando secciones del dataset")
+                respuesta_final = procesar_y_combinar(secciones, ultima_pregunta, contexto)
+                ultima_respuesta = respuesta_final
+                fuente_respuesta = 'dataset_combinado'
+                app.logger.info("Respuesta generada a partir de la combinación del dataset")
+
+        if not ultima_respuesta:
+            fuente_respuesta = 'respuesta_por_defecto'
+            ultima_respuesta = seleccionar_respuesta_por_defecto()
 
             if not ultima_respuesta:
                 fuente_respuesta = 'respuesta_por_defecto'
