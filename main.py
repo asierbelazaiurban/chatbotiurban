@@ -72,6 +72,7 @@ import unidecode
 from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
+from transformers import GPT2Tokenizer, GPT2Model
 
 # ---------------------------
 # Módulos Locales
@@ -136,6 +137,7 @@ BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 BASE_PROMPTS_DIR = "data/uploads/prompts/"
+BASE_GPT2_DIR = "data/uploads/gpt2/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -156,7 +158,13 @@ es_client = Elasticsearch(
     basic_auth=("elastic", ELASTIC_PASSWORD)
 )
 
+model_name = "gpt2"  # Puedes elegir un modelo específico como "gpt2-medium", "gpt2-large", etc.
+model = GPT2LMHeadModel.from_pretrained(model_name)
+tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 
+# Carga el modelo y el tokenizer fine-tuned
+tokenizer = GPT2Tokenizer.from_pretrained(BASE_GPT2_DIR)
+model = GPT2Model.from_pretrained(BASE_GPT2_DIR)
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -522,21 +530,12 @@ def obtener_o_generar_embedding(texto):
     cache_embeddings[texto] = embedding
     return embedding   
 
-def generate_gpt_embeddings(text):
-    try:
-        app.logger.info("Generando embedding de GPT para el texto")
-        response = openai.Embedding.create(input=text, engine="text-similarity-babbage-001")
-        
-        # Verificar si 'data' es una lista y contiene al menos un elemento
-        if isinstance(response.get('data'), list) and len(response['data']) > 0:
-            return response['data'][0].get('embedding')
-        else:
-            app.logger.error("La respuesta no tiene el formato esperado: 'data' no es una lista o está vacía.")
-            return None
-    except Exception as e:
-        app.logger.error(f"Error al generar el embedding: {e}")
-        return None
 
+
+def generate_gpt_embeddings(text):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    outputs = model(**inputs)
+    return outputs.last_hidden_state.mean(dim=1).detach().numpy()
 
 def index_data_to_elasticsearch(dataset):
     actions = []
@@ -597,26 +596,18 @@ def search_in_elasticsearch(query, indice_elasticsearch):
 
 
 
-# Función para generar respuestas con GPT-4
-def generar_respuesta(texto, max_length=2047):
-    app.logger.info(f"Generando respuesta con GPT-4 para el texto: {texto}")
-
-    # Preprocesa el texto para reducir su longitud si es necesario
+def generar_respuesta_con_gpt2(texto, max_length=2047):
+    # Preprocesamiento y truncamiento del texto
     texto_procesado = preprocess_text(texto)
-    
-    # Comprueba la longitud del texto procesado
     if len(texto_procesado) > max_length:
-        app.logger.warning(f"Texto demasiado largo, truncando a {max_length} caracteres.")
         texto_procesado = texto_procesado[:max_length]
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": "Por favor, responde a la siguiente pregunta."},
-            {"role": "user", "content": texto_procesado}
-        ]
-    )
-    return response.choices[0].message['content'].strip()
+    # Generación de respuesta con GPT-2
+    inputs = tokenizer.encode(texto_procesado, return_tensors='pt')
+    outputs = model.generate(inputs, max_length=max_length)
+    respuesta = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    return respuesta
 
 
 def cargar_dataset(chatbot_id):
@@ -688,32 +679,25 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     return mejor_respuesta if mejor_respuesta else "No se encontró una respuesta adecuada en el dataset."
 
 
-def prepare_data_for_finetuning(json_file_path):
+import json
+from transformers import GPT2Tokenizer, GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+
+def prepare_data_for_finetuning(json_file_path, output_file_path):
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
-    text_data = ""
-    for item in data.values():
-        question = item["Pregunta"][0]
-        answer = item["respuesta"]
-        text_data += f"Pregunta: {question}\nRespuesta: {answer}\n\n"
-    temp_file_path = 'temp_finetune_data.txt'
-    with open(temp_file_path, 'w', encoding='utf-8') as file:
-        file.write(text_data)
-    return temp_file_path
+    with open(output_file_path, 'w', encoding='utf-8') as file:
+        for item in data.values():
+            dialogue = item.get("dialogue", "").strip()
+            if dialogue:
+                file.write(f"{dialogue}\n\n")
 
-def finetune_gpt2(file_path, output_dir, model_name="gpt2", epochs=3, batch_size=2):
-    model = GPT2LMHeadModel.from_pretrained(model_name)
+# Fine-tuning de GPT-2
+def finetune_gpt2(file_path, output_dir, model_name="gpt2", epochs=1, batch_size=2):
     tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
-    train_dataset = TextDataset(
-        tokenizer=tokenizer,
-        file_path=file_path,
-        block_size=128
-    )
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, 
-        mlm=False
-    )
+    model = GPT2LMHeadModel.from_pretrained(model_name)
+    train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     training_args = TrainingArguments(
         output_dir=output_dir,
         overwrite_output_dir=True,
@@ -731,7 +715,6 @@ def finetune_gpt2(file_path, output_dir, model_name="gpt2", epochs=3, batch_size
     trainer.train()
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
-
 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
@@ -1490,7 +1473,6 @@ def list_folders():
     return jsonify(folders)
 
 
-
 @app.route('/finetune', methods=['POST'])
 def finetune():
     try:
@@ -1500,17 +1482,16 @@ def finetune():
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        if not os.path.exists(dataset_file_path):
+            return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        file_path = prepare_data_for_finetuning(dataset_file_path)
-        if not file_path:
-            return jsonify({"error": "Error al preparar los datos para el fine-tuning"}), 500
+        temp_file_path = f"temp_finetune_data_{chatbot_id}.txt"
+        prepare_data_for_finetuning(dataset_file_path, temp_file_path)
 
         output_dir = f"finetuned_model_{chatbot_id}"
-
-        finetune_gpt2(file_path, output_dir)
+        finetune_gpt2(temp_file_path, output_dir)
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
