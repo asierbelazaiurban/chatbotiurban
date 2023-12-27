@@ -159,7 +159,10 @@ es_client = Elasticsearch(
 )
 
 
-# Crea la carpeta si no existe
+
+
+#Descargamos el modelo solo la primera vez
+"""# Crea la carpeta si no existe
 if not os.path.exists(BASE_GPT2_DIR):
     os.makedirs(BASE_GPT2_DIR)
 
@@ -168,7 +171,7 @@ model_name = "gpt2"  # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
 
 # Descarga y guarda el tokenizer en la carpeta especificada
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-tokenizer.save_pretrained(BASE_GPT2_DIR)
+tokenizer.save_pretrained(BASE_GPT2_DIR)""""
 
 
 
@@ -502,30 +505,31 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
 # Función para preprocesar texto
 def preprocess_text(text):
-    if isinstance(text, dict):
-        text = text.get('clave_del_texto', '')  # Asegúrate de que 'clave_del_texto' sea la clave correcta
     if not isinstance(text, str):
-        app.logger.warning(f"Se esperaba una cadena, pero se recibió: {type(text)}")
         return ""
-    app.logger.info("Preprocesando texto")
     text = text.lower()
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    text = re.sub(r'\d+', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'https?://\S+|www\.\S+', '', text)  # Elimina URLs
+    text = re.sub(r'@\w+', '', text)  # Elimina menciones
+    text = re.sub(r'#\w+', '', text)  # Elimina hashtags
+    text = text.translate(str.maketrans('', '', string.punctuation))  # Elimina puntuación
+    text = re.sub(r'\d+', '', text)  # Elimina números
+    text = re.sub(r'\s+', ' ', text).strip()  # Elimina espacios extra
     return text
 
 def load_and_preprocess_data(file_path):
-    app.logger.info(f"Cargando y preprocesando datos desde {file_path}")
-    with open(file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+    except Exception as e:
+        print(f"Error al cargar el archivo: {e}")
+        return []
+
+    processed_data = []
     for item in data:
-        if isinstance(item['text'], str):
-            item['text'] = preprocess_text(item['text'])
-        else:
-            app.logger.warning(f"El item no es una cadena: {item}")
-    app.logger.info("Datos cargados y preprocesados exitosamente")
-    return data
+        text = item.get('text')
+        if isinstance(text, str):
+            processed_data.append(preprocess_text(text))
+    return processed_data
 
 cache_embeddings = {}
 
@@ -538,19 +542,18 @@ def obtener_o_generar_embedding(texto):
     cache_embeddings[texto] = embedding
     return embedding   
 
-
-
 def generate_gpt_embeddings(text):
     inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
-    outputs = model(**inputs)
-    return outputs.last_hidden_state.mean(dim=1).detach().numpy()
+    with torch.no_grad():
+        outputs = model(**inputs)
+    return outputs.last_hidden_state.mean(dim=1).cpu().numpy()
 
-def index_data_to_elasticsearch(dataset):
+def index_data_to_elasticsearch(dataset, es_client, index_name):
     actions = []
     for item in dataset:
         embedding = generate_gpt_embeddings(item['text'])
         action = {
-            "_index": INDICE_ELASTICSEARCH,
+            "_index": index_name,
             "_id": item['id'],
             "_source": {
                 "text": item['text'],
@@ -558,11 +561,14 @@ def index_data_to_elasticsearch(dataset):
             }
         }
         actions.append(action)
-    bulk(es_client, actions)
-    app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
+    try:
+        bulk(es_client, actions)
+    except Exception as e:
+        app.logger.info(f"Error durante la indexación: {e}")
 
-def dividir_texto_largo(texto, max_longitud=MAX_TOKENS_PER_SEGMENT):
+def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
+
 
 def search_in_elasticsearch(query, indice_elasticsearch):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
@@ -603,19 +609,12 @@ def search_in_elasticsearch(query, indice_elasticsearch):
     return resultados_ordenados
 
 
-
 def generar_respuesta_con_gpt2(texto, max_length=2047):
-    # Preprocesamiento y truncamiento del texto
-    texto_procesado = preprocess_text(texto)
-    if len(texto_procesado) > max_length:
-        texto_procesado = texto_procesado[:max_length]
-
-    # Generación de respuesta con GPT-2
+    texto_procesado = preprocess_text(texto)[:max_length]
     inputs = tokenizer.encode(texto_procesado, return_tensors='pt')
     outputs = model.generate(inputs, max_length=max_length)
-    respuesta = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    return respuesta
 
 
 def cargar_dataset(chatbot_id):
@@ -624,15 +623,8 @@ def cargar_dataset(chatbot_id):
         return json.load(file)
 
 def seleccionar_mejor_respuesta(resultados):
-    mejor_puntuacion = -1
-    mejor_respuesta = ""
-    for hit in resultados['hits']['hits']:
-        respuesta_potencial = hit['_source']['text']
-        puntuacion = hit['_score']
-        if puntuacion > mejor_puntuacion:
-            mejor_puntuacion = puntuacion
-            mejor_respuesta = respuesta_potencial
-    return mejor_respuesta
+    return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
+
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
 
