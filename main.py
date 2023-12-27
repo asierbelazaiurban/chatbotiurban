@@ -598,18 +598,26 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
     app.logger.info(mejor_respuesta)
 
     # Intentar cargar el prompt específico desde los prompts, según chatbot_id
-    new_prompt_by_id = None
-    if chatbot_id:
+    prompt_personalizado = None
+    if new_prompt:
         prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
         try:
             with open(prompt_file_path, 'r') as file:
-                new_prompt_by_id = file.read()
-            app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
+                prompt_personalizado = file.read()
         except Exception as e:
-            app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
+            app.logger.error(f"Error al cargar prompt personalizado: {e}")
+
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE"
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
+    )
+
 
     contexto = f"Contexto: {contexto}\n" if contexto else ""
-    prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{new_prompt_by_id}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
+    prompt_base = f"Contexto: {contexto} regunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
 
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(
