@@ -158,6 +158,10 @@ es_client = Elasticsearch(
     basic_auth=("elastic", ELASTIC_PASSWORD)
 )
 
+
+if not os.path.exists(BASE_GPT2_DIR):
+    os.makedirs(BASE_GPT2_DIR)  # Crea la carpeta si no existe
+
 model_name = "gpt2"  # Puedes elegir un modelo específico como "gpt2-medium", "gpt2-large", etc.
 model = GPT2LMHeadModel.from_pretrained(model_name)
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
@@ -165,6 +169,10 @@ tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 # Carga el modelo y el tokenizer fine-tuned
 tokenizer = GPT2Tokenizer.from_pretrained(BASE_GPT2_DIR)
 model = GPT2Model.from_pretrained(BASE_GPT2_DIR)
+
+
+
+
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
