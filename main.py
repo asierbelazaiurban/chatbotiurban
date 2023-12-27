@@ -733,7 +733,7 @@ def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_promp
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
         "1. Mantén la coherencia con la pregunta original. "
         "2. Responde siempre en el mismo idioma de la pregunta. "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles.
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles."
     )
 
     if contexto_adicional:
