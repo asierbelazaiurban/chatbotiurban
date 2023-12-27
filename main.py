@@ -917,7 +917,8 @@ def ask():
             return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
 
         if ultima_respuesta == "":
-            ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
+            ##ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
+            ultima_respuesta = False
             if ultima_respuesta:
                 fuente_respuesta = 'saludo_o_despedida'
 
