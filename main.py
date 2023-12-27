@@ -934,16 +934,20 @@ def ask():
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
 
-
+            app.logger.info(f"Cargando dataset desde {dataset_file_path} para chatbot_id {chatbot_id}")
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
             if not ultima_respuesta and os.path.exists(dataset_file_path):
+                app.logger.info(f"Cargando dataset desde {dataset_file_path} para chatbot_id {chatbot_id}")
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
                     texto_dataset = " ".join([dato['texto'] for dato in datos_del_dataset])
+                app.logger.info("Dividiendo el dataset en secciones")
                 secciones = dividir_en_secciones(texto_dataset)
+                app.logger.info("Procesando y combinando secciones del dataset")
                 respuesta_final = procesar_y_combinar(secciones, ultima_pregunta, contexto)
                 ultima_respuesta = respuesta_final
                 fuente_respuesta = 'dataset_combinado'
+                app.logger.info("Respuesta generada a partir de la combinación del dataset")
 
         if not ultima_respuesta:
             fuente_respuesta = 'respuesta_por_defecto'
