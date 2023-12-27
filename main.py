@@ -533,24 +533,36 @@ def index_data_to_elasticsearch(dataset):
     app.logger.info("Datos y embeddings indexados exitosamente en Elasticsearch")
 
 
-def search_in_elasticsearch(query, indice_elasticsearch):
+def search_in_elasticsearch(query, indice_elasticsearch, max_length=2047):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
-    query_embedding = generate_gpt_embeddings(query)
-    search_query = {
-        "query": {
-            "script_score": {
-                "query": {"match_all": {}},
-                "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
-                    "params": {"query_vector": query_embedding}
+
+    # Dividir el query en fragmentos si es demasiado largo
+    if len(query) > max_length:
+        fragments = [query[i:i+max_length] for i in range(0, len(query), max_length)]
+    else:
+        fragments = [query]
+
+    combined_results = []
+    for fragment in fragments:
+        query_embedding = generate_gpt_embeddings(fragment)
+        search_query = {
+            "query": {
+                "script_score": {
+                    "query": {"match_all": {}},
+                    "script": {
+                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                        "params": {"query_vector": query_embedding}
+                    }
                 }
             }
         }
-    }
-    response = es_client.search(index=indice_elasticsearch, body=search_query)
-    app.logger.info("Búsqueda completada en Elasticsearch")
-    app.logger.info(response)
-    return response
+        response = es_client.search(index=indice_elasticsearch, body=search_query)
+        combined_results.extend(response['hits']['hits'])
+
+    # Aquí puedes implementar lógica para filtrar y ordenar los resultados combinados
+    # Por ejemplo, eliminar duplicados, ordenar por relevancia, etc.
+
+    return combined_results
 
 # Función para generar respuestas con GPT-4
 def generar_respuesta(texto, max_length=2047):
