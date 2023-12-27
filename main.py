@@ -418,60 +418,62 @@ def extraer_palabras_clave(pregunta):
 
 # Suponiendo que ya tienes definida la función comprobar_coherencia_gpt
 
-def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id):
-    # Funciones adicionales como preprocess_text, search_in_elasticsearch, seleccionar_mejor_respuesta se asumen definidas en otro lugar
+def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
+    # URL y headers para la solicitud HTTP
+    url = 'https://experimental.ciceroneweb.com/api/get-back-cache'
+    headers = {'Content-Type': 'application/json'}
+    payload = {'chatbot_id': chatbot_id}
 
-    pregunta_procesada = preprocess_text(ultima_pregunta)
-    mejor_respuesta = None
+    # Realizar solicitud HTTP con manejo de excepciones
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status()
+    except requests.RequestException as e:
+        app.logger.error(f"Error al realizar la solicitud HTTP: {e}")
+        return None
 
-    if not contexto and datos_del_dataset:
-        textos_dataset = " ".join([preprocess_text(dato) for dato in datos_del_dataset])
-        resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
-        mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
+    # Procesar la respuesta
+    data = response.json()
+
+    # Inicializar listas para preguntas y diccionario para respuestas
+    preguntas = []
+    respuestas = {}
+    for thread_id, pares in data.items():
+        for par in pares:
+            pregunta = par['pregunta']
+            respuesta = par['respuesta']
+            preguntas.append(pregunta)
+            respuestas[pregunta] = respuesta
+
+    # Verificar si hay preguntas en el caché
+    if not preguntas:
+        app.logger.info("No hay preguntas en el caché para comparar")
+        return None
+
+    # Vectorizar las preguntas
+    vectorizer = TfidfVectorizer()
+    matriz_tfidf = vectorizer.fit_transform(preguntas)
+
+    # Vectorizar la pregunta del usuario
+    pregunta_vectorizada = vectorizer.transform([pregunta_usuario])
+    
+    # Calcular similitudes
+    similitudes = cosine_similarity(pregunta_vectorizada, matriz_tfidf)
+
+    # Encontrar la pregunta más similar
+    indice_mas_similar = np.argmax(similitudes)
+    similitud_maxima = similitudes[0, indice_mas_similar]
+
+    # Umbral de similitud para considerar una respuesta válida
+    UMBRAL_SIMILITUD = 0.7
+    if similitud_maxima > UMBRAL_SIMILITUD:
+        pregunta_similar = preguntas[indice_mas_similar]
+        respuesta_similar = respuestas[pregunta_similar]
+        app.logger.info(f"Respuesta encontrada: {respuesta_similar}")
+        return respuesta_similar
     else:
-        contexto_procesado = preprocess_text(contexto) if contexto else ""
-        texto_busqueda = f"{pregunta_procesada} {contexto_procesado}".strip()
-        resultados_busqueda = search_in_elasticsearch(texto_busqueda, INDICE_ELASTICSEARCH)
-        mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
-
-    if mejor_respuesta:
-        BASE_PROMPTS_DIR = "data/uploads/prompts/"
-
-        new_prompt_by_id = None
-        if chatbot_id:
-            prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
-            try:
-                with open(prompt_file_path, 'r') as file:
-                    new_prompt_by_id = file.read()
-                app.logger.info(f"Prompt cargado con éxito desde prompts para chatbot_id {chatbot_id}.")
-            except Exception as e:
-                app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
-
-        new_prompt = new_prompt_by_id if new_prompt_by_id else (
-            "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-            "1. Mantén la coherencia con la pregunta original. "
-            "2. Responde siempre en el mismo idioma de la pregunta. Esto es lo mas importante"
-            "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        )
-
-        prompt_base = f"Nunca respondas cosas que no tengan relación entre Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{new_prompt}. Respondiendo siempre en el idioma de la pregunta es lo mas importante"
-
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4-1106-preview",  # Cambiar según el modelo que se esté utilizando
-                messages=[
-                    {"role": "system", "content": prompt_base},
-                    {"role": "user", "content": mejor_respuesta}
-                ],
-                temperature=0.5  # Ajustar según sea necesario
-            )
-            mejor_respuesta_mejorada = response.choices[0].message['content'].strip()
-            return mejor_respuesta_mejorada
-        except Exception as e:
-            app.logger.error(f"Error al interactuar con OpenAI: {e}")
-            return mejor_respuesta  # Retorna la respuesta original si la mejora falla
-
-    return mejor_respuesta if mejor_respuesta else False
+        app.logger.info("No se encontraron preguntas similares con suficiente similitud")
+        return False
 
 
 ####### Fin Sistema de cache #######
