@@ -609,7 +609,7 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
             app.logger.error(f"Error al cargar desde prompts para chatbot_id {chatbot_id}: {e}")
 
     contexto = f"Contexto: {contexto}\n" if contexto else ""
-    prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
+    prompt_base = f"{contexto}Nunca respondas cosas que no tengan relación entre Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{new_prompt_by_id}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
 
     if mejor_respuesta:
         return mejorar_respuesta_generales_con_openai(
