@@ -934,7 +934,7 @@ def ask():
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
 
-            app.logger.info(f"Cargando dataset desde {dataset_file_path} para chatbot_id {chatbot_id}")
+            app.logger.info(f"Cargando dataset desde para chatbot_id {chatbot_id}")
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 app.logger.info(f"Cargando dataset desde {dataset_file_path} para chatbot_id {chatbot_id}")
