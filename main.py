@@ -585,7 +585,7 @@ def encontrar_respuesta(ultima_pregunta, contexto, datos_del_dataset, chatbot_id
 
     # Si no se encuentra una respuesta, retornar False
     if not mejor_respuesta:
-        return False
+        return "No se ha encontrado una respuesta adecuada"
 
     # Proceso de mejora de la respuesta con OpenAI
     BASE_PROMPTS_DIR = "data/uploads/prompts/"
