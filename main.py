@@ -672,6 +672,90 @@ def finetune_model(model, tokenizer, file_path, output_dir):
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 
+####### BUSQUEDA Alternativa #######
+
+def dividir_en_secciones(texto, limite_tokens = 3900):
+    palabras = texto.split()
+    secciones = []
+    seccion_actual = ""
+    tokens_actuales = 0
+
+    for palabra in palabras:
+        tokens_palabra = len(palabra) / 4  # Asumiendo 4 caracteres por token
+        if tokens_actuales + tokens_palabra > limite_tokens:
+            secciones.append(seccion_actual.strip())
+            seccion_actual = palabra
+            tokens_actuales = tokens_palabra
+        else:
+            seccion_actual += " " + palabra
+            tokens_actuales += tokens_palabra
+
+    if seccion_actual:
+        secciones.append(seccion_actual.strip())
+
+    return secciones
+
+
+def procesar_y_combinar(secciones, pregunta, contexto):
+    respuestas = []
+    contexto_actual = contexto
+
+    for seccion in secciones:
+        respuesta = enviar_a_api(seccion, pregunta, contexto_actual)
+        respuestas.append(respuesta)
+        contexto_actual = respuesta
+
+    respuesta_final = " ".join(respuestas)
+    return respuesta_final
+
+def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_prompt=None):
+    # Comprobación inicial
+    if not pregunta or not seccion:
+        app.logger.info("Pregunta o sección no proporcionada. No se puede procesar la mejora.")
+        return False
+
+    # Configuración de la clave API
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+    # Manejo del prompt personalizado
+    BASE_PROMPTS_DIR = "data/uploads/prompts/"
+    prompt_personalizado = None
+    if new_prompt:
+        prompt_file_path = os.path.join(BASE_PROMPTS_DIR, new_prompt)
+        try:
+            with open(prompt_file_path, 'r') as file:
+                prompt_personalizado = file.read()
+        except Exception as e:
+            app.logger.error(f"Error al cargar prompt personalizado: {e}")
+
+    # Prompt final
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles.
+    )
+
+    if contexto_adicional:
+        final_prompt += f" Contexto adicional: {contexto_adicional}"
+
+    prompt_base = (
+        f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relación entre "
+        f"Pregunta: {pregunta}\n y Respuesta: {seccion}\n--\n{final_prompt}. Respondiendo siempre en el idioma del contexto"
+    )
+
+    # Llamada a la API de OpenAI
+    response = openai.Completion.create(
+        engine="gpt-4-1106-preview",
+        prompt=prompt_base,
+        max_tokens=4097  # Máximo número de tokens
+    )
+    return response.choices[0].text.strip()
+
+
+####### FIN BUSQUEDA Alternativa #######
+
+
 # Nuevo Procesamiento de consultas de usuario
 
 
@@ -854,9 +938,15 @@ def ask():
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, contexto, chatbot_id)
-                if ultima_respuesta:
-                    fuente_respuesta = 'dataset'
+                    texto_dataset = " ".join([dato['texto'] for dato in datos_del_dataset])
+                secciones = dividir_en_secciones(texto_dataset)
+                respuesta_final = procesar_y_combinar(secciones, ultima_pregunta, contexto)
+                ultima_respuesta = respuesta_final
+                fuente_respuesta = 'dataset_combinado'
+
+        if not ultima_respuesta:
+            fuente_respuesta = 'respuesta_por_defecto'
+            ultima_respuesta = seleccionar_respuesta_por_defecto()
 
             if not ultima_respuesta:
                 fuente_respuesta = 'respuesta_por_defecto'
@@ -864,7 +954,7 @@ def ask():
                 #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
                 ultima_respuesta = False
 
-            if ultima_respuesta and fuente_respuesta != 'dataset':
+            if ultima_respuesta:
                 ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
                     pregunta=ultima_pregunta, 
                     respuesta=ultima_respuesta, 
