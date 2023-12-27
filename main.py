@@ -674,7 +674,7 @@ def finetune_model(model, tokenizer, file_path, output_dir):
 
 ####### BUSQUEDA Alternativa #######
 
-def dividir_en_secciones(texto, limite_tokens = 3900):
+def dividir_en_secciones(texto, limite_tokens=3900):
     palabras = texto.split()
     secciones = []
     seccion_actual = ""
@@ -695,20 +695,22 @@ def dividir_en_secciones(texto, limite_tokens = 3900):
 
     return secciones
 
+
 def procesar_y_combinar(secciones, pregunta, contexto):
     respuestas = []
     contexto_actual = contexto
 
-    # Procesar cada sección individualmente
     for seccion in secciones:
         respuesta = enviar_a_api(seccion, pregunta, contexto_actual)
-        respuestas.append(respuesta)
-        contexto_actual += " " + respuesta
+        if respuesta:  # Verificar que la respuesta no esté vacía
+            respuestas.append(respuesta)
+            contexto_actual += " " + respuesta
+        else:
+            app.logger.error("Error al procesar la sección, se recibió una respuesta vacía.")
+            break  # O manejar el error como prefieras
 
-    # Combinar todas las respuestas para formar un texto único
     texto_combinado = " ".join(respuestas)
 
-    # Llamar a la API de OpenAI para generar una respuesta coherente y lógica
     prompt_final = (
         f"Contexto: {contexto}\n"
         f"Pregunta: {pregunta}\n"
@@ -718,21 +720,24 @@ def procesar_y_combinar(secciones, pregunta, contexto):
     
     try:
         response = openai.Completion.create(
-            engine="gpt-4-1106-preview",
+            engine="gpt-3.5-turbo-1106",
             prompt=prompt_final,
-            max_tokens=4097  # Máximo número de tokens
+            max_tokens=4097
         )
         return response.choices[0].text.strip()
     except Exception as e:
         app.logger.error(f"Error al llamar a OpenAI para la respuesta final: {e}")
-        return None
+        return ""
+
+    return texto_combinado
+
 
 
 def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_prompt=None):
     # Comprobación inicial
     if not pregunta or not seccion:
         app.logger.info("Pregunta o sección no proporcionada. No se puede procesar la mejora.")
-        return False
+        return ""
 
     # Configuración de la clave API
     openai.api_key = os.environ.get('OPENAI_API_KEY')
@@ -747,6 +752,7 @@ def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_promp
                 prompt_personalizado = file.read()
         except Exception as e:
             app.logger.error(f"Error al cargar prompt personalizado: {e}")
+            return ""
 
     # Prompt final
     final_prompt = prompt_personalizado if prompt_personalizado else (
@@ -760,7 +766,7 @@ def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_promp
         final_prompt += f" Contexto adicional: {contexto_adicional}"
 
     prompt_base = (
-        f"Responde con menos de 75 palabras. Nunca respondas cosas que no tengan relación entre "
+        f"Responde con menos de 50 palabras. Nunca respondas cosas que no tengan relación entre "
         f"Pregunta: {pregunta}\n y Respuesta: {seccion}\n--\n{final_prompt}. Respondiendo siempre en el idioma del contexto"
     )
 
@@ -774,7 +780,8 @@ def enviar_a_api(seccion, pregunta, contexto, contexto_adicional=None, new_promp
         return response.choices[0].text.strip()
     except Exception as e:
         app.logger.error(f"Error al llamar a OpenAI: {e}")
-        return False
+        return ""
+
 
 ####### FIN BUSQUEDA Alternativa #######
 
