@@ -528,7 +528,8 @@ def preprocess_text(text):
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
-def obtener_embedding_bert(oracion, model, tokenizer):
+def obtener_embedding_bert(oracion):
+    model = BertModel.from_pretrained(BASE_BERT_DIR)
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
@@ -542,7 +543,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=25):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
     # Obtener el embedding de la consulta
-    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
+    embedding_consulta = obtener_embedding_bert(query)
     
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
