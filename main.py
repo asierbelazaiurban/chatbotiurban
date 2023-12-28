@@ -1689,14 +1689,14 @@ def indexar_dataset_en_elasticsearch():
         if not texto:
             app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
             continue
-
-        # Preparar el documento sin el embedding
+     
         documento = {
             "_index": INDICE_ELASTICSEARCH,
             "_id": contenido.get('indice'),
             "_source": {
                 "text": texto,
-                "url": contenido.get('url', '')
+                "url": contenido.get('url', ''),
+                
             }
         }
         documentos_para_indexar.append(documento)
