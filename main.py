@@ -673,11 +673,11 @@ def obtener_embedding_bert(oracion):
     embeddings = outputs.last_hidden_state.mean(dim=1)
     return embeddings[0].numpy()
 
-def generar_resumen_con_bert(texto):
+def generar_resumen_con_bert(oracion):
     model = BertModel.from_pretrained(BASE_BERT_DIR)
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
-    oraciones = sent_tokenize(texto)
-    embeddings = np.array([obtener_embedding_bert(oracion, model, tokenizer) for oracion in oraciones])
+    oraciones = sent_tokenize(oracion)
+    embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
 
     # Calcular la similitud del coseno
     similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
