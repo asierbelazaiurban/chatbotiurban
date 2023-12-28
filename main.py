@@ -643,9 +643,17 @@ def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+    
     pregunta_procesada = preprocess_text(ultima_pregunta)
-    if not contexto and datos_del_dataset:
+    
+    if not ultima_respuesta or not datos_del_dataset or not datos_del_dataset
+    app.logger.info("Falta informacion importante, preginta, dataset o chatbot_id")
+        return false
+
+    if datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
+    
+    if not contexto and datos_del_dataset:
         resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
         mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     else:
