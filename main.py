@@ -28,7 +28,6 @@ import shutil
 # ---------------------------
 # Procesamiento de Lenguaje Natural y Aprendizaje Automático
 import nltk
-from nltk.tokenize import sent_tokenize
 import numpy as np
 import torch
 from nltk.corpus import stopwords
@@ -181,8 +180,7 @@ if not os.path.exists(BASE_BERT_DIR):
 model = BertModel.from_pretrained(BASE_BERT_DIR)
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
-# Obtener el model_max_length del tokenizer
-max_length = tokenizer.model_max_length
+
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -529,23 +527,21 @@ def preprocess_text(text):
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
-"""def obtener_embedding_bert(oracion):
-    model = BertModel.from_pretrained(BASE_BERT_DIR)
+def obtener_embedding_bert(oracion, model, tokenizer):
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
     return outputs.pooler_output.cpu().numpy()
-"""
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=25):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=50):
     # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
     # para mejorar la eficiencia y evitar recargarlos en cada llamada
     model = BertModel.from_pretrained(BASE_BERT_DIR)
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
     # Obtener el embedding de la consulta
-    embedding_consulta = obtener_embedding_bert(query)
+    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
     
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
@@ -575,46 +571,57 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=25):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        respuesta['hits']['hits']
-        app.logger.info("Búsqueda en Elasticsearch completada.")
-        app.logger.info("Respuesta")
-        app.logger.info(respuesta)
-        app.logger.info("Respuesta hits")
-        app.logger.info(respuesta['hits']['hits'])
         return respuesta['hits']['hits']
     except Exception as e:
         print(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
 
 
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto_adicional=""):
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+    app.logger.info("Iniciando función encontrar_respuesta.")
+    app.logger.info(f"Pregunta recibida: {ultima_pregunta}")
+    app.logger.info(f"Chatbot ID: {chatbot_id}")
+    app.logger.info(f"Contexto adicional: {contexto}")
+
+
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    # Preprocesamiento de la pregunta y el contexto adicional
-    texto_completo = f"{ultima_pregunta} {contexto_adicional}".strip()
+    app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
+    texto_completo = f"{ultima_pregunta} {contexto}".strip()
     texto_procesado = preprocess_text(texto_completo)
 
-    # Búsqueda en Elasticsearch
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH, max_size=25)
+    app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
+    app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
+        texto_procesado, 
+        INDICE_ELASTICSEARCH, 
+        max_size=50
+    )
+
     if not resultados_elasticsearch:
+        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
         return "No se encontraron resultados relevantes."
 
-    # Procesamiento de los resultados de Elasticsearch
-    texto_completo_elasticsearch = " ".join([resultado['_source'].get('text', '') for resultado in resultados_elasticsearch[:5]])
-    resumen = generar_resumen_con_bert(texto_completo_elasticsearch)
-    ideas_clave = extraer_ideas_clave_con_bert(texto_completo_elasticsearch)
+    app.logger.info("Creando contexto para GPT a partir de los resultados de Elasticsearch.")
+    contexto_para_gpt = " ".join([
+        resultado['_source'].get('text', '') 
+        for resultado in resultados_elasticsearch[:5] 
+    ])
 
-    # Crear contexto para GPT incluyendo el contexto adicional y el generado
-    contexto_para_gpt = f"Contexto adicional: {contexto_adicional}. Resumen: {resumen}. Ideas clave: {', '.join(ideas_clave)}."
+    if not contexto_para_gpt.strip():
+        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
+        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
 
-    # Construcción del prompt final
-    prompt_personalizado = None
+    app.logger.info("Manejando prompt personalizado si existe.")
     try:
         with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
             prompt_personalizado = file.read()
+            app.logger.info("Prompt personalizado cargado con éxito.")
     except Exception as e:
-        pass  # Manejar el error como consideres apropiado
+        app.logger.error(f"Error al cargar prompt personalizado: {e}")
+        prompt_personalizado = None
 
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
@@ -624,21 +631,24 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
         "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
     )
+    app.logger.info("Prompt final generado.")
 
-    # Combina el contexto para GPT con el prompt base
     prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
-
+    app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
+    
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4-1106-preview",
             messages=[
-                {"role": "system", "content": prompt_base + final_prompt},
+                {"role": "system", "content": prompt_base},
                 {"role": "user", "content": ""}
             ]
         )
         respuesta = response.choices[0].message['content'].strip()
+        app.logger.info("Respuesta generada con éxito.")
         return respuesta
     except Exception as e:
+        app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
         return "Error al generar respuesta."
 
 
@@ -660,40 +670,38 @@ def load_and_preprocess_data(file_path):
 
 
 
-def obtener_embedding_bert(oracion):
- 
-    # Codificar la oración
-    inputs = tokenizer(oracion, return_tensors='pt', padding=True, truncation=True, max_length=128)
-
-    # Obtener la salida del modelo
-    with torch.no_grad():
-        outputs = model(**inputs)
-
-    # Obtener los embeddings del último estado oculto y promediar a lo largo de la secuencia
-    embeddings = outputs.last_hidden_state.mean(dim=1)
-    return embeddings[0].numpy()
-
-def generar_resumen_con_bert(oracion):
-    model = BertModel.from_pretrained(BASE_BERT_DIR)
-    inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
-    oraciones = sent_tokenize(oracion)
+def generar_resumen_con_bert(texto):
+    oraciones = sent_tokenize(texto)
     embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
 
-    # Calcular la similitud del coseno
+    # Calcular la similitud de cada oración con el texto completo
     similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
-    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]
+
+    # Seleccionar las oraciones más representativas
+    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
     resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
+
     return resumen
 
 def extraer_ideas_clave_con_bert(texto):
+    # Obtener entidades nombradas
     entidades = nlp_ner(texto)
+
+    # Crear una lista para almacenar las ideas clave
     ideas_clave = set()
 
+    # Filtrar y agregar entidades relevantes a las ideas clave
     for entidad in entidades:
-        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:
+        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:  # Ejemplo de tipos de entidades
             ideas_clave.add(entidad['word'])
 
     return list(ideas_clave)
+
+
+
+
+from elasticsearch import Elasticsearch, helpers
+
 
 
 # Fine-tuning de BERT
