@@ -589,7 +589,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
         INDICE_ELASTICSEARCH, 
-        model=model, 
+        model=BertModel.from_pretrained(BASE_BERT_DIR), 
         tokenizer=tokenizer, 
         es_client=es_client, 
         max_size=200
