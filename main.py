@@ -649,7 +649,15 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         return respuesta
     except Exception as e:
         app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
-        return "Error al generar respuesta.
+        return "Error al generar respuesta."
+
+
+
+
+
+
+
+
 
 
 
