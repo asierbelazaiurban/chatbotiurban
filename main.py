@@ -181,7 +181,8 @@ if not os.path.exists(BASE_BERT_DIR):
 model = BertModel.from_pretrained(BASE_BERT_DIR)
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
-
+# Obtener el model_max_length del tokenizer
+max_length = tokenizer.model_max_length
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -528,13 +529,30 @@ def preprocess_text(text):
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
-def obtener_embedding_bert(oracion):
+"""def obtener_embedding_bert(oracion):
     model = BertModel.from_pretrained(BASE_BERT_DIR)
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
     return outputs.pooler_output.cpu().numpy()
+"""
 
+def obtener_embedding_bert(oracion):
+    # Codificar la oración usando el tokenizer
+    inputs = tokenizer(oracion, return_tensors='pt', truncation=True, max_length=512)
+
+    # Obtener la salida del modelo
+    with torch.no_grad():
+        outputs = model(**inputs)
+
+    # Obtener los embeddings del último estado oculto
+    last_hidden_states = outputs.last_hidden_state
+
+    # Aquí, puedes elegir cómo reducir estos embeddings.
+    # Una opción común es tomar el promedio de los embeddings de todas las tokens.
+    embeddings = torch.mean(last_hidden_states, dim=1)
+
+    return embeddings
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=25):
     # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
