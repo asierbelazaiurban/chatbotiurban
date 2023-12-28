@@ -637,11 +637,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     except Exception as e:
         return "Error al generar respuesta."
 
-# Ejemplo de uso
-respuesta = encontrar_respuesta("¿Cuál es el mejor lugar para visitar en París?", datos_del_dataset, "chatbot_id_ejemplo", "Contexto de conversación anterior")
-print(respuesta)
-
-
 
 
 def load_and_preprocess_data(file_path):
