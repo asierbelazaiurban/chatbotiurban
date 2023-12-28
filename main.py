@@ -607,7 +607,10 @@ def obtener_o_generar_embedding_bert(texto):
     cache_embeddings[texto] = embedding
     return embedding
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
+def buscar_con_bert_en_elasticsearch(palabras_clave, indice_elasticsearch, max_size=200):
+    # Unir palabras clave para formar una consulta
+    query = ' '.join(palabras_clave)
+
     # Generar embedding para la consulta usando BERT
     embedding_consulta = obtener_o_generar_embedding_bert(query)
 
@@ -636,12 +639,25 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
+    # Cargar el modelo y tokenizador BERT para el chatbot específico
+    model_path = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
+    model = BertForTokenClassification.from_pretrained(model_path)
+    tokenizer = BertTokenizer.from_pretrained(model_path)
+
     # Combinar pregunta y contexto y preprocesar
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
     texto_procesado = preprocess_text(texto_completo)
 
-    # Realizar la búsqueda semántica en Elasticsearch usando BERT
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
+    # Utilizar BERT para obtener logits del texto procesado
+    inputs = tokenizer(texto_procesado, return_tensors="pt", truncation=True, padding=True)
+    outputs = model(**inputs)
+    logits = outputs.logits
+
+    # Procesar los logits para obtener palabras clave
+    palabras_clave = procesar_logits_y_obtener_palabras_clave(logits, tokenizer)
+
+    # Realizar la búsqueda semántica en Elasticsearch usando las palabras clave
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(palabras_clave, INDICE_ELASTICSEARCH)
 
     # Si no se encontraron resultados, devolver un mensaje indicándolo
     if not resultados_elasticsearch:
@@ -671,6 +687,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
 
     # Generar la respuesta utilizando GPT-3.5-turbo
+    # Asumiendo que tienes configurado el SDK de OpenAI y 'openai.ChatCompletion.create'
     response = openai.ChatCompletion.create(
         model="gpt-4-1106-preview",
         messages=[
@@ -682,63 +699,16 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
 
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
-        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
-        return False
-
-    # Combinar pregunta y contexto y preprocesar
-    texto_completo = f"{ultima_pregunta} {contexto}".strip()
-    texto_procesado = preprocess_text(texto_completo)
-
-    # Realizar la búsqueda semántica en Elasticsearch usando BERT
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
-
-    # Asegúrate de que resultados_elasticsearch no esté vacío
-    if not resultados_elasticsearch:
-        return "No se encontraron resultados relevantes."
-
-    # Crear contexto para GPT-4-1106-preview a partir de los resultados de Elasticsearch
-    contexto_para_gpt = " ".join([
-        resultado['_source'].get('text', '')  # Usa get para manejar la posibilidad de que 'text' no exista
-        for resultado in resultados_elasticsearch[:5]  # Limita a los primeros 5 resultados
-    ])
-
-    # Verifica si el contexto está vacío
-    if not contexto_para_gpt.strip():
-        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
-
-    # Manejo de prompt personalizado
-    try:
-        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
-            prompt_personalizado = file.read()
-    except Exception as e:
-        app.logger.error(f"Error al cargar prompt personalizado: {e}")
-        prompt_personalizado = None
-
-    # Generación del prompt final
-    final_prompt = prompt_personalizado if prompt_personalizado else (
-        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
-    )
-
-    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
-
-    # Generar la respuesta utilizando GPT-4-1106-preview
-    response = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": prompt_base},
-            {"role": "user", "content": ""}
-        ]
-    )
-
-    respuesta = response.choices[0].message['content'].strip()
-    return respuesta
+def procesar_logits_y_obtener_palabras_clave(logits, tokenizer, umbral=0.5):
+    """
+    Procesa los logits para identificar tokens significativos y obtener palabras clave.
+    """
+    palabras_clave = []
+    indices_de_tokens_significativos = torch.where(logits > umbral)
+    for idx in indices_de_tokens_significativos[1]:
+        palabra = tokenizer.convert_ids_to_tokens(inputs['input_ids'][0][idx])
+        palabras_clave.append(palabra)
+    return palabras_clave
 
 
 
@@ -1567,6 +1537,13 @@ def finetune():
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
         finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
+
+        # Asumiendo que finetune_bert devuelve el modelo y el tokenizador
+        model, tokenizer = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
+
+        # Guardar el modelo y el tokenizador
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
