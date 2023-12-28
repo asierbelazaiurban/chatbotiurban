@@ -28,6 +28,7 @@ import shutil
 # ---------------------------
 # Procesamiento de Lenguaje Natural y Aprendizaje Automático
 import nltk
+from nltk.tokenize import sent_tokenize
 import numpy as np
 import torch
 from nltk.corpus import stopwords
