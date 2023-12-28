@@ -553,11 +553,11 @@ def load_and_preprocess_data(file_path):
     return processed_data
 
 def obtener_embedding_bert(oracion):
-    tokenizer= BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
-    return outputs.last_hidden_state.mean(dim=1).cpu().numpy()
+    return outputs.pooler_output.cpu().numpy()
 
 def generar_resumen_con_bert(texto):
     oraciones = sent_tokenize(texto)
@@ -585,22 +585,6 @@ def extraer_ideas_clave_con_bert(texto):
             ideas_clave.add(entidad['word'])
 
     return list(ideas_clave)
-
-
-def obtener_o_generar_embedding_bert(texto):
-    if texto in cache_embeddings:
-        return cache_embeddings[texto]
-
-    # Tokenizar y preparar los inputs para BERT
-    tokenizer= BertTokenizer.from_pretrained('bert-base-uncased')
-    inputs = tokenizer(texto, return_tensors="pt", padding=True, truncation=True, max_length=512)
-    with torch.no_grad():
-        outputs = model(**inputs)
-
-    # Obtener la representación del token [CLS]
-    embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-    cache_embeddings[texto] = embedding
-    return embedding
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     # Generar embedding para la consulta usando BERT
