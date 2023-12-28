@@ -535,14 +535,14 @@ def obtener_embedding_bert(oracion, model, tokenizer):
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
-    # Carga del modelo y el tokenizer
-    # Asegúrate de hacer esto fuera de la función para mejorar la eficiencia
+    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
+    # para mejorar la eficiencia y evitar recargarlos en cada llamada
     model = BertModel.from_pretrained(BASE_BERT_DIR)
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
     # Obtener el embedding de la consulta
     embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
-
+    
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
@@ -553,7 +553,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     query_busqueda = {
         "query": {
             "script_score": {
-                "query": {"match": {"texto": query}},  # Cambiado de "match_all" a "match"
+                "query": {"match_all": {}},
                 "script": {
                     "source": """
                     if (doc['embedding'].size() == 0) {
@@ -565,10 +565,11 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
                 }
             }
         },
-        "size": max_size  # Reducido el tamaño máximo
+        "size": max_size
     }
 
     try:
+        # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         return respuesta['hits']['hits']
     except Exception as e:
@@ -613,10 +614,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
         return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
 
-    # Utilizar las funciones de apoyo para enriquecer el contexto
-    resumen_contexto = generar_resumen_con_bert(contexto_para_gpt)
-    ideas_clave = extraer_ideas_clave_con_bert(contexto_para_gpt)
-
     app.logger.info("Manejando prompt personalizado si existe.")
     try:
         with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
@@ -652,9 +649,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         return respuesta
     except Exception as e:
         app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
-        return "Error al generar respuesta."
-
-
+        return "Error al generar respuesta.
 
 
 
@@ -704,6 +699,8 @@ def extraer_ideas_clave_con_bert(texto):
 
 
 
+
+from elasticsearch import Elasticsearch, helpers
 
 
 
