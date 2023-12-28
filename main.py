@@ -665,23 +665,31 @@ def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    # Preprocesar la pregunta y el contexto
-    pregunta_procesada = preprocess_text(ultima_pregunta)
-    contexto_procesado = preprocess_text(contexto)
+    # Combinar pregunta y contexto y preprocesar
+    texto_completo = f"{ultima_pregunta} {contexto}".strip()
+    texto_procesado = preprocess_text(texto_completo)
 
-    # Combinar la pregunta procesada con el contexto para enriquecer la consulta
-    consulta_enriquecida = pregunta_procesada + " " + contexto_procesado
+    # Definir la longitud máxima para el modelo GPT
+    MAX_LONGITUD = 512
 
-    # Buscar en Elasticsearch usando la consulta enriquecida
-    resultados_busqueda = search_in_elasticsearch(consulta_enriquecida, INDICE_ELASTICSEARCH)
-    mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
-    
-    app.logger.info("mejor_respuesta")
-    app.logger.info(mejor_respuesta)
+    # Dividir el texto en fragmentos si es demasiado largo
+    if len(texto_procesado) > MAX_LONGITUD:
+        fragmentos = dividir_texto_largo(texto_procesado, max_longitud=MAX_LONGITUD)
+    else:
+        fragmentos = [texto_procesado]
+
+    resultados_combinados = []
+    for fragmento in fragmentos:
+        # Realizar la búsqueda en Elasticsearch para cada fragmento
+        resultados_fragmento = search_in_elasticsearch(fragmento, INDICE_ELASTICSEARCH)
+        resultados_combinados.extend(resultados_fragmento)
+
+    # Seleccionar la mejor respuesta de los resultados combinados
+    mejor_respuesta = seleccionar_mejor_respuesta(resultados_combinados)
 
     if not mejor_respuesta:
         return "No se encontró una respuesta adecuada en el dataset."
@@ -701,7 +709,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "3. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
+        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
     )
 
     prompt_base = f"Contexto: {contexto_procesado} \nPregunta: {ultima_pregunta} \nRespuesta: {mejor_respuesta}\n--\n{final_prompt}"
