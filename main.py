@@ -1695,8 +1695,7 @@ def indexar_dataset_en_elasticsearch():
             "_id": contenido.get('indice'),
             "_source": {
                 "text": texto,
-                "url": contenido.get('url', ''),
-                
+                "url": contenido.get('url', '')   
             }
         }
         documentos_para_indexar.append(documento)
@@ -1718,7 +1717,8 @@ def indexar_dataset_en_elasticsearch():
     else:
         app.logger.info("Indexación completada con éxito.")
 
-    return True
+    mensaje_exito = "Indexación completada con éxito" if documentos_fallidos == 0 else "Indexación completada con errores"
+    return jsonify({"mensaje": mensaje_exito}), 200
 
 
 
