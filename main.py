@@ -1600,30 +1600,25 @@ def finetune():
         temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
 
         try:
-            # Funciones para preparar los datos para el fine-tuning
             prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
             prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
         except Exception as e:
             app.logger.error(f"Error en la preparación de los datos: {e}")
 
-        output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
+        output_dir = BASE_BERT_DIR  # Cambiado para usar BASE_BERT_DIR directamente
         os.makedirs(output_dir, exist_ok=True)
 
         try:
-            # Función para realizar el fine-tuning del modelo BERT
             model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
         except Exception as e:
             app.logger.error(f"Error en fine-tuning BERT: {e}")
 
-        # Intentar guardar el modelo y el tokenizer, incluso si hubo errores anteriores
         try:
-            if 'model' in locals() and 'tokenizer' in locals():
-                model.save_pretrained(output_dir)
-                tokenizer.save_pretrained(output_dir)
+            model.save_pretrained(output_dir)
+            tokenizer.save_pretrained(output_dir)
         except Exception as e:
             app.logger.error(f"Error al guardar el modelo: {e}")
 
-        # Guardar las rutas de los archivos de datos
         data_paths = {
             "train_file_path": train_path if 'train_path' in locals() else None,
             "eval_file_path": eval_path if 'eval_path' in locals() else None
