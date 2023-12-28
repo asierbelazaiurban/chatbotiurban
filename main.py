@@ -1614,7 +1614,7 @@ def finetune():
         eval_dataset = full_dataset.train_test_split(test_size=0.1)["test"]
 
         # Configurar el Trainer
-        training_args = TrainingArguments(output_dir=output_dir, ...)
+        training_args = TrainingArguments(output_dir=output_dir)
         trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
 
         # Entrenar el modelo
