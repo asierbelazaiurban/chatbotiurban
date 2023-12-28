@@ -615,7 +615,7 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         resultados_combinados.extend(respuesta['hits']['hits'])
    
-    app.logger.info("Aqui ya no llegamos")
+    app.logger.info("Aqui SI no llegamos")
     resultados_unicos = {}
     for resultado in resultados_combinados:
         id_doc = resultado['_id']
@@ -630,8 +630,8 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
         resultado['_source']['text'] = resultado['_source']['text'][:max_size]
 
 
-        app.logger.info("resultado Ordenados")
-        app.logger.info(resultados_ordenados)
+    app.logger.info("resultado Ordenados")
+    app.logger.info(resultados_ordenados)
 
     return resultados_ordenados
 
