@@ -566,7 +566,7 @@ def generar_resumen_con_bert(texto):
     similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
 
     # Seleccionar las oraciones más representativas
-    indices_impor antes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
+    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
     resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
 
     return resumen
