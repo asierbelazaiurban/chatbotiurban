@@ -534,7 +534,7 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=25):
     # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
     # para mejorar la eficiencia y evitar recargarlos en cada llamada
     model = BertModel.from_pretrained(BASE_BERT_DIR)
@@ -571,6 +571,12 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
+        respuesta['hits']['hits']
+        app.logger.info("Búsqueda en Elasticsearch completada.")
+        app.logger.info("Respuesta")
+        app.logger.info(respuesta)
+        app.logger.info("Respuesta hits")
+        app.logger.info(respuesta['hits']['hits'])
         return respuesta['hits']['hits']
     except Exception as e:
         print(f"Error en la búsqueda en Elasticsearch: {e}")
@@ -597,7 +603,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
         INDICE_ELASTICSEARCH, 
-        max_size=200
+        max_size=25
     )
 
     if not resultados_elasticsearch:
@@ -650,14 +656,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     except Exception as e:
         app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
         return "Error al generar respuesta."
-
-
-
-
-
-
-
-
 
 
 
