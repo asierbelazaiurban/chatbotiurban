@@ -580,8 +580,8 @@ def index_data_to_elasticsearch(dataset, es_client, index_name):
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
 
-def extraer_ideas_clave_con_gpt2(texto, max_length=50):
-    prompt = f"Texto: {texto}\n\nIdeas clave:"
+def extraer_ideas_clave_con_gpt2(texto, max_length=75):
+    prompt = f"Resumir la siguiente pregunta en ideas clave: '{texto}'"
     inputs = tokenizer.encode(prompt, return_tensors='pt', max_length=1024, truncation=True)
     outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
     ideas_clave = tokenizer.decode(outputs[0], skip_special_tokens=True)
