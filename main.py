@@ -191,7 +191,7 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-model = BertModel.from_pretrained('bert-base-uncased')
+model = BertModel.from_pretrained(BASE_BERT_DIR)
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
@@ -784,7 +784,7 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
-def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
+def finetune_bert(train_file_path, eval_file_path, output_dir = BASE_BERT_DIR, model_name="bert-base-uncased", epochs=1, batch_size=2):
     model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
     tokenizer = BertTokenizer.from_pretrained(model_name)
 
@@ -1605,11 +1605,11 @@ def finetune():
         except Exception as e:
             app.logger.error(f"Error en la preparación de los datos: {e}")
 
-        output_dir = BASE_BERT_DIR  # Cambiado para usar BASE_BERT_DIR directamente
+        output_dir = "data/uploads/bert/"  # Cambiado para usar BASE_BERT_DIR directamente
         os.makedirs(output_dir, exist_ok=True)
 
         try:
-            model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
+            model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir = "data/uploads/bert/", model_name="bert-base-uncased", epochs=1, batch_size=2)
         except Exception as e:
             app.logger.error(f"Error en fine-tuning BERT: {e}")
 
