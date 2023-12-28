@@ -643,51 +643,41 @@ def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-    
-    pregunta_procesada = preprocess_text(ultima_pregunta)
-    
-    if not ultima_pregunta and datos_del_dataset and datos_del_dataset:
-        app.logger.info("Falta informacion importante, preginta, dataset o chatbot_id")
+    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    if datos_del_dataset:
-        textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
-    
-    if not contexto and datos_del_dataset:
-        resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
-        mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
-    else:
-        contexto_procesado = preprocess_text(contexto) if contexto else ""
-        resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
-        mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
+    pregunta_procesada = preprocess_text(ultima_pregunta)
+    textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
 
+    contexto_procesado = preprocess_text(contexto) if contexto else ""
+    resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
+    mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
 
-        app.logger.info("eeeeeee mejor_respuesta es:")
-        app.logger.info(mejor_respuesta)
+    if not mejor_respuesta:
+        return "No se encontró una respuesta adecuada en el dataset."
 
-    prompt_personalizado = None
-    prompt_file_path = os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt')
+    # Manejo de prompt personalizado
     try:
-        with open(prompt_file_path, 'r') as file:
+        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
             prompt_personalizado = file.read()
     except Exception as e:
         app.logger.error(f"Error al cargar prompt personalizado: {e}")
+        prompt_personalizado = None
 
+    # Generación del prompt final
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
         "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE"
+        "2. Responde siempre en el mismo idioma de la pregunta. "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
 
-    contexto = f"Contexto: {contexto}\n" if contexto else ""
-    prompt_base = f"{contexto} Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
-
-    if mejor_respuesta:
-        respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
-        return respuesta_corta
-    return "No se encontró una respuesta adecuada en el dataset."
+    prompt_base = f"{'Contexto: ' + contexto_procesado + '\\n' if contexto else ''}Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
+    
+    respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
+    return respuesta_corta
 
 # Fine-tuning de GPT-2
 def prepare_data_for_finetuning(json_file_path, output_file_path):
