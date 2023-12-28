@@ -727,64 +727,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
 
 from elasticsearch import Elasticsearch, helpers
-def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
-    app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
-
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    if not os.path.exists(dataset_file_path):
-        app.logger.error("El archivo del dataset no existe.")
-        return False
-
-    try:
-        with open(dataset_file_path, 'r') as file:
-            dataset = json.load(file)
-    except Exception as e:
-        app.logger.error(f"Error al leer el dataset: {e}")
-        return False
-
-    # Verificar y eliminar documentos ya indexados
-    for id_documento, contenido in dataset.items():
-        documento_id = contenido.get('indice')
-        if es_client.exists(index=INDICE_ELASTICSEARCH, id=documento_id):
-            es_client.delete(index=INDICE_ELASTICSEARCH, id=documento_id)
-
-    documentos_para_indexar = []
-    for id_documento, contenido in dataset.items():
-        texto = contenido.get('dialogue', '')
-        if not texto:
-            app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
-            continue
-
-        embedding = obtener_o_generar_embedding_bert(texto).flatten().tolist()
-        documento = {
-            "_index": INDICE_ELASTICSEARCH,
-            "_id": contenido.get('indice'),
-            "_source": {
-                "text": texto,
-                "url": contenido.get('url', ''),
-                "embedding": embedding
-            }
-        }
-        documentos_para_indexar.append(documento)
-
-    total_documentos = len(documentos_para_indexar)
-    documentos_fallidos = 0
-
-    for documento in documentos_para_indexar:
-        try:
-            resultado = es_client.index(index=documento["_index"], id=documento["_id"], body=documento["_source"])
-            if resultado.get('result') != 'created' and resultado.get('result') != 'updated':
-                raise Exception(f"Documento no indexado correctamente: {resultado}")
-        except Exception as e:
-            documentos_fallidos += 1
-            app.logger.error(f"Error al indexar documento con ID: {documento['_id']}, Error: {e}")
-
-    if documentos_fallidos > 0:
-        app.logger.error(f"Indexación completada con {documentos_fallidos} de {total_documentos} documentos fallidos.")
-    else:
-        app.logger.info("Indexación completada con éxito.")
-
-    return True
 
 
 
@@ -1633,6 +1575,65 @@ def finetune():
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/indexar_dataset', methods=['POST'])
+def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
+    app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
+
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("El archivo del dataset no existe.")
+        return False
+
+    try:
+        with open(dataset_file_path, 'r') as file:
+            dataset = json.load(file)
+    except Exception as e:
+        app.logger.error(f"Error al leer el dataset: {e}")
+        return False
+
+    # Verificar y eliminar documentos ya indexados
+    for id_documento, contenido in dataset.items():
+        documento_id = contenido.get('indice')
+        if es_client.exists(index=INDICE_ELASTICSEARCH, id=documento_id):
+            es_client.delete(index=INDICE_ELASTICSEARCH, id=documento_id)
+
+    documentos_para_indexar = []
+    for id_documento, contenido in dataset.items():
+        texto = contenido.get('dialogue', '')
+        if not texto:
+            app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
+            continue
+
+        embedding = obtener_o_generar_embedding_bert(texto).flatten().tolist()
+        documento = {
+            "_index": INDICE_ELASTICSEARCH,
+            "_id": contenido.get('indice'),
+            "_source": {
+                "text": texto,
+                "url": contenido.get('url', ''),
+                "embedding": embedding
+            }
+        }
+        documentos_para_indexar.append(documento)
+
+    total_documentos = len(documentos_para_indexar)
+    documentos_fallidos = 0
+
+    for documento in documentos_para_indexar:
+        try:
+            resultado = es_client.index(index=documento["_index"], id=documento["_id"], body=documento["_source"])
+            if resultado.get('result') != 'created' and resultado.get('result') != 'updated':
+                raise Exception(f"Documento no indexado correctamente: {resultado}")
+        except Exception as e:
+            documentos_fallidos += 1
+            app.logger.error(f"Error al indexar documento con ID: {documento['_id']}, Error: {e}")
+
+    if documentos_fallidos > 0:
+        app.logger.error(f"Indexación completada con {documentos_fallidos} de {total_documentos} documentos fallidos.")
+    else:
+        app.logger.info("Indexación completada con éxito.")
+
+    return "Indexado"
 
 
 
