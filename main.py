@@ -616,7 +616,9 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         resultados_combinados.extend(respuesta['hits']['hits'])
    
-    app.logger.info("Aqui SI no llegamos")
+    app.logger.info("Resultados combinados")
+    app.logger.info(resultados_combinados.extend(respuesta['hits']['hits']))
+
     resultados_unicos = {}
     for resultado in resultados_combinados:
         id_doc = resultado['_id']
@@ -682,6 +684,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "1. Mantén la coherencia con la pregunta original. "
         "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "3. Encuentra la mejor respuesta en relacion a la pregunta que te llega "
         "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
     if contexto_adicional:
