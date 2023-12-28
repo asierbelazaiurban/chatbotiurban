@@ -534,8 +534,8 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, model, tokenizer, es_client, max_size=200):
-    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, es_client, max_size=200):
+    embedding_consulta = obtener_embedding_bert(query,model=BertModel.from_pretrained('bert-base-uncased'), tokenizer = BertTokenizer.from_pretrained('bert-base-uncased'))
 
     query_busqueda = {
         "query": {
@@ -589,8 +589,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
         INDICE_ELASTICSEARCH, 
-        model=BertModel.from_pretrained('bert-base-uncased'), 
-        tokenizer=tokenizer, 
         es_client=es_client, 
         max_size=200
     )
