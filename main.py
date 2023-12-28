@@ -546,9 +546,12 @@ def obtener_o_generar_embedding(texto):
     inputs = tokenizer.encode_plus(texto, return_tensors="pt", truncation=True, max_length=512)
     with torch.no_grad():
         outputs = model(**inputs)
-    embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()[0]
+    # Uso de 'output.hidden_states' si está disponible, o 'output' directamente
+    embedding = outputs.last_hidden_state if hasattr(outputs, 'last_hidden_state') else outputs[0]
+    embedding = embedding.mean(dim=1).cpu().numpy()[0]
     cache_embeddings[texto] = embedding
     return embedding
+
 
 def generate_gpt_embeddings(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True, max_length=512)
