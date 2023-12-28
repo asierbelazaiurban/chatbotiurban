@@ -1595,15 +1595,11 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.jsonl")
-        temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.jsonl")
-
-        shutil.copy(dataset_file_path, temp_train_file_path)
-        shutil.copy(dataset_file_path, temp_eval_file_path)
+        temp_file_path = os.path.join(temp_data_dir, f"temp_data_{chatbot_id}.jsonl")
+        shutil.copy(dataset_file_path, temp_file_path)
 
         # Transformar el JSON a un formato compatible
-        transform_json(temp_train_file_path, temp_train_file_path)
-        transform_json(temp_eval_file_path, temp_eval_file_path)
+        transform_json(temp_file_path, temp_file_path)
 
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
@@ -1612,12 +1608,13 @@ def finetune():
         model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-        # Cargar los datasets
-        train_dataset = load_dataset('json', data_files=temp_train_file_path, split='train')
-        eval_dataset = load_dataset('json', data_files=temp_eval_file_path, split='validation')
+        # Cargar el dataset
+        full_dataset = load_dataset('json', data_files=temp_file_path, split='train')
+        train_dataset = full_dataset.train_test_split(test_size=0.1)["train"]
+        eval_dataset = full_dataset.train_test_split(test_size=0.1)["test"]
 
         # Configurar el Trainer
-        training_args = TrainingArguments(output_dir=output_dir)
+        training_args = TrainingArguments(output_dir=output_dir, ...)
         trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
 
         # Entrenar el modelo
@@ -1628,8 +1625,8 @@ def finetune():
         tokenizer.save_pretrained(output_dir)
 
         data_paths = {
-            "train_file_path": temp_train_file_path,
-            "eval_file_path": temp_eval_file_path
+            "train_file_path": temp_file_path,
+            "eval_file_path": temp_file_path
         }
         with open(os.path.join(output_dir, 'data_paths.json'), 'w') as file:
             json.dump(data_paths, file)
@@ -1641,9 +1638,8 @@ def finetune():
 
 
 
-
 @app.route('/indexar_dataset', methods=['POST'])
-def indexar_dataset_en_elasticsearch(chatbot_id):
+def indexar_dataset_en_elasticsearch():
     data = request.get_json()
     chatbot_id = data.get("chatbot_id")
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
