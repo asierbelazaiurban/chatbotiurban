@@ -535,11 +535,21 @@ def obtener_embedding_bert(oracion, model, tokenizer):
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
-    embedding_consulta = obtener_embedding_bert(query,model=BertModel.from_pretrained('bert-base-uncased'), tokenizer = BertTokenizer.from_pretrained('bert-base-uncased'))
+    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
+    # para mejorar la eficiencia y evitar recargarlos en cada llamada
+    model = BertModel.from_pretrained(BASE_BERT_DIR)
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    
+    # Obtener el embedding de la consulta
+    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
+    
+    # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
         basic_auth=("elastic", ELASTIC_PASSWORD)
     )
+
+    # Construir la consulta de búsqueda
     query_busqueda = {
         "query": {
             "script_score": {
@@ -559,12 +569,12 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     }
 
     try:
+        # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         return respuesta['hits']['hits']
     except Exception as e:
         print(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
-
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
@@ -1680,14 +1690,13 @@ def indexar_dataset_en_elasticsearch():
             app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
             continue
 
-        embedding = obtener_o_generar_embedding_bert(texto).flatten().tolist()
+        # Preparar el documento sin el embedding
         documento = {
             "_index": INDICE_ELASTICSEARCH,
             "_id": contenido.get('indice'),
             "_source": {
                 "text": texto,
-                "url": contenido.get('url', ''),
-                "embedding": embedding
+                "url": contenido.get('url', '')
             }
         }
         documentos_para_indexar.append(documento)
@@ -1709,7 +1718,7 @@ def indexar_dataset_en_elasticsearch():
     else:
         app.logger.info("Indexación completada con éxito.")
 
-    return "Indexado"
+    return True
 
 
 
