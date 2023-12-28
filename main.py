@@ -586,7 +586,7 @@ def extraer_ideas_clave_con_bert(texto):
 
     return list(ideas_clave)
 
-def obtener_o_generar_embedding_bert(texto):
+def obtener_o_generar_embedding_bert(query):
     if texto in cache_embeddings:
         return cache_embeddings[texto]
 
@@ -628,112 +628,6 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
 def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
-        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
-        return False
-
-    # Combinar pregunta y contexto y preprocesar
-    texto_completo = f"{ultima_pregunta} {contexto}".strip()
-    texto_procesado = preprocess_text(texto_completo)
-
-    # Realizar la búsqueda semántica en Elasticsearch usando BERT
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
-
-    # Si no se encontraron resultados, devolver un mensaje indicándolo
-    if not resultados_elasticsearch:
-        return "No se encontró una respuesta adecuada en el dataset."
-
-    # Crear contexto para GPT-3.5-turbo a partir de los resultados de Elasticsearch
-    contexto_para_gpt = " ".join([resultado['_source']['text'] for resultado in resultados_elasticsearch[:5]])  # Ejemplo: usar los primeros 5 resultados
-
-    # Manejo de prompt personalizado
-    try:
-        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
-            prompt_personalizado = file.read()
-    except Exception as e:
-        app.logger.error(f"Error al cargar prompt personalizado: {e}")
-        prompt_personalizado = None
-
-    # Generación del prompt final
-    final_prompt = prompt_personalizado if prompt_personalizado else (
-        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
-    )
-
-    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
-
-    # Generar la respuesta utilizando GPT-3.5-turbo
-    response = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": prompt_base},
-            {"role": "user", "content": ""}
-        ]
-    )
-
-    respuesta = response.choices[0].message['content'].strip()
-    return respuesta
-
-from elasticsearch import Elasticsearch, helpers
-
-def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
-    # Ruta del archivo del dataset
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-
-    # Verificar si el archivo del dataset existe
-    if not os.path.exists(dataset_file_path):
-        app.logger.error("El archivo del dataset no existe.")
-        return False
-
-    # Leer el dataset
-    try:
-        with open(dataset_file_path, 'r') as file:
-            dataset = json.load(file)
-    except Exception as e:
-        app.logger.error(f"Error al leer el dataset: {e}")
-        return False
-
-    # Preparar los documentos para la indexación
-    documentos_para_indexar = []
-    for documento in dataset:
-        # Aquí asumimos que cada documento tiene un campo 'id' y 'text'
-        documentos_para_indexar.append({
-            "_index": INDICE_ELASTICSEARCH,  # Nombre de tu índice en Elasticsearch
-            "_id": documento['id'],
-            "_source": {
-                "text": documento['text']
-            }
-        })
-
-    # Indexar los documentos en Elasticsearch
-    try:
-        helpers.bulk(es_client, documentos_para_indexar)
-    except Exception as e:
-        app.logger.error(f"Error durante la indexación: {e}")
-        return False
-
-    app.logger.info("Indexación completada con éxito.")
-    return True
-
-
-def es_dataset_indexado(chatbot_id, es_client):
-    indice = f"{INDICE_ELASTICSEARCH_PREFIX}_{chatbot_id}"  # Asumiendo que cada chatbot tiene su propio índice
-
-    try:
-        # Verifica si el índice existe
-        indice_existe = es_client.indices.exists(index=indice)
-        return indice_existe
-    except exceptions.ConnectionError:
-        app.logger.error("Error de conexión con Elasticsearch.")
-        return False
-    except Exception as e:
-        app.logger.error(f"Error al verificar la existencia del índice: {e}")
-        return False
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
@@ -741,10 +635,9 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         return False
 
     # Indexar el dataset en Elasticsearch (si es necesario)
-    if not es_dataset_indexado(chatbot_id, es_client):  # Suponiendo que esta función verifica si el dataset ya está indexado
-        indexado_exitoso = indexar_dataset_en_elasticsearch(chatbot_id, es_client)
-        if not indexado_exitoso:
-            return "Error al indexar el dataset en Elasticsearch."
+    indexado_exitoso = indexar_dataset_en_elasticsearch(chatbot_id, es_client)
+    if not indexado_exitoso:
+        return "Error al indexar el dataset en Elasticsearch."
 
     # Combinar pregunta y contexto y preprocesar
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
@@ -798,6 +691,50 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
+
+from elasticsearch import Elasticsearch, helpers
+
+def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
+    # Ruta del archivo del dataset
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    # Verificar si el archivo del dataset existe
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("El archivo del dataset no existe.")
+        return False
+
+    # Leer el dataset
+    try:
+        with open(dataset_file_path, 'r') as file:
+            dataset = json.load(file)
+    except Exception as e:
+        app.logger.error(f"Error al leer el dataset: {e}")
+        return False
+
+    # Preparar los documentos para la indexación
+    documentos_para_indexar = []
+    for documento in dataset:
+        # Aquí asumimos que cada documento tiene un campo 'id' y 'text'
+        documentos_para_indexar.append({
+            "_index": INDICE_ELASTICSEARCH,  # Nombre de tu índice en Elasticsearch
+            "_id": documento['id'],
+            "_source": {
+                "text": documento['text']
+            }
+        })
+
+    # Indexar los documentos en Elasticsearch
+    try:
+        helpers.bulk(es_client, documentos_para_indexar)
+    except Exception as e:
+        app.logger.error(f"Error durante la indexación: {e}")
+        return False
+
+    app.logger.info("Indexación completada con éxito.")
+    return True
+
+
+
 
 # Fine-tuning de BERT
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
