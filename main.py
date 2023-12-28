@@ -745,12 +745,17 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
 
     documentos_para_indexar = []
     for id_documento, contenido in dataset.items():
-        embedding = obtener_o_generar_embedding_bert(contenido.get('dialogue', ''))
+        texto = contenido.get('dialogue', '')
+        if not texto:
+            app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
+            continue
+
+        embedding = obtener_o_generar_embedding_bert(texto).flatten().tolist()
         documento = {
             "_index": INDICE_ELASTICSEARCH,
             "_id": contenido.get('indice'),
             "_source": {
-                "text": contenido.get('dialogue', ''),
+                "text": texto,
                 "url": contenido.get('url', ''),
                 "embedding": embedding
             }
@@ -758,14 +763,16 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
         documentos_para_indexar.append(documento)
 
     try:
-        helpers.bulk(es_client, documentos_para_indexar)
-        app.logger.info("Documentos indexados correctamente en Elasticsearch.")
-        return True
+        for success, info in helpers.parallel_bulk(es_client, documentos_para_indexar):
+            if not success:
+                app.logger.error(f"Documento fallido al indexar: {info}")
+        app.logger.info("Todos los documentos han sido procesados para indexación.")
     except Exception as e:
-        app.logger.error(f"Error durante la indexación: {e}")
+        app.logger.error(f"Error general durante la indexación: {e}")
         return False
 
-
+    app.logger.info("Indexación completada con éxito.")
+    return True
 
 
 
