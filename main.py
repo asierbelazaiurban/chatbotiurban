@@ -1576,8 +1576,9 @@ def transform_json(input_path, output_path):
 
     with open(output_path, 'w', encoding='utf-8') as file:
         for key, value in data.items():
-            json.dump(value, file)
-            file.write('\n')
+            if isinstance(value, dict):  # Asegurarse de que el valor es un diccionario
+                json.dump(value, file)
+                file.write('\n')
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
@@ -1610,11 +1611,18 @@ def finetune():
 
         # Cargar el dataset
         full_dataset = load_dataset('json', data_files=temp_file_path, split='train')
-        train_dataset = full_dataset.train_test_split(test_size=0.1)["train"]
-        eval_dataset = full_dataset.train_test_split(test_size=0.1)["test"]
+
+        # Verificar el tamaño del dataset
+        if len(full_dataset) > 1:  # Asegurarse de que hay al menos 2 elementos
+            train_dataset = full_dataset.train_test_split(test_size=0.1)["train"]
+            eval_dataset = full_dataset.train_test_split(test_size=0.1)["test"]
+        else:
+            # Si el dataset es demasiado pequeño, usar el mismo para entrenamiento y validación
+            train_dataset = full_dataset
+            eval_dataset = full_dataset
 
         # Configurar el Trainer
-        training_args = TrainingArguments(output_dir=output_dir)
+        training_args = TrainingArguments(output_dir=output_dir, ...)
         trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
 
         # Entrenar el modelo
@@ -1635,7 +1643,6 @@ def finetune():
     except Exception as e:
         app.logger.error(f"Error general en /finetune: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 
 @app.route('/indexar_dataset', methods=['POST'])
