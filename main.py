@@ -1544,7 +1544,7 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-        temp_data_dir = '/home/iurbanuser/chatbotiurban/temp_data/'
+        temp_data_dir = 'temp_data/'
         os.makedirs(temp_data_dir, exist_ok=True)
 
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
@@ -1577,7 +1577,7 @@ def finetune():
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
-        
+
 
 @app.route('/indexar_dataset', methods=['POST'])
 def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
