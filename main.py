@@ -145,7 +145,7 @@ BASE_DATASET_PROMPTS = "data/uploads/prompts/"
 BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 BASE_PROMPTS_DIR = "data/uploads/prompts/"
-BASE_GPT2_DIR = "data/uploads/gpt2/"
+BASE_BERT_DIR = "data/uploads/bert/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -181,6 +181,9 @@ if not os.path.exists(BASE_GPT2_DIR):
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 tokenizer.save_pretrained(BASE_GPT2_DIR)"""
 
+
+if not os.path.exists(BASE_BERT_DIR):
+    os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -1527,16 +1530,21 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_file_path = f"temp_finetune_data_{chatbot_id}.json"
-        prepare_data_for_finetuning_bert(dataset_file_path, temp_file_path)
+        temp_train_file_path = f"temp_train_data_{chatbot_id}.json"
+        temp_eval_file_path = f"temp_eval_data_{chatbot_id}.json"
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
 
-        output_dir = f"finetuned_model_{chatbot_id}"
-        finetune_bert(temp_file_path, output_dir)
+        output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")  # Construir la ruta de salida
+        os.makedirs(output_dir, exist_ok=True)  # Crear el directorio si no existe
+
+        finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)  # Incluye output_dir como argumento
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/run_tests', methods=['POST'])
 def run_tests():
