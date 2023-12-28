@@ -592,6 +592,7 @@ def obtener_o_generar_embedding_bert(texto):
         return cache_embeddings[texto]
 
     # Tokenizar y preparar los inputs para BERT
+    tokenizer= BertTokenizer.from_pretrained('bert-base-uncased')
     inputs = tokenizer(texto, return_tensors="pt", padding=True, truncation=True, max_length=512)
     with torch.no_grad():
         outputs = model(**inputs)
