@@ -185,7 +185,7 @@ tokenizer.save_pretrained(BASE_GPT2_DIR)"""
 # Cargar el tokenizador y el modelo preentrenado
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 model = BertForTokenClassification.from_pretrained('bert-base-uncased')
-nlp_ner = pipeline("ner", model=model_ner, tokenizer=tokenizer_ner)
+nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
 
 def allowed_file(filename, chatbot_id):
