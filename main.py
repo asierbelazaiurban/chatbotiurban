@@ -173,25 +173,11 @@ es_client = Elasticsearch(
 )
 
 
-
-#Descargamos el modelo solo la primera vez
-"""# Crea la carpeta si no existe
-if not os.path.exists(BASE_GPT2_DIR):
-    os.makedirs(BASE_GPT2_DIR)
-
-# Nombre del modelo de GPT-2 que deseas descargar
- # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
-
-# Descarga y guarda el tokenizer en la carpeta especificada
-tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-tokenizer.save_pretrained(BASE_GPT2_DIR)"""
-
-
 if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-model = BertModel.from_pretrained("bert-base-uncased")
+model = BertModel.from_pretrained(BASE_BERT_DIR)
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
