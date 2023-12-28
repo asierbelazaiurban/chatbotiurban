@@ -647,8 +647,8 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     pregunta_procesada = preprocess_text(ultima_pregunta)
     
     if not ultima_respuesta or not datos_del_dataset or not datos_del_dataset:
-    app.logger.info("Falta informacion importante, preginta, dataset o chatbot_id")
-        return false
+        app.logger.info("Falta informacion importante, preginta, dataset o chatbot_id")
+        return False
 
     if datos_del_dataset:
         textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
