@@ -661,8 +661,7 @@ def load_and_preprocess_data(file_path):
 
 
 def obtener_embedding_bert(oracion):
-    model = BertModel.from_pretrained(BASE_BERT_DIR)
-    inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
+ 
     # Codificar la oración
     inputs = tokenizer(oracion, return_tensors='pt', padding=True, truncation=True, max_length=128)
 
@@ -674,7 +673,9 @@ def obtener_embedding_bert(oracion):
     embeddings = outputs.last_hidden_state.mean(dim=1)
     return embeddings[0].numpy()
 
-def generar_resumen_con_bert(texto, model, tokenizer):
+def generar_resumen_con_bert(texto):
+    model = BertModel.from_pretrained(BASE_BERT_DIR)
+    inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     oraciones = sent_tokenize(texto)
     embeddings = np.array([obtener_embedding_bert(oracion, model, tokenizer) for oracion in oraciones])
 
