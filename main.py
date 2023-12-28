@@ -603,7 +603,7 @@ def obtener_o_generar_embedding_bert(texto):
 
     return embedding
 
-    
+
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     # Generar embedding para la consulta usando BERT
     embedding_consulta = obtener_o_generar_embedding_bert(query)
@@ -679,13 +679,58 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
 
-def seleccionar_mejor_respuesta(resultados):
-    return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
+from elasticsearch import Elasticsearch, helpers
+
+def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
+    # Ruta del archivo del dataset
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+
+    # Verificar si el archivo del dataset existe
+    if not os.path.exists(dataset_file_path):
+        app.logger.error("El archivo del dataset no existe.")
+        return False
+
+    # Leer el dataset
+    try:
+        with open(dataset_file_path, 'r') as file:
+            dataset = json.load(file)
+    except Exception as e:
+        app.logger.error(f"Error al leer el dataset: {e}")
+        return False
+
+    # Preparar los documentos para la indexación
+    documentos_para_indexar = []
+    for documento in dataset:
+        # Aquí asumimos que cada documento tiene un campo 'id' y 'text'
+        documentos_para_indexar.append({
+            "_index": INDICE_ELASTICSEARCH,  # Nombre de tu índice en Elasticsearch
+            "_id": documento['id'],
+            "_source": {
+                "text": documento['text']
+            }
+        })
+
+    # Indexar los documentos en Elasticsearch
+    try:
+        helpers.bulk(es_client, documentos_para_indexar)
+    except Exception as e:
+        app.logger.error(f"Error durante la indexación: {e}")
+        return False
+
+    app.logger.info("Indexación completada con éxito.")
+    return True
+
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
+
+    # Indexar el dataset en Elasticsearch (si es necesario)
+    if not es_dataset_indexado(chatbot_id):  # Suponiendo que esta función verifica si el dataset ya está indexado
+        indexado_exitoso = indexar_dataset_en_elasticsearch(chatbot_id, es_client)
+        if not indexado_exitoso:
+            return "Error al indexar el dataset en Elasticsearch."
 
     # Combinar pregunta y contexto y preprocesar
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
