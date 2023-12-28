@@ -587,7 +587,7 @@ def extraer_ideas_clave_con_bert(texto):
     return list(ideas_clave)
 
 def obtener_o_generar_embedding_bert(texto):
-    app.logger.info(f"Iniciando obtener_o_generar_embedding_bert con texto: {texto[:50]}...")  # Muestra una vista previa del texto
+    app.logger.info(f"Iniciando obtener_o_generar_embedding_bert con texto: {texto[:50]}...")
 
     texto_str = str(texto)
     app.logger.info("Texto convertido a string.")
@@ -613,16 +613,22 @@ def obtener_o_generar_embedding_bert(texto):
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
-    # Generar embedding para la consulta usando BERT
-    embedding_consulta = obtener_o_generar_embedding_bert(query)
+    app.logger.info(f"Iniciando buscar_con_bert_en_elasticsearch con query: {query[:50]}...")
 
-    # Consulta de búsqueda en Elasticsearch
+    embedding_consulta = obtener_o_generar_embedding_bert(query)
+    app.logger.info("Embedding de consulta obtenido.")
+
     query_busqueda = {
         "query": {
             "script_score": {
                 "query": {"match_all": {}},
                 "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                    "source": """
+                    if (doc['embedding'].size() == 0) {
+                        return 0.0;
+                    }
+                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
+                    """,
                     "params": {"query_vector": embedding_consulta}
                 }
             }
@@ -630,12 +636,18 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
         "size": max_size
     }
 
-    respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-    app.logger.info("Respuesta")
-    app.logger.info(respuesta)
-    app.logger.info("Respuesta hits")
-    app.logger.info(respuesta['hits']['hits'])
-    return respuesta['hits']['hits']
+    try:
+        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
+        app.logger.info("Búsqueda en Elasticsearch completada.")
+        app.logger.info("Respuesta")
+        app.logger.info(respuesta)
+        app.logger.info("Respuesta hits")
+        app.logger.info(respuesta['hits']['hits'])
+    
+        return respuesta['hits']['hits']
+    except Exception as e:
+        app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
+        return []
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
@@ -717,15 +729,13 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 from elasticsearch import Elasticsearch, helpers
 
 def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
-    # Ruta del archivo del dataset
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+    app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
 
-    # Verificar si el archivo del dataset existe
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     if not os.path.exists(dataset_file_path):
         app.logger.error("El archivo del dataset no existe.")
         return False
 
-    # Leer el dataset
     try:
         with open(dataset_file_path, 'r') as file:
             dataset = json.load(file)
@@ -733,29 +743,28 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
         app.logger.error(f"Error al leer el dataset: {e}")
         return False
 
-    # Preparar los documentos para la indexación
     documentos_para_indexar = []
     for id_documento, contenido in dataset.items():
-        # Usar 'indice' como id, 'dialogue' como texto y 'url' si está disponible
+        embedding = obtener_o_generar_embedding_bert(contenido.get('dialogue', ''))
         documento = {
             "_index": INDICE_ELASTICSEARCH,
             "_id": contenido.get('indice'),
             "_source": {
-                "text": contenido.get('dialogue', ''),  # Usar un string vacío si 'dialogue' no existe
-                "url": contenido.get('url', '')  # Usar un string vacío si 'url' no existe
+                "text": contenido.get('dialogue', ''),
+                "url": contenido.get('url', ''),
+                "embedding": embedding
             }
         }
         documentos_para_indexar.append(documento)
 
-    # Indexar los documentos en Elasticsearch
     try:
         helpers.bulk(es_client, documentos_para_indexar)
+        app.logger.info("Documentos indexados correctamente en Elasticsearch.")
+        return True
     except Exception as e:
         app.logger.error(f"Error durante la indexación: {e}")
         return False
 
-    app.logger.info("Indexación completada con éxito.")
-    return True
 
 
 
