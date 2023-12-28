@@ -721,13 +721,27 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
     return True
 
 
+def es_dataset_indexado(chatbot_id, es_client):
+    indice = f"{INDICE_ELASTICSEARCH_PREFIX}_{chatbot_id}"  # Asumiendo que cada chatbot tiene su propio índice
+
+    try:
+        # Verifica si el índice existe
+        indice_existe = es_client.indices.exists(index=indice)
+        return indice_existe
+    except exceptions.ConnectionError:
+        app.logger.error("Error de conexión con Elasticsearch.")
+        return False
+    except Exception as e:
+        app.logger.error(f"Error al verificar la existencia del índice: {e}")
+        return False
+
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
     # Indexar el dataset en Elasticsearch (si es necesario)
-    if not es_dataset_indexado(chatbot_id):  # Suponiendo que esta función verifica si el dataset ya está indexado
+    if not es_dataset_indexado(chatbot_id, es_client):  # Suponiendo que esta función verifica si el dataset ya está indexado
         indexado_exitoso = indexar_dataset_en_elasticsearch(chatbot_id, es_client)
         if not indexado_exitoso:
             return "Error al indexar el dataset en Elasticsearch."
