@@ -50,12 +50,8 @@ from transformers import BertForSequenceClassification, Trainer, TrainingArgumen
 from transformers import BertForTokenClassification
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertModel, BertTokenizer
-from transformers import GPT2Tokenizer, GPT2Model
-from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 
-# Fine-tuning de BERT
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-
+import json
 import torch
 
 # Descarga de paquetes necesarios de NLTK
@@ -85,9 +81,8 @@ import json
 from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
-
-from datasets import load_dataset
-import json
+from transformers import GPT2Tokenizer, GPT2Model
+from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 
 # ---------------------------
 # Módulos Locales
@@ -179,7 +174,24 @@ es_client = Elasticsearch(
 #Descargamos el modelo solo la primera vez
 """# Crea la carpeta si no existe
 if not os.path.exists(BASE_GPT2_DIR):
-    os.makedirs(BASE_GPT2_DIR)"""
+    os.makedirs(BASE_GPT2_DIR)
+
+# Nombre del modelo de GPT-2 que deseas descargar
+ # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
+
+# Descarga y guarda el tokenizer en la carpeta especificada
+tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+tokenizer.save_pretrained(BASE_GPT2_DIR)"""
+
+
+if not os.path.exists(BASE_BERT_DIR):
+    os.makedirs(BASE_BERT_DIR)
+# Modelos y tokenizadores
+# Cargar el tokenizador y el modelo preentrenado
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertForTokenClassification.from_pretrained('bert-base-uncased')
+nlp_ner = pipeline("ner", model=model, tokenizer=model)
+
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -554,7 +566,7 @@ def generar_resumen_con_bert(texto):
     similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
 
     # Seleccionar las oraciones más representativas
-    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
+    indices_impor antes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
     resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
 
     return resumen
@@ -573,6 +585,7 @@ def extraer_ideas_clave_con_bert(texto):
 
     return list(ideas_clave)
 
+
 def obtener_o_generar_embedding_bert(texto):
     if texto in cache_embeddings:
         return cache_embeddings[texto]
@@ -587,10 +600,7 @@ def obtener_o_generar_embedding_bert(texto):
     cache_embeddings[texto] = embedding
     return embedding
 
-def buscar_con_bert_en_elasticsearch(palabras_clave, indice_elasticsearch, max_size=200):
-    # Unir palabras clave para formar una consulta
-    query = ' '.join(palabras_clave)
-
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     # Generar embedding para la consulta usando BERT
     embedding_consulta = obtener_o_generar_embedding_bert(query)
 
@@ -619,26 +629,12 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    # Cargar el modelo y tokenizador BERT para el chatbot específico
-    model_path = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
-    model = BertForTokenClassification.from_pretrained(model_path)
-    tokenizer = BertTokenizer.from_pretrained(model_path)
-    nlp_ner = pipeline("ner", model=model, tokenizer=model)
-
     # Combinar pregunta y contexto y preprocesar
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
     texto_procesado = preprocess_text(texto_completo)
 
-    # Utilizar BERT para obtener logits del texto procesado
-    inputs = tokenizer(texto_procesado, return_tensors="pt", truncation=True, padding=True)
-    outputs = model(**inputs)
-    logits = outputs.logits
-
-    # Procesar los logits para obtener palabras clave
-    palabras_clave = procesar_logits_y_obtener_palabras_clave(logits, tokenizer)
-
-    # Realizar la búsqueda semántica en Elasticsearch usando las palabras clave
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(palabras_clave, INDICE_ELASTICSEARCH)
+    # Realizar la búsqueda semántica en Elasticsearch usando BERT
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
 
     # Si no se encontraron resultados, devolver un mensaje indicándolo
     if not resultados_elasticsearch:
@@ -668,7 +664,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
 
     # Generar la respuesta utilizando GPT-3.5-turbo
-    # Asumiendo que tienes configurado el SDK de OpenAI y 'openai.ChatCompletion.create'
     response = openai.ChatCompletion.create(
         model="gpt-4-1106-preview",
         messages=[
@@ -680,18 +675,71 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
 
-def procesar_logits_y_obtener_palabras_clave(logits, tokenizer, umbral=0.5):
-    """
-    Procesa los logits para identificar tokens significativos y obtener palabras clave.
-    """
-    palabras_clave = []
-    indices_de_tokens_significativos = torch.where(logits > umbral)
-    for idx in indices_de_tokens_significativos[1]:
-        palabra = tokenizer.convert_ids_to_tokens(inputs['input_ids'][0][idx])
-        palabras_clave.append(palabra)
-    return palabras_clave
+def seleccionar_mejor_respuesta(resultados):
+    return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
+        return False
 
+    # Combinar pregunta y contexto y preprocesar
+    texto_completo = f"{ultima_pregunta} {contexto}".strip()
+    texto_procesado = preprocess_text(texto_completo)
+
+    # Realizar la búsqueda semántica en Elasticsearch usando BERT
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
+
+    # Asegúrate de que resultados_elasticsearch no esté vacío
+    if not resultados_elasticsearch:
+        return "No se encontraron resultados relevantes."
+
+    # Crear contexto para GPT-4-1106-preview a partir de los resultados de Elasticsearch
+    contexto_para_gpt = " ".join([
+        resultado['_source'].get('text', '')  # Usa get para manejar la posibilidad de que 'text' no exista
+        for resultado in resultados_elasticsearch[:5]  # Limita a los primeros 5 resultados
+    ])
+
+    # Verifica si el contexto está vacío
+    if not contexto_para_gpt.strip():
+        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
+
+    # Manejo de prompt personalizado
+    try:
+        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
+            prompt_personalizado = file.read()
+    except Exception as e:
+        app.logger.error(f"Error al cargar prompt personalizado: {e}")
+        prompt_personalizado = None
+
+    # Generación del prompt final
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
+    )
+
+    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
+
+    # Generar la respuesta utilizando GPT-4-1106-preview
+    response = openai.ChatCompletion.create(
+        model="gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": prompt_base},
+            {"role": "user", "content": ""}
+        ]
+    )
+
+    respuesta = response.choices[0].message['content'].strip()
+    return respuesta
+
+# Fine-tuning de BERT
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from datasets import load_dataset
+import json
 
 def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -708,28 +756,23 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
-
-
 def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
-    # Cargar el modelo y el tokenizador
-    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)  # Ajusta num_labels según tus necesidades
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)  # Ajusta num_labels según tus etiquetas
     tokenizer = BertTokenizer.from_pretrained(model_name)
 
-    # Cargar los datasets de entrenamiento y evaluación
-    train_dataset = load_dataset('json', data_files={'train': train_file_path})['train']
-    eval_dataset = load_dataset('json', data_files={'eval': eval_file_path})['eval']
+    dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
+    train_dataset = dataset['train']
+    eval_dataset = dataset['eval']
 
-    # Configurar los argumentos de entrenamiento
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
-        warmup_steps=500,  # Puedes ajustar este valor
-        weight_decay=0.01,  # Puedes ajustar este valor
-        logging_dir='./logs',  # Asegúrate de que este directorio exista o ajusta la ruta
+        warmup_steps=500,
+        weight_decay=0.01,
+        logging_dir='./logs',
     )
 
-    # Inicializar el Trainer
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -737,12 +780,9 @@ def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-
         eval_dataset=eval_dataset
     )
 
-    # Realizar el entrenamiento
     trainer.train()
-
-    # Devolver el modelo, el tokenizador y las rutas de los archivos de datos
-    return model, tokenizer, train_file_path, eval_file_path
-
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
@@ -1513,38 +1553,27 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        # Preparar los datos para el fine-tuning
+        # Intenta preparar los datos para el fine-tuning
         try:
-            temp_train_file_path = os.path.join("temp_data", f"temp_train_data_{chatbot_id}.json")
-            temp_eval_file_path = os.path.join("temp_data", f"temp_eval_data_{chatbot_id}.json")
-  
+            temp_train_file_path = f"temp_train_data_{chatbot_id}.json"
+            temp_eval_file_path = f"temp_eval_data_{chatbot_id}.json"
+            prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
+            prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
         except Exception as e:
             app.logger.error(f"Error al generar el dataset: {e}")
             return jsonify({"error": "An error occurred while generating the dataset"}), 500
 
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
-
-        # Realizar el fine-tuning y obtener el modelo, el tokenizador y las rutas de los archivos
-        model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
-
-        # Guardar el modelo y el tokenizador
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-
-        # Guardar las rutas de los archivos de datos en un archivo JSON
-        data_paths = {
-            "train_file_path": train_path,
-            "eval_file_path": eval_path
-        }
-        with open(os.path.join(output_dir, 'data_paths.json'), 'w') as file:
-            json.dump(data_paths, file)
+        finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
-        return jsonify({"error": str(e)}), 
-        
+        return jsonify({"error": str(e)}), 500
+
+
+
 @app.route('/run_tests', methods=['POST'])
 def run_tests():
     import subprocess
@@ -1554,5 +1583,3 @@ def run_tests():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-
