@@ -666,12 +666,19 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     # Realizar la búsqueda semántica en Elasticsearch usando BERT
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
 
-    # Si no se encontraron resultados, devolver un mensaje indicándolo
+    # Asegúrate de que resultados_elasticsearch no esté vacío
     if not resultados_elasticsearch:
-        return "No se encontró una respuesta adecuada en el dataset."
+        return "No se encontraron resultados relevantes."
 
     # Crear contexto para GPT-4-1106-preview a partir de los resultados de Elasticsearch
-    contexto_para_gpt = " ".join([resultado['_source']['text'] for resultado en resultados_elasticsearch[:5]])  # Ejemplo: usar los primeros 5 resultados
+    contexto_para_gpt = " ".join([
+        resultado['_source'].get('text', '')  # Usa get para manejar la posibilidad de que 'text' no exista
+        for resultado in resultados_elasticsearch[:5]  # Limita a los primeros 5 resultados
+    ])
+
+    # Verifica si el contexto está vacío
+    if not contexto_para_gpt.strip():
+        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
 
     # Manejo de prompt personalizado
     try:
