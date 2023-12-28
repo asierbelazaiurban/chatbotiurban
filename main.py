@@ -1548,7 +1548,8 @@ def finetune():
         chatbot_id = data.get("chatbot_id")
 
         if not os.path.exists('logs'):
-            os.mkdir('temp_data')
+            os.mkdir(f"temp_data/temp_train_data_{chatbot_id}.json")
+            os.mkdir(f"temp_data/temp_eval_data_{chatbot_id}.json")
         
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
