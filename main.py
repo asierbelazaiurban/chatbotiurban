@@ -595,7 +595,7 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
     fragmentos = dividir_texto_largo(query_resumida)
     app.logger.info("dividir_texto_largo es:")
-    app.logger.info("")
+    app.logger.info(fragmentos)
  
     resultados_combinados = []
 
