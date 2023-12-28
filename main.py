@@ -662,10 +662,14 @@ def generar_resumen_con_bert(texto):
     oraciones = sent_tokenize(texto)
     embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
 
+    # Asegúrate de que cada embedding sea un array de una dimensión.
+    # Puedes usar np.mean, np.flatten, np.squeeze, o una técnica similar según tu caso.
+    embeddings = np.array([embedding.flatten() for embedding in embeddings])
+
+    # Ahora embeddings es un array 2D: número de oraciones x tamaño del embedding
     similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
     indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]
     resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
-
     return resumen
 
 def extraer_ideas_clave_con_bert(texto):
