@@ -49,6 +49,7 @@ from transformers import BertTokenizer, BertForSequenceClassification
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertForTokenClassification
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import BertModel, BertTokenizer
 
 import json
 import torch
@@ -565,7 +566,7 @@ def generar_resumen_con_bert(texto):
     similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
 
     # Seleccionar las oraciones más representativas
-    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
+    indices_impor antes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
     resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
 
     return resumen
@@ -584,6 +585,7 @@ def extraer_ideas_clave_con_bert(texto):
 
     return list(ideas_clave)
 
+
 def obtener_o_generar_embedding_bert(texto):
     if texto in cache_embeddings:
         return cache_embeddings[texto]
@@ -591,14 +593,13 @@ def obtener_o_generar_embedding_bert(texto):
     # Tokenizar y preparar los inputs para BERT
     inputs = tokenizer(texto, return_tensors="pt", padding=True, truncation=True, max_length=512)
     with torch.no_grad():
-        # Asegúrate de que estás utilizando BertModel aquí
         outputs = model(**inputs)
 
     # Obtener la representación del token [CLS]
-    embedding = outputs.last_hidden_state[:, 0, :].numpy()
+    embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy()
     cache_embeddings[texto] = embedding
     return embedding
-    
+
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     # Generar embedding para la consulta usando BERT
     embedding_consulta = obtener_o_generar_embedding_bert(query)
