@@ -48,6 +48,7 @@ from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageMo
 from transformers import BertTokenizer, BertForSequenceClassification
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertForTokenClassification
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
 
 import json
 import torch
@@ -718,6 +719,10 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     return respuesta
 
 # Fine-tuning de BERT
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from datasets import load_dataset
+import json
+
 def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
@@ -725,18 +730,18 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
         data = json.load(file)
 
     with open(output_file_path, 'w', encoding='utf-8') as file:
-        for item in data.values():
-            text = item.get("text", "").strip()
-            label = item.get("label", "").strip()  # Asumiendo que cada item tiene una etiqueta
-            if text and label:
+        for key, item in data.items():
+            text = item.get("dialogue", "").strip()
+            # Asumiendo una tarea de clasificación binaria, asignamos una etiqueta ficticia (0 o 1)
+            label = 0  # Aquí deberías definir cómo asignar las etiquetas basadas en tu dataset
+            if text:
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
 def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
-    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)  # Ajustar num_labels según tus etiquetas
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)  # Ajusta num_labels según tus etiquetas
     tokenizer = BertTokenizer.from_pretrained(model_name)
 
-    # Cargar los datasets
     dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
     train_dataset = dataset['train']
     eval_dataset = dataset['eval']
