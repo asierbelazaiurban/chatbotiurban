@@ -669,15 +669,27 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
         "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. "
+        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
+    if contexto_adicional:
+        final_prompt += f" Contexto adicional: {contexto_adicional}"
 
-    prompt_base = f"{'Contexto: ' + contexto_procesado + '\\n' if contexto else ''}Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
+    prompt_base = f"{contexto_adicional} \n Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
     
     respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
-    return respuesta_corta
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": respuesta_corta}
+            ]
+    )
+
+    respuesta = response.choices[0].message['content'].strip()
+    return respuesta
 
 # Fine-tuning de GPT-2
 def prepare_data_for_finetuning(json_file_path, output_file_path):
