@@ -712,15 +712,17 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
 
     # Preparar los documentos para la indexación
     documentos_para_indexar = []
-    for documento in dataset:
-        # Aquí asumimos que cada documento tiene un campo 'id' y 'text'
-        documentos_para_indexar.append({
-            "_index": INDICE_ELASTICSEARCH,  # Nombre de tu índice en Elasticsearch
-            "_id": documento['id'],
+    for id_documento, contenido in dataset.items():
+        # Usar 'indice' como id, 'dialogue' como texto y 'url' si está disponible
+        documento = {
+            "_index": INDICE_ELASTICSEARCH,
+            "_id": contenido.get('indice'),
             "_source": {
-                "text": documento['text']
+                "text": contenido.get('dialogue', ''),  # Usar un string vacío si 'dialogue' no existe
+                "url": contenido.get('url', '')  # Usar un string vacío si 'url' no existe
             }
-        })
+        }
+        documentos_para_indexar.append(documento)
 
     # Indexar los documentos en Elasticsearch
     try:
