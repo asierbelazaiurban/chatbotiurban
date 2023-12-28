@@ -50,8 +50,12 @@ from transformers import BertForSequenceClassification, Trainer, TrainingArgumen
 from transformers import BertForTokenClassification
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertModel, BertTokenizer
+from transformers import GPT2Tokenizer, GPT2Model
+from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 
-import json
+# Fine-tuning de BERT
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+
 import torch
 
 # Descarga de paquetes necesarios de NLTK
@@ -81,8 +85,9 @@ import json
 from peft import PeftConfig, PeftModel, TaskType, LoraConfig
 from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, create_reference_model
 from trl.core import LengthSampler
-from transformers import GPT2Tokenizer, GPT2Model
-from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+
+from datasets import load_dataset
+import json
 
 # ---------------------------
 # Módulos Locales
@@ -188,10 +193,13 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertForTokenClassification.from_pretrained('bert-base-uncased')
-nlp_ner = pipeline("ner", model=model, tokenizer=model)
+#tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+#model = BertForTokenClassification.from_pretrained('bert-base-uncased')
+#nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
+modelo = BertForTokenClassification.from_pretrained(BASE_BERT_DIR)
+tokenizer = BertTokenizer.from_pretrained(BASE_BERT_DIR)
+nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -674,9 +682,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
 
-def seleccionar_mejor_respuesta(resultados):
-    return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
-
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
@@ -735,10 +740,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
 
-# Fine-tuning de BERT
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-from datasets import load_dataset
-import json
+
 
 def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
