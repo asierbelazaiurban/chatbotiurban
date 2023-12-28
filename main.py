@@ -541,10 +541,14 @@ def obtener_o_generar_embedding(texto):
     if texto in cache_embeddings:
         app.logger.info("Usando embedding almacenado en cache")
         return cache_embeddings[texto]
+    
     app.logger.info("Generando nuevo embedding y almacenando en cache")
-    embedding = generate_gpt_embeddings(texto)
+    inputs = tokenizer.encode_plus(texto, return_tensors="pt", truncation=True, max_length=512)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()[0]
     cache_embeddings[texto] = embedding
-    return embedding   
+    return embedding
 
 def generate_gpt_embeddings(text):
     inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True, max_length=512)
@@ -594,11 +598,9 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     query_resumida = extraer_ideas_clave_con_gpt2(query)
     app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
 
-    # Dividir el texto en fragmentos si es muy largo
     fragmentos = dividir_texto_largo(query_resumida)
-    app.logger.info("Fragmentos de texto para búsqueda:")
-    for frag in fragmentos:
-        app.logger.info(frag)
+    app.logger.info("dividir_texto_largo es:")
+    app.logger.info(fragmentos)
 
     resultados_combinados = []
 
@@ -610,21 +612,17 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
                     "query": {"match_all": {}},
                     "script": {
                         "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
-                        "params": {"query_vector": embedding}
+                        "params": {"query_vector": embedding.tolist()}
                     }
                 }
             },
             "size": max_size
         }
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        if respuesta.get('hits', {}).get('hits'):
-            app.logger.info(f"Resultados encontrados: {len(respuesta['hits']['hits'])} para el fragmento.")
+        if 'hits' in respuesta and 'hits' in respuesta['hits']:
             resultados_combinados.extend(respuesta['hits']['hits'])
-        else:
-            app.logger.info("No se encontraron resultados para este fragmento.")
 
-    app.logger.info("Total de resultados combinados encontrados:")
-    app.logger.info(len(resultados_combinados))
+    app.logger.info(f"Total de resultados combinados: {len(resultados_combinados)}")
 
     resultados_unicos = {}
     for resultado in resultados_combinados:
@@ -633,12 +631,6 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
             resultados_unicos[id_doc] = resultado
 
     resultados_ordenados = sorted(resultados_unicos.values(), key=lambda x: x['_score'], reverse=True)
-    
-    app.logger.info("Resultado Ordenados (Top 5):")
-    for res in resultados_ordenados[:5]:  # Mostrar solo los primeros 5 resultados para evitar sobrecarga de información
-        app.logger.info(res)
-
-    # Limitar el tamaño del texto de los resultados
     for resultado in resultados_ordenados:
         resultado['_source']['text'] = resultado['_source']['text'][:max_size]
 
