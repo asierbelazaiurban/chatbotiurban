@@ -47,6 +47,8 @@ from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Tr
 from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 from transformers import BertTokenizer, BertForSequenceClassification
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import BertForTokenClassification
+
 import json
 import torch
 
