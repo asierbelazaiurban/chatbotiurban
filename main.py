@@ -534,9 +534,12 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, es_client, max_size=200):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     embedding_consulta = obtener_embedding_bert(query,model=BertModel.from_pretrained('bert-base-uncased'), tokenizer = BertTokenizer.from_pretrained('bert-base-uncased'))
-
+    es_client = Elasticsearch(
+        cloud_id=CLOUD_ID,
+        basic_auth=("elastic", ELASTIC_PASSWORD)
+    )
     query_busqueda = {
         "query": {
             "script_score": {
@@ -569,12 +572,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     app.logger.info(f"Pregunta recibida: {ultima_pregunta}")
     app.logger.info(f"Chatbot ID: {chatbot_id}")
     app.logger.info(f"Contexto adicional: {contexto}")
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    es_client = Elasticsearch(
-        cloud_id=CLOUD_ID,
-        basic_auth=("elastic", ELASTIC_PASSWORD)
-    )
-    model = BertModel.from_pretrained(BASE_BERT_DIR)
+
 
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
@@ -589,7 +587,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
         INDICE_ELASTICSEARCH, 
-        es_client=es_client, 
         max_size=200
     )
 
