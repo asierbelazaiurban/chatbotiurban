@@ -45,6 +45,10 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM,
 from transformers import Trainer, TrainingArguments
 from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
 from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import BertForSequenceClassification, Trainer, TrainingArguments
+import json
+import torch
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -148,7 +152,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 # Configuración global
 
 
-INDICE_ELASTICSEARCH = 'search-asier-iurban'
+INDICE_ELASTICSEARCH = 'search-iurban'
 ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"
 
 # Found in the 'Manage Deployment' page
@@ -176,9 +180,10 @@ tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 tokenizer.save_pretrained(BASE_GPT2_DIR)"""
 
 # Modelos y tokenizadores
-tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-tokenizer.pad_token = tokenizer.eos_token
-model = GPT2LMHeadModel.from_pretrained("gpt2")
+# Cargar el tokenizador y el modelo preentrenado
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertForTokenClassification.from_pretrained('bert-base-uncased')
+nlp_ner = pipeline("ner", model=model_ner, tokenizer=tokenizer_ner)
 
 
 def allowed_file(filename, chatbot_id):
@@ -520,6 +525,9 @@ def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
+def dividir_texto_largo(texto, max_longitud=512):
+    return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
+
 def load_and_preprocess_data(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -535,131 +543,59 @@ def load_and_preprocess_data(file_path):
             processed_data.append(preprocess_text(text))
     return processed_data
 
-cache_embeddings = {}
-
-def obtener_o_generar_embedding(texto):
-    if texto in cache_embeddings:
-        app.logger.info("Usando embedding almacenado en cache")
-        return cache_embeddings[texto]
-    
-    app.logger.info("Generando nuevo embedding y almacenando en cache")
-    inputs = tokenizer.encode_plus(texto, return_tensors="pt", truncation=True, max_length=512)
+def obtener_embedding_bert(oracion):
+    inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
-    # Uso de 'output.hidden_states' si está disponible, o 'output' directamente
-    embedding = outputs.last_hidden_state if hasattr(outputs, 'last_hidden_state') else outputs[0]
-    embedding = embedding.mean(dim=1).cpu().numpy()[0]
-    cache_embeddings[texto] = embedding
-    return embedding
+    return outputs.last_hidden_state.mean(dim=1).cpu().numpy()
 
+def generar_resumen_con_bert(texto):
+    oraciones = sent_tokenize(texto)
+    embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
 
-def generate_gpt_embeddings(text):
-    inputs = tokenizer.encode_plus(text, return_tensors="pt", truncation=True, max_length=512)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    return outputs.logits[:, -1, :].cpu().numpy()
+    # Calcular la similitud de cada oración con el texto completo
+    similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
 
-def index_data_to_elasticsearch(dataset, es_client, index_name):
-    actions = []
-    for item in dataset:
-        embedding = generate_gpt_embeddings(item['text'])
-        action = {
-            "_index": index_name,
-            "_id": item['id'],
-            "_source": {
-                "text": item['text'],
-                "embedding": embedding.tolist()
-            }
-        }
-        actions.append(action)
-    try:
-        bulk(es_client, actions)
-    except Exception as e:
-        app.logger.info(f"Error durante la indexación: {e}")
+    # Seleccionar las oraciones más representativas
+    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
+    resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
 
-def dividir_texto_largo(texto, max_longitud=512):
-    return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
-
-def extraer_ideas_clave_con_gpt2(texto, max_length=510):
-    prompt = f"¿Cuáles son las ideas clave de la siguiente pregunta? '{texto}'"
-    inputs = tokenizer.encode(prompt, return_tensors='pt', max_length=1024, truncation=True)
-    outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
-    ideas_clave = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    ideas_clave = ideas_clave.replace(prompt, "").strip()
-    return ideas_clave
-
-def generar_resumen_con_gpt2(texto, max_length=200):
-    prompt = f"Resumen: {texto}\n\nResumen Corto:"
-    inputs = tokenizer.encode(prompt, return_tensors='pt', max_length=1024, truncation=True)
-    outputs = model.generate(inputs, max_length=max_length, num_return_sequences=1, pad_token_id=tokenizer.eos_token_id)
-    resumen = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    resumen = resumen.replace(prompt, "").strip()
     return resumen
 
-def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
-    app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
-    
-    # Resumir la consulta para extraer sus ideas clave
-    query_resumida = extraer_ideas_clave_con_gpt2(query)
-    app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
+def extraer_ideas_clave_con_bert(texto):
+    # Obtener entidades nombradas
+    entidades = nlp_ner(texto)
 
-    # Dividir la consulta resumida en fragmentos solo si supera una longitud determinada
-    MAX_LONGITUD_PARA_DIVIDIR = 100  # Puedes ajustar este valor según tus necesidades
-    if len(query_resumida) > MAX_LONGITUD_PARA_DIVIDIR:
-        fragmentos = dividir_texto_largo(query_resumida)
-        app.logger.info("dividir_texto_largo es:")
-        app.logger.info(fragmentos)
-    else:
-        fragmentos = [query_resumida]
+    # Crear una lista para almacenar las ideas clave
+    ideas_clave = set()
 
-    resultados_combinados = []
+    # Filtrar y agregar entidades relevantes a las ideas clave
+    for entidad in entidades:
+        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:  # Ejemplo de tipos de entidades
+            ideas_clave.add(entidad['word'])
 
-    # Buscar en Elasticsearch para cada fragmento
-    for fragmento in fragmentos:
-        embedding = obtener_o_generar_embedding(fragmento)
-        query_busqueda = {
-            "query": {
-                "script_score": {
-                    "query": {"match_all": {}},
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
-                        "params": {"query_vector": embedding.tolist()}
-                    }
+    return list(ideas_clave)
+
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
+    # Generar embedding para la consulta usando BERT
+    embedding_consulta = obtener_o_generar_embedding_bert(query)
+
+    # Consulta de búsqueda en Elasticsearch
+    query_busqueda = {
+        "query": {
+            "script_score": {
+                "query": {"match_all": {}},
+                "script": {
+                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                    "params": {"query_vector": embedding_consulta}
                 }
-            },
-            "size": max_size
-        }
-        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        if 'hits' in respuesta and 'hits' in respuesta['hits']:
-            resultados_combinados.extend(respuesta['hits']['hits'])
+            }
+        },
+        "size": max_size
+    }
 
-    app.logger.info(f"Total de resultados combinados: {len(resultados_combinados)}")
-
-    # Eliminar resultados duplicados y seleccionar los más relevantes
-    resultados_unicos = {}
-    for resultado in resultados_combinados:
-        id_doc = resultado['_id']
-        if id_doc not in resultados_unicos or resultado['_score'] > resultados_unicos[id_doc]['_score']:
-            resultados_unicos[id_doc] = resultado
-
-    resultados_ordenados = sorted(resultados_unicos.values(), key=lambda x: x['_score'], reverse=True)
-    for resultado in resultados_ordenados:
-        resultado['_source']['text'] = resultado['_source']['text'][:max_size]
-
-    return resultados_ordenados
-
-
-
-def generar_respuesta_con_gpt2(texto, max_length=2047):
-    texto_procesado = preprocess_text(texto)[:max_length]
-    inputs = tokenizer.encode(texto_procesado, return_tensors='pt')
-    outputs = model.generate(inputs, max_length=max_length)
-    return tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-def cargar_dataset(chatbot_id):
-    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-    with open(dataset_file_path, 'r', encoding='utf-8') as file:
-        return json.load(file)
+    respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
+    return respuesta['hits']['hits']
 
 def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
@@ -673,26 +609,15 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
     texto_procesado = preprocess_text(texto_completo)
 
-    # Definir la longitud máxima para el modelo GPT
-    MAX_LONGITUD = 512
+    # Realizar la búsqueda semántica en Elasticsearch usando BERT
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
 
-    # Dividir el texto en fragmentos si es demasiado largo
-    if len(texto_procesado) > MAX_LONGITUD:
-        fragmentos = dividir_texto_largo(texto_procesado, max_longitud=MAX_LONGITUD)
-    else:
-        fragmentos = [texto_procesado]
-
-    resultados_combinados = []
-    for fragmento in fragmentos:
-        # Realizar la búsqueda en Elasticsearch para cada fragmento
-        resultados_fragmento = search_in_elasticsearch(fragmento, INDICE_ELASTICSEARCH)
-        resultados_combinados.extend(resultados_fragmento)
-
-    # Seleccionar la mejor respuesta de los resultados combinados
-    mejor_respuesta = seleccionar_mejor_respuesta(resultados_combinados)
-
-    if not mejor_respuesta:
+    # Si no se encontraron resultados, devolver un mensaje indicándolo
+    if not resultados_elasticsearch:
         return "No se encontró una respuesta adecuada en el dataset."
+
+    # Crear contexto para GPT-3.5-turbo a partir de los resultados de Elasticsearch
+    contexto_para_gpt = " ".join([resultado['_source']['text'] for resultado in resultados_elasticsearch[:5]])  # Ejemplo: usar los primeros 5 resultados
 
     # Manejo de prompt personalizado
     try:
@@ -708,54 +633,118 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "1. Mantén la coherencia con la pregunta original. "
         "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "3. Encuentra la mejor respuesta en relación a la pregunta que te llega "
+        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
         "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
     )
 
-    prompt_base = f"Contexto: {contexto_procesado} \nPregunta: {ultima_pregunta} \nRespuesta: {mejor_respuesta}\n--\n{final_prompt}"
+    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
 
-    respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
-
+    # Generar la respuesta utilizando GPT-3.5-turbo
     response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4-1106-preview",
         messages=[
             {"role": "system", "content": prompt_base},
-            {"role": "user", "content": respuesta_corta}
+            {"role": "user", "content": ""}
         ]
     )
 
     respuesta = response.choices[0].message['content'].strip()
     return respuesta
 
-# Fine-tuning de GPT-2
-def prepare_data_for_finetuning(json_file_path, output_file_path):
+def seleccionar_mejor_respuesta(resultados):
+    return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
+
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
+        return False
+
+    # Combinar pregunta y contexto y preprocesar
+    texto_completo = f"{ultima_pregunta} {contexto}".strip()
+    texto_procesado = preprocess_text(texto_completo)
+
+    # Realizar la búsqueda semántica en Elasticsearch usando BERT
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
+
+    # Si no se encontraron resultados, devolver un mensaje indicándolo
+    if not resultados_elasticsearch:
+        return "No se encontró una respuesta adecuada en el dataset."
+
+    # Crear contexto para GPT-4-1106-preview a partir de los resultados de Elasticsearch
+    contexto_para_gpt = " ".join([resultado['_source']['text'] for resultado en resultados_elasticsearch[:5]])  # Ejemplo: usar los primeros 5 resultados
+
+    # Manejo de prompt personalizado
+    try:
+        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
+            prompt_personalizado = file.read()
+    except Exception as e:
+        app.logger.error(f"Error al cargar prompt personalizado: {e}")
+        prompt_personalizado = None
+
+    # Generación del prompt final
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
+    )
+
+    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
+
+    # Generar la respuesta utilizando GPT-4-1106-preview
+    response = openai.ChatCompletion.create(
+        model="gpt-4-1106-preview",
+        messages=[
+            {"role": "system", "content": prompt_base},
+            {"role": "user", "content": ""}
+        ]
+    )
+
+    respuesta = response.choices[0].message['content'].strip()
+    return respuesta
+
+# Fine-tuning de BERT
+def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
+
     with open(output_file_path, 'w', encoding='utf-8') as file:
         for item in data.values():
-            dialogue = item.get("dialogue", "").strip()
-            if dialogue:
-                file.write(f"{dialogue}\n\n")
+            text = item.get("text", "").strip()
+            label = item.get("label", "").strip()  # Asumiendo que cada item tiene una etiqueta
+            if text and label:
+                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
+                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
-def finetune_gpt2(file_path, output_dir, model_name="gpt2", epochs=1, batch_size=2):
-    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
-    model = GPT2LMHeadModel.from_pretrained(model_name)
-    train_dataset = TextDataset(tokenizer=tokenizer, file_path=file_path, block_size=128)
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)  # Ajustar num_labels según tus etiquetas
+    tokenizer = BertTokenizer.from_pretrained(model_name)
+
+    # Cargar los datasets
+    dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
+    train_dataset = dataset['train']
+    eval_dataset = dataset['eval']
+
     training_args = TrainingArguments(
         output_dir=output_dir,
-        overwrite_output_dir=True,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
-        save_steps=10_000,
-        save_total_limit=2,
+        warmup_steps=500,
+        weight_decay=0.01,
+        logging_dir='./logs',
     )
+
     trainer = Trainer(
         model=model,
         args=training_args,
-        data_collator=data_collator,
-        train_dataset=train_dataset
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset
     )
+
     trainer.train()
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
@@ -1529,17 +1518,16 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_file_path = f"temp_finetune_data_{chatbot_id}.txt"
-        prepare_data_for_finetuning(dataset_file_path, temp_file_path)
+        temp_file_path = f"temp_finetune_data_{chatbot_id}.json"
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_file_path)
 
         output_dir = f"finetuned_model_{chatbot_id}"
-        finetune_gpt2(temp_file_path, output_dir)
+        finetune_bert(temp_file_path, output_dir)
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/run_tests', methods=['POST'])
 def run_tests():
