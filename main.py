@@ -157,6 +157,7 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 
 INDICE_ELASTICSEARCH = 'search-iurban'
+INDICE_ELASTICSEARCH_PREFIX = 'search-iurban-prefix'
 ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"
 
 # Found in the 'Manage Deployment' page
@@ -167,7 +168,6 @@ es_client = Elasticsearch(
     cloud_id=CLOUD_ID,
     basic_auth=("elastic", ELASTIC_PASSWORD)
 )
-
 
 
 
