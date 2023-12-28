@@ -191,7 +191,7 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-model = BertModel.from_pretrained(BASE_BERT_DIR)
+model = BertModel.from_pretrained("bert-base-uncased")
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
