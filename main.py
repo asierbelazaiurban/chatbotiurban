@@ -727,7 +727,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
 
 from elasticsearch import Elasticsearch, helpers
-
 def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
 
@@ -742,6 +741,12 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
     except Exception as e:
         app.logger.error(f"Error al leer el dataset: {e}")
         return False
+
+    # Verificar y eliminar documentos ya indexados
+    for id_documento, contenido in dataset.items():
+        documento_id = contenido.get('indice')
+        if es_client.exists(index=INDICE_ELASTICSEARCH, id=documento_id):
+            es_client.delete(index=INDICE_ELASTICSEARCH, id=documento_id)
 
     documentos_para_indexar = []
     for id_documento, contenido in dataset.items():
@@ -762,16 +767,23 @@ def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
         }
         documentos_para_indexar.append(documento)
 
-    try:
-        for success, info in helpers.parallel_bulk(es_client, documentos_para_indexar):
-            if not success:
-                app.logger.error(f"Documento fallido al indexar: {info}")
-        app.logger.info("Todos los documentos han sido procesados para indexación.")
-    except Exception as e:
-        app.logger.error(f"Error general durante la indexación: {e}")
-        return False
+    total_documentos = len(documentos_para_indexar)
+    documentos_fallidos = 0
 
-    app.logger.info("Indexación completada con éxito.")
+    for documento in documentos_para_indexar:
+        try:
+            resultado = es_client.index(index=documento["_index"], id=documento["_id"], body=documento["_source"])
+            if resultado.get('result') != 'created' and resultado.get('result') != 'updated':
+                raise Exception(f"Documento no indexado correctamente: {resultado}")
+        except Exception as e:
+            documentos_fallidos += 1
+            app.logger.error(f"Error al indexar documento con ID: {documento['_id']}, Error: {e}")
+
+    if documentos_fallidos > 0:
+        app.logger.error(f"Indexación completada con {documentos_fallidos} de {total_documentos} documentos fallidos.")
+    else:
+        app.logger.info("Indexación completada con éxito.")
+
     return True
 
 
