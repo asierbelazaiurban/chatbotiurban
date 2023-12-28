@@ -1585,54 +1585,42 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
+        # Copia el archivo de dataset a los archivos temporales de entrenamiento y evaluación
         temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
         temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
-
-        try:
-            # Aquí deberías preparar tus datos para el entrenamiento
-            # Esta función necesita ser definida en tu código
-            prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
-            prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
-        except Exception as e:
-            app.logger.error(f"Error en la preparación de los datos: {e}")
-            return jsonify({"error": f"Error en la preparación de los datos: {e}"}), 500
+        shutil.copy(dataset_file_path, temp_train_file_path)
+        shutil.copy(dataset_file_path, temp_eval_file_path)
 
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
 
-        try:
-            # Cargar el modelo y el tokenizer pre-entrenados
-            model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
-            tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        # Cargar el modelo y el tokenizer pre-entrenados
+        model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-            # Aquí deberías cargar tus datos de entrenamiento y evaluación
-            # Estas funciones necesitan ser implementadas según tu lógica de preparación de datos
-            train_dataset = load_dataset(temp_train_file_path)
-            eval_dataset = load_dataset(temp_eval_file_path)
+        # Cargar los datasets
+        train_dataset = load_dataset('json', data_files=temp_train_file_path, split='train')
+        eval_dataset = load_dataset('json', data_files=temp_eval_file_path, split='validation')
 
-            # Configurar el Trainer
-            training_args = TrainingArguments(output_dir=output_dir)
-            trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+        # Configurar el Trainer
+        training_args = TrainingArguments(output_dir=output_dir, ...)
+        trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
 
-            # Entrenar el modelo
-            trainer.train()
+        # Entrenar el modelo
+        trainer.train()
 
-            # Guardar el modelo y el tokenizer
-            model.save_pretrained(output_dir)
-            tokenizer.save_pretrained(output_dir)
+        # Guardar el modelo y el tokenizer
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
 
-            data_paths = {
-                "train_file_path": temp_train_file_path,
-                "eval_file_path": temp_eval_file_path
-            }
-            with open(os.path.join(output_dir, 'data_paths.json'), 'w') as file:
-                json.dump(data_paths, file)
+        data_paths = {
+            "train_file_path": temp_train_file_path,
+            "eval_file_path": temp_eval_file_path
+        }
+        with open(os.path.join(output_dir, 'data_paths.json'), 'w') as file:
+            json.dump(data_paths, file)
 
-            return jsonify({"message": "Fine-tuning completado con éxito"}), 200
-        except Exception as e:
-            app.logger.error(f"Error en fine-tuning BERT: {e}")
-            return jsonify({"error": f"Error en fine-tuning BERT: {e}"}), 500
-
+        return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
         app.logger.error(f"Error general en /finetune: {e}")
         return jsonify({"error": str(e)}), 500
@@ -1642,6 +1630,8 @@ def finetune():
 
 @app.route('/indexar_dataset', methods=['POST'])
 def indexar_dataset_en_elasticsearch(chatbot_id):
+    data = request.get_json()
+    chatbot_id = data.get("chatbot_id")
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
