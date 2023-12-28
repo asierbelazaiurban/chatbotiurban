@@ -185,6 +185,8 @@ if not os.path.exists(BASE_GPT2_DIR):
  # Por ejemplo, "gpt2", "gpt2-medium", "gpt2-large", etc.
 
 # Descarga y guarda el tokenizer en la carpeta especificada
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertForTokenClassification.from_pretrained('bert-base-uncased')
 tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 tokenizer.save_pretrained(BASE_GPT2_DIR)"""
 
@@ -193,13 +195,10 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertForTokenClassification.from_pretrained('bert-base-uncased')
+tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+tokenizer.save_pretrained(BASE_GPT2_DIR)
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
-"""modelo = BertForTokenClassification.from_pretrained(BASE_BERT_DIR)
-tokenizer = BertTokenizer.from_pretrained(BASE_BERT_DIR)
-nlp_ner = pipeline("ner", model=model, tokenizer=model)"""
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
