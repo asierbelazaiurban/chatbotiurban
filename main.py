@@ -593,10 +593,13 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
     query_resumida = extraer_ideas_clave_con_gpt2(query)
     app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
+
+    # Dividir el texto en fragmentos si es muy largo
     fragmentos = dividir_texto_largo(query_resumida)
-    app.logger.info("dividir_texto_largo es:")
-    app.logger.info(fragmentos)
- 
+    app.logger.info("Fragmentos de texto para búsqueda:")
+    for frag in fragmentos:
+        app.logger.info(frag)
+
     resultados_combinados = []
 
     for fragmento in fragmentos:
@@ -614,30 +617,33 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
             "size": max_size
         }
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        resultados_combinados.extend(respuesta['hits']['hits'])
-   
-    app.logger.info("Resultados combinados")
-    app.logger.info(resultados_combinados)
+        if respuesta.get('hits', {}).get('hits'):
+            app.logger.info(f"Resultados encontrados: {len(respuesta['hits']['hits'])} para el fragmento.")
+            resultados_combinados.extend(respuesta['hits']['hits'])
+        else:
+            app.logger.info("No se encontraron resultados para este fragmento.")
 
+    app.logger.info("Total de resultados combinados encontrados:")
+    app.logger.info(len(resultados_combinados))
 
     resultados_unicos = {}
     for resultado in resultados_combinados:
         id_doc = resultado['_id']
-        if id_doc not in resultados_unicos:
+        if id_doc not in resultados_unicos or resultado['_score'] > resultados_unicos[id_doc]['_score']:
             resultados_unicos[id_doc] = resultado
-        else:
-            if resultado['_score'] > resultados_unicos[id_doc]['_score']:
-                resultados_unicos[id_doc] = resultado
 
     resultados_ordenados = sorted(resultados_unicos.values(), key=lambda x: x['_score'], reverse=True)
+    
+    app.logger.info("Resultado Ordenados (Top 5):")
+    for res in resultados_ordenados[:5]:  # Mostrar solo los primeros 5 resultados para evitar sobrecarga de información
+        app.logger.info(res)
+
+    # Limitar el tamaño del texto de los resultados
     for resultado in resultados_ordenados:
         resultado['_source']['text'] = resultado['_source']['text'][:max_size]
 
-
-    app.logger.info("resultado Ordenados")
-    app.logger.info(resultados_ordenados)
-
     return resultados_ordenados
+
 
 def generar_respuesta_con_gpt2(texto, max_length=2047):
     texto_procesado = preprocess_text(texto)[:max_length]
