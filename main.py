@@ -1558,11 +1558,9 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        # Preparar los datos para el fine-tuning
         try:
             temp_train_file_path = os.path.join("temp_data", f"temp_train_data_{chatbot_id}.json")
             temp_eval_file_path = os.path.join("temp_data", f"temp_eval_data_{chatbot_id}.json")
-
         except Exception as e:
             app.logger.error(f"Error al generar el dataset: {e}")
             return jsonify({"error": "An error occurred while generating the dataset"}), 500
@@ -1570,14 +1568,11 @@ def finetune():
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
 
-        # Realizar el fine-tuning y obtener el modelo, el tokenizador y las rutas de los archivos
         model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
 
-        # Guardar el modelo y el tokenizador
         model.save_pretrained(output_dir)
         tokenizer.save_pretrained(output_dir)
 
-        # Guardar las rutas de los archivos de datos en un archivo JSON
         data_paths = {
             "train_file_path": train_path,
             "eval_file_path": eval_path
@@ -1589,6 +1584,7 @@ def finetune():
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 
