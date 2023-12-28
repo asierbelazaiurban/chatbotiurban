@@ -626,6 +626,10 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     for resultado in resultados_ordenados:
         resultado['_source']['text'] = resultado['_source']['text'][:max_size]
 
+
+        app.logger.info("resultado Ordenados")
+        app.logger.info(resultados_ordenados)
+
     return resultados_ordenados
 
 def generar_respuesta_con_gpt2(texto, max_length=2047):
