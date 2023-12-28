@@ -587,23 +587,29 @@ def extraer_ideas_clave_con_bert(texto):
     return list(ideas_clave)
 
 def obtener_o_generar_embedding_bert(texto):
-    # Asegurarse de que 'texto' es un string
+    app.logger.info(f"Iniciando obtener_o_generar_embedding_bert con texto: {texto[:50]}...")  # Muestra una vista previa del texto
+
     texto_str = str(texto)
+    app.logger.info("Texto convertido a string.")
 
     if texto_str in cache_embeddings:
+        app.logger.info("Texto encontrado en cache_embeddings.")
         return cache_embeddings[texto_str]
 
+    app.logger.info("Generando nuevo embedding para el texto.")
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     inputs = tokenizer.encode_plus(texto_str, return_tensors="pt", max_length=512, truncation=True)
+    app.logger.info("Texto tokenizado.")
 
     with torch.no_grad():
         outputs = model(**inputs)
+    app.logger.info("Embedding generado con BERT.")
 
     embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
     cache_embeddings[texto_str] = embedding
+    app.logger.info("Embedding almacenado en cache_embeddings.")
 
     return embedding
-
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
@@ -625,49 +631,60 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     }
 
     respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
+    app.logger.info("Respuesta")
+    app.logger.info(respuesta)
+    app.logger.info("Respuesta hits")
+    app.logger.info(respuesta['hits']['hits'])
     return respuesta['hits']['hits']
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+    app.logger.info("Iniciando función encontrar_respuesta.")
+    app.logger.info(f"Pregunta recibida: {ultima_pregunta}")
+    app.logger.info(f"Chatbot ID: {chatbot_id}")
+    app.logger.info(f"Contexto adicional: {contexto}")
+
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    # Indexar el dataset en Elasticsearch (si es necesario)
+    app.logger.info("Comenzando el proceso de indexación en Elasticsearch.")
     indexado_exitoso = indexar_dataset_en_elasticsearch(chatbot_id, es_client)
     if not indexado_exitoso:
+        app.logger.error("Error al indexar el dataset en Elasticsearch.")
         return "Error al indexar el dataset en Elasticsearch."
 
-    # Combinar pregunta y contexto y preprocesar
+    app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
     texto_procesado = preprocess_text(texto_completo)
 
-    # Realizar la búsqueda semántica en Elasticsearch usando BERT
+    app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
+    app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
 
-    # Asegúrate de que resultados_elasticsearch no esté vacío
     if not resultados_elasticsearch:
+        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
         return "No se encontraron resultados relevantes."
 
-    # Crear contexto para GPT-4-1106-preview a partir de los resultados de Elasticsearch
+    app.logger.info("Creando contexto para GPT a partir de los resultados de Elasticsearch.")
     contexto_para_gpt = " ".join([
-        resultado['_source'].get('text', '')  # Usa get para manejar la posibilidad de que 'text' no exista
-        for resultado in resultados_elasticsearch[:5]  # Limita a los primeros 5 resultados
+        resultado['_source'].get('text', '') 
+        for resultado in resultados_elasticsearch[:5] 
     ])
 
-    # Verifica si el contexto está vacío
     if not contexto_para_gpt.strip():
+        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
         return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
 
-    # Manejo de prompt personalizado
+    app.logger.info("Manejando prompt personalizado si existe.")
     try:
         with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
             prompt_personalizado = file.read()
+            app.logger.info("Prompt personalizado cargado con éxito.")
     except Exception as e:
         app.logger.error(f"Error al cargar prompt personalizado: {e}")
         prompt_personalizado = None
 
-    # Generación del prompt final
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
         "1. Mantén la coherencia con la pregunta original. "
@@ -676,20 +693,26 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
         "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
     )
+    app.logger.info("Prompt final generado.")
 
     prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
+    app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
+    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4-1106-preview",
+            messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": ""}
+            ]
+        )
+        respuesta = response.choices[0].message['content'].strip()
+        app.logger.info("Respuesta generada con éxito.")
+        return respuesta
+    except Exception as e:
+        app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
+        return "Error al generar respuesta."
 
-    # Generar la respuesta utilizando GPT-4-1106-preview
-    response = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": prompt_base},
-            {"role": "user", "content": ""}
-        ]
-    )
-
-    respuesta = response.choices[0].message['content'].strip()
-    return respuesta
 
 from elasticsearch import Elasticsearch, helpers
 
