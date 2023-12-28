@@ -564,6 +564,94 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, model, tokeniz
 
 
 
+def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+    app.logger.info("Iniciando función encontrar_respuesta.")
+    app.logger.info(f"Pregunta recibida: {ultima_pregunta}")
+    app.logger.info(f"Chatbot ID: {chatbot_id}")
+    app.logger.info(f"Contexto adicional: {contexto}")
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    es_client = Elasticsearch(
+        cloud_id=CLOUD_ID,
+        basic_auth=("elastic", ELASTIC_PASSWORD)
+    )
+
+    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
+        return False
+
+    app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
+    texto_completo = f"{ultima_pregunta} {contexto}".strip()
+    texto_procesado = preprocess_text(texto_completo)
+
+    app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
+    app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
+        texto_procesado, 
+        INDICE_ELASTICSEARCH, 
+        model=BASE_BERT_DIR, 
+        tokenizer=tokenizer, 
+        es_client=es_client, 
+        max_size=200
+    )
+
+    if not resultados_elasticsearch:
+        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
+        return "No se encontraron resultados relevantes."
+
+    app.logger.info("Creando contexto para GPT a partir de los resultados de Elasticsearch.")
+    contexto_para_gpt = " ".join([
+        resultado['_source'].get('text', '') 
+        for resultado in resultados_elasticsearch[:5] 
+    ])
+
+    if not contexto_para_gpt.strip():
+        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
+        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
+
+    app.logger.info("Manejando prompt personalizado si existe.")
+    try:
+        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
+            prompt_personalizado = file.read()
+            app.logger.info("Prompt personalizado cargado con éxito.")
+    except Exception as e:
+        app.logger.error(f"Error al cargar prompt personalizado: {e}")
+        prompt_personalizado = None
+
+    final_prompt = prompt_personalizado if prompt_personalizado else (
+        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+        "1. Mantén la coherencia con la pregunta original. "
+        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
+        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
+        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
+    )
+    app.logger.info("Prompt final generado.")
+
+    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
+    app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
+    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4-1106-preview",
+            messages=[
+                {"role": "system", "content": prompt_base},
+                {"role": "user", "content": ""}
+            ]
+        )
+        respuesta = response.choices[0].message['content'].strip()
+        app.logger.info("Respuesta generada con éxito.")
+        return respuesta
+    except Exception as e:
+        app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
+        return "Error al generar respuesta."
+
+
+
+
+
+
+
+
 
 
 
@@ -680,74 +768,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
         return []
 
 
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-    app.logger.info("Iniciando función encontrar_respuesta.")
-    app.logger.info(f"Pregunta recibida: {ultima_pregunta}")
-    app.logger.info(f"Chatbot ID: {chatbot_id}")
-    app.logger.info(f"Contexto adicional: {contexto}")
 
-    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
-        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
-        return False
-
-    app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
-    texto_completo = f"{ultima_pregunta} {contexto}".strip()
-    texto_procesado = preprocess_text(texto_completo)
-
-    app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
-    app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, INDICE_ELASTICSEARCH)
-
-    if not resultados_elasticsearch:
-        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
-        return "No se encontraron resultados relevantes."
-
-    app.logger.info("Creando contexto para GPT a partir de los resultados de Elasticsearch.")
-    contexto_para_gpt = " ".join([
-        resultado['_source'].get('text', '') 
-        for resultado in resultados_elasticsearch[:5] 
-    ])
-
-    if not contexto_para_gpt.strip():
-        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
-        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
-
-    app.logger.info("Manejando prompt personalizado si existe.")
-    try:
-        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
-            prompt_personalizado = file.read()
-            app.logger.info("Prompt personalizado cargado con éxito.")
-    except Exception as e:
-        app.logger.error(f"Error al cargar prompt personalizado: {e}")
-        prompt_personalizado = None
-
-    final_prompt = prompt_personalizado if prompt_personalizado else (
-        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
-    )
-    app.logger.info("Prompt final generado.")
-
-    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
-    app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
-            messages=[
-                {"role": "system", "content": prompt_base},
-                {"role": "user", "content": ""}
-            ]
-        )
-        respuesta = response.choices[0].message['content'].strip()
-        app.logger.info("Respuesta generada con éxito.")
-        return respuesta
-    except Exception as e:
-        app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
-        return "Error al generar respuesta."
 
 
 from elasticsearch import Elasticsearch, helpers
