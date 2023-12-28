@@ -45,13 +45,15 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM,
 from transformers import Trainer, TrainingArguments
 from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
 from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
-from transformers import BertTokenizer, BertForSequenceClassification
+
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertForTokenClassification
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import Trainer, TrainingArguments
 from transformers import BertModel, BertTokenizer
-
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from datasets import load_dataset
 import json
+
 import torch
 
 # Descarga de paquetes necesarios de NLTK
@@ -188,8 +190,8 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertModel.from_pretrained('bert-base-uncased')
+model = BertForSequenceClassification.from_pretrained(BASE_BERT_DIR)
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
 
@@ -517,14 +519,14 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 ####### Fin Sistema de cache #######
 
 
+
+
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
 # Función para preprocesar texto
 cache_embeddings = {}
-
 def preprocess_text(text):
-    if not isinstance(text, str):
-        return ""
+    # Aquí puedes agregar o modificar las reglas de preprocesamiento según tus necesidades
     text = text.lower()
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
     text = re.sub(r'@\w+', '', text)
@@ -534,8 +536,49 @@ def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
+
 def dividir_texto_largo(texto, max_longitud=512):
     return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
+
+def obtener_embedding_bert(oracion, model, tokenizer):
+    inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    return outputs.pooler_output.cpu().numpy()
+
+
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, model, tokenizer, es_client, max_size=200):
+    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
+
+    query_busqueda = {
+        "query": {
+            "script_score": {
+                "query": {"match_all": {}},
+                "script": {
+                    "source": """
+                    if (doc['embedding'].size() == 0) {
+                        return 0.0;
+                    }
+                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
+                    """,
+                    "params": {"query_vector": embedding_consulta.tolist()}
+                }
+            }
+        },
+        "size": max_size
+    }
+
+    try:
+        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
+        return respuesta['hits']['hits']
+    except Exception as e:
+        print(f"Error en la búsqueda en Elasticsearch: {e}")
+        return False
+
+
+
+
+
 
 def load_and_preprocess_data(file_path):
     try:
@@ -725,9 +768,6 @@ from elasticsearch import Elasticsearch, helpers
 
 
 # Fine-tuning de BERT
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-from datasets import load_dataset
-import json
 
 def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
