@@ -1530,20 +1530,25 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_train_file_path = f"temp_train_data_{chatbot_id}.json"
-        temp_eval_file_path = f"temp_eval_data_{chatbot_id}.json"
-        prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
-        prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
+        # Intenta preparar los datos para el fine-tuning
+        try:
+            temp_train_file_path = f"temp_train_data_{chatbot_id}.json"
+            temp_eval_file_path = f"temp_eval_data_{chatbot_id}.json"
+            prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
+            prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
+        except Exception as e:
+            app.logger.error(f"Error al generar el dataset: {e}")
+            return jsonify({"error": "An error occurred while generating the dataset"}), 500
 
-        output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")  # Construir la ruta de salida
-        os.makedirs(output_dir, exist_ok=True)  # Crear el directorio si no existe
-
-        finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)  # Incluye output_dir como argumento
+        output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
+        os.makedirs(output_dir, exist_ok=True)
+        finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route('/run_tests', methods=['POST'])
