@@ -1561,12 +1561,6 @@ def finetune():
         temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
         temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
 
-
-        with open(temp_train_file_path, 'w') as train_file:
-            json.dump(train_data, train_file)
-        with open(temp_eval_file_path, 'w') as eval_file:
-            json.dump(eval_data, eval_file)
-
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
 
