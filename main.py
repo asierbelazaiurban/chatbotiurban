@@ -586,7 +586,7 @@ def extraer_ideas_clave_con_bert(texto):
 
     return list(ideas_clave)
 
-def obtener_o_generar_embedding_bert(query):
+def obtener_o_generar_embedding_bert(texto):
     if texto in cache_embeddings:
         return cache_embeddings[texto]
 
@@ -624,9 +624,6 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
 
     respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
     return respuesta['hits']['hits']
-
-def seleccionar_mejor_respuesta(resultados):
-    return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
