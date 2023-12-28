@@ -617,7 +617,8 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
         resultados_combinados.extend(respuesta['hits']['hits'])
    
     app.logger.info("Resultados combinados")
-    app.logger.info(resultados_combinados.extend(respuesta['hits']['hits']))
+    app.logger.info(resultados_combinados)
+
 
     resultados_unicos = {}
     for resultado in resultados_combinados:
