@@ -2777,12 +2777,9 @@ def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-
 
     # Devolver el modelo, el tokenizador y las rutas de los archivos de datos
     return model, tokenizer, train_file_path, eval_file_path
-Con esta modificación, la función finetune_bert ahora devuelve cuatro elementos: el modelo, el tokenizador, y las rutas a los archivos de datos de entrenamiento y evaluación. Esto te permitirá acceder a estas rutas junto con el modelo y el tokenizador después de llamar a esta función en tu endpoint de Flask.
 
-Recuerda que es importante que los archivos de datos especificados en train_file_path y eval_file_path estén en el formato correcto y sean accesibles en la ruta proporcionada para que el entrenamiento se realice con éxito.
 
-User
-ahora implementamelo aquí, no te saltes nada de coddigo: @app.route('/finetune', methods=['POST'])
+@app.route('/finetune', methods=['POST'])
 def finetune():
     try:
         data = request.get_json()
