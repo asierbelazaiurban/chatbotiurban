@@ -598,15 +598,23 @@ def generar_resumen_con_gpt2(texto, max_length=200):
 
 def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     app.logger.info(f"Realizando búsqueda en Elasticsearch para la consulta: {query}")
+    
+    # Resumir la consulta para extraer sus ideas clave
     query_resumida = extraer_ideas_clave_con_gpt2(query)
     app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
 
-    fragmentos = dividir_texto_largo(query_resumida)
-    app.logger.info("dividir_texto_largo es:")
-    app.logger.info(fragmentos)
+    # Dividir la consulta resumida en fragmentos solo si supera una longitud determinada
+    MAX_LONGITUD_PARA_DIVIDIR = 100  # Puedes ajustar este valor según tus necesidades
+    if len(query_resumida) > MAX_LONGITUD_PARA_DIVIDIR:
+        fragmentos = dividir_texto_largo(query_resumida)
+        app.logger.info("dividir_texto_largo es:")
+        app.logger.info(fragmentos)
+    else:
+        fragmentos = [query_resumida]
 
     resultados_combinados = []
 
+    # Buscar en Elasticsearch para cada fragmento
     for fragmento in fragmentos:
         embedding = obtener_o_generar_embedding(fragmento)
         query_busqueda = {
@@ -627,6 +635,7 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
 
     app.logger.info(f"Total de resultados combinados: {len(resultados_combinados)}")
 
+    # Eliminar resultados duplicados y seleccionar los más relevantes
     resultados_unicos = {}
     for resultado in resultados_combinados:
         id_doc = resultado['_id']
@@ -638,6 +647,7 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
         resultado['_source']['text'] = resultado['_source']['text'][:max_size]
 
     return resultados_ordenados
+
 
 
 def generar_respuesta_con_gpt2(texto, max_length=2047):
@@ -659,11 +669,15 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
+    # Preprocesar la pregunta y el contexto
     pregunta_procesada = preprocess_text(ultima_pregunta)
-    textos_dataset = " ".join([preprocess_text(dato['dialogue']) for dato in datos_del_dataset.values()])
+    contexto_procesado = preprocess_text(contexto)
 
-    contexto_procesado = preprocess_text(contexto) if contexto else ""
-    resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
+    # Combinar la pregunta procesada con el contexto para enriquecer la consulta
+    consulta_enriquecida = pregunta_procesada + " " + contexto_procesado
+
+    # Buscar en Elasticsearch usando la consulta enriquecida
+    resultados_busqueda = search_in_elasticsearch(consulta_enriquecida, INDICE_ELASTICSEARCH)
     mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
     
     app.logger.info("mejor_respuesta")
@@ -686,22 +700,20 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         "1. Mantén la coherencia con la pregunta original. "
         "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "3. Encuentra la mejor respuesta en relacion a la pregunta que te llega "
+        "3. Encuentra la mejor respuesta en relación a la pregunta que te llega "
         "Recuerda, la respuesta debe ser concisa y no exceder las 75 palabras."
     )
-    if contexto_adicional:
-        final_prompt += f" Contexto adicional: {contexto_adicional}"
 
-    prompt_base = f"{contexto_adicional} \n Pregunta: {ultima_pregunta}\n y Respuesta: {mejor_respuesta}\n--\n{final_prompt}. Respondiendo siempre en el idioma de la pregunta. ES LO MAS IMPORTANTE"
-    
+    prompt_base = f"Contexto: {contexto_procesado} \nPregunta: {ultima_pregunta} \nRespuesta: {mejor_respuesta}\n--\n{final_prompt}"
+
     respuesta_corta = generar_resumen_con_gpt2(mejor_respuesta, max_length=200)
 
     response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
-                {"role": "system", "content": prompt_base},
-                {"role": "user", "content": respuesta_corta}
-            ]
+            {"role": "system", "content": prompt_base},
+            {"role": "user", "content": respuesta_corta}
+        ]
     )
 
     respuesta = response.choices[0].message['content'].strip()
