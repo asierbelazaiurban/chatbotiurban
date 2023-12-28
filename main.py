@@ -193,13 +193,13 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-#tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-#model = BertForTokenClassification.from_pretrained('bert-base-uncased')
-#nlp_ner = pipeline("ner", model=model, tokenizer=model)
-
-modelo = BertForTokenClassification.from_pretrained(BASE_BERT_DIR)
-tokenizer = BertTokenizer.from_pretrained(BASE_BERT_DIR)
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+model = BertForTokenClassification.from_pretrained('bert-base-uncased')
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
+
+"""modelo = BertForTokenClassification.from_pretrained(BASE_BERT_DIR)
+tokenizer = BertTokenizer.from_pretrained(BASE_BERT_DIR)
+nlp_ner = pipeline("ner", model=model, tokenizer=model)"""
 
 def allowed_file(filename, chatbot_id):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
