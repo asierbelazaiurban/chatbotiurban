@@ -189,7 +189,7 @@ if not os.path.exists(BASE_BERT_DIR):
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertForTokenClassification.from_pretrained('bert-base-uncased')
+model = BertModel.from_pretrained('bert-base-uncased')
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
 
@@ -596,11 +596,13 @@ def obtener_o_generar_embedding_bert(texto):
     with torch.no_grad():
         outputs = model(**inputs)
 
-    # En modelos como BertModel, puedes utilizar `pooler_output` para obtener un embedding de la secuencia completa.
-    embedding = outputs.pooler_output.cpu().numpy()
+    # Usar `last_hidden_state` para obtener los estados ocultos
+    # Tomar el promedio de todos los estados ocultos para obtener un embedding representativo de la secuencia
+    embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
     cache_embeddings[texto] = embedding
 
     return embedding
+
     
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     # Generar embedding para la consulta usando BERT
