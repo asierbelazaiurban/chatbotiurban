@@ -587,21 +587,23 @@ def extraer_ideas_clave_con_bert(texto):
     return list(ideas_clave)
 
 def obtener_o_generar_embedding_bert(texto):
-    if texto in cache_embeddings:
-        return cache_embeddings[texto]
+    # Asegurarse de que 'texto' es un string
+    texto_str = str(texto)
+
+    if texto_str in cache_embeddings:
+        return cache_embeddings[texto_str]
 
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    inputs = tokenizer.encode_plus(texto, return_tensors="pt", max_length=512, truncation=True)
+    inputs = tokenizer.encode_plus(texto_str, return_tensors="pt", max_length=512, truncation=True)
 
     with torch.no_grad():
         outputs = model(**inputs)
 
-    # Usar `last_hidden_state` para obtener los estados ocultos
-    # Tomar el promedio de todos los estados ocultos para obtener un embedding representativo de la secuencia
     embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
-    cache_embeddings[texto] = embedding
+    cache_embeddings[texto_str] = embedding
 
     return embedding
+
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
