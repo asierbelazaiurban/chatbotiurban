@@ -590,19 +590,18 @@ def obtener_o_generar_embedding_bert(texto):
     if texto in cache_embeddings:
         return cache_embeddings[texto]
 
-    # Tokenizar y preparar los inputs para BERT
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     inputs = tokenizer.encode_plus(texto, return_tensors="pt", max_length=512, truncation=True)
 
     with torch.no_grad():
         outputs = model(**inputs)
 
-    # Obtener la representación del token [CLS]
+    # En modelos como BertModel, puedes utilizar `pooler_output` para obtener un embedding de la secuencia completa.
     embedding = outputs.pooler_output.cpu().numpy()
     cache_embeddings[texto] = embedding
 
     return embedding
-
+    
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     # Generar embedding para la consulta usando BERT
     embedding_consulta = obtener_o_generar_embedding_bert(query)
