@@ -594,6 +594,8 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
     query_resumida = extraer_ideas_clave_con_gpt2(query)
     app.logger.info(f"Consulta resumida (ideas clave): {query_resumida}")
     fragmentos = dividir_texto_largo(query_resumida)
+    app.logger.info("dividir_texto_largo")
+ 
     resultados_combinados = []
 
     for fragmento in fragmentos:
@@ -612,7 +614,8 @@ def search_in_elasticsearch(query, indice_elasticsearch, max_size=200):
         }
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         resultados_combinados.extend(respuesta['hits']['hits'])
-
+   
+    app.logger.info("Aqui ya no llegamos")
     resultados_unicos = {}
     for resultado in resultados_combinados:
         id_doc = resultado['_id']
@@ -657,6 +660,9 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     contexto_procesado = preprocess_text(contexto) if contexto else ""
     resultados_busqueda = search_in_elasticsearch(textos_dataset, INDICE_ELASTICSEARCH)
     mejor_respuesta = seleccionar_mejor_respuesta(resultados_busqueda)
+    
+    app.logger.info("mejor_respuesta")
+    app.logger.info(mejor_respuesta)
 
     if not mejor_respuesta:
         return "No se encontró una respuesta adecuada en el dataset."
