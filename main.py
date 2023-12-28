@@ -1498,7 +1498,9 @@ def events():
 def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
-    return jsonify(folders
+    return jsonify(folders)
+
+
 @app.route('/finetune', methods=['POST'])
 def finetune():
     try:
@@ -1541,7 +1543,8 @@ def finetune():
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), 
+        
 @app.route('/run_tests', methods=['POST'])
 def run_tests():
     import subprocess
