@@ -665,7 +665,7 @@ def seleccionar_mejor_respuesta(resultados):
     return max(resultados, key=lambda x: x['_score'], default={}).get('_source', {}).get('text', '')
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
