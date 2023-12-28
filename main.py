@@ -1548,22 +1548,24 @@ def finetune():
         data = request.get_json()
         chatbot_id = data.get("chatbot_id")
 
-        if not os.path.exists('temp_data'):
-            os.makedirs('temp_data')
-
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
+
+        temp_data_dir = '/home/iurbanuser/chatbotiurban/temp_data'
+        os.makedirs(temp_data_dir, exist_ok=True)
 
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        try:
-            temp_train_file_path = os.path.join("temp_data", f"temp_train_data_{chatbot_id}.json")
-            temp_eval_file_path = os.path.join("temp_data", f"temp_eval_data_{chatbot_id}.json")
-        except Exception as e:
-            app.logger.error(f"Error al generar el dataset: {e}")
-            return jsonify({"error": "An error occurred while generating the dataset"}), 500
+        temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
+        temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
+
+
+        with open(temp_train_file_path, 'w') as train_file:
+            json.dump(train_data, train_file)
+        with open(temp_eval_file_path, 'w') as eval_file:
+            json.dump(eval_data, eval_file)
 
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
