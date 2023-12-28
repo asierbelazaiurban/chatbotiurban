@@ -660,12 +660,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    app.logger.info("Comenzando el proceso de indexación en Elasticsearch.")
-    indexado_exitoso = indexar_dataset_en_elasticsearch(chatbot_id, es_client)
-    if not indexado_exitoso:
-        app.logger.error("Error al indexar el dataset en Elasticsearch.")
-        return "Error al indexar el dataset en Elasticsearch."
-
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
     texto_procesado = preprocess_text(texto_completo)
@@ -1580,8 +1574,12 @@ def finetune():
 
 
 @app.route('/indexar_dataset', methods=['POST'])
-def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
+def indexar_dataset_en_elasticsearch(chatbot_id):
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
+    es_client = Elasticsearch(
+        cloud_id=CLOUD_ID,
+        basic_auth=("elastic", ELASTIC_PASSWORD)
+    )
 
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     if not os.path.exists(dataset_file_path):
