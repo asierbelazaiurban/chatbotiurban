@@ -744,14 +744,13 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
     with open(output_file_path, 'w', encoding='utf-8') as file:
         for key, item in data.items():
             text = item.get("dialogue", "").strip()
-            # Asumiendo una tarea de clasificación binaria, asignamos una etiqueta ficticia (0 o 1)
-            label = 0  # Aquí deberías definir cómo asignar las etiquetas basadas en tu dataset
+            label = 0  # Define cómo asignar las etiquetas basadas en tu dataset
             if text:
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
 def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
-    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)  # Ajusta num_labels según tus etiquetas
+    model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
     tokenizer = BertTokenizer.from_pretrained(model_name)
 
     dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
@@ -1555,6 +1554,10 @@ def finetune():
         temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
         temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
 
+        # Asegúrate de que los archivos de entrenamiento y evaluación se creen aquí
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)  # Usando el mismo dataset como ejemplo
+
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
 
@@ -1574,6 +1577,7 @@ def finetune():
     except Exception as e:
         app.logger.error(f"Error en fine-tuning: {e}")
         return jsonify({"error": str(e)}), 500
+        
 
 @app.route('/indexar_dataset', methods=['POST'])
 def indexar_dataset_en_elasticsearch(chatbot_id, es_client):
