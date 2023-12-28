@@ -1596,45 +1596,37 @@ def finetune():
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_file_path = os.path.join(temp_data_dir, f"temp_data_{chatbot_id}.jsonl")
-        shutil.copy(dataset_file_path, temp_file_path)
+        temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
+        temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
 
-        # Transformar el JSON a un formato compatible
-        transform_json(temp_file_path, temp_file_path)
+        try:
+            # Funciones para preparar los datos para el fine-tuning
+            prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
+            prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
+        except Exception as e:
+            app.logger.error(f"Error en la preparación de los datos: {e}")
 
         output_dir = os.path.join(BASE_BERT_DIR, f"finetuned_model_{chatbot_id}")
         os.makedirs(output_dir, exist_ok=True)
 
-        # Cargar el modelo y el tokenizer pre-entrenados
-        model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        try:
+            # Función para realizar el fine-tuning del modelo BERT
+            model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
+        except Exception as e:
+            app.logger.error(f"Error en fine-tuning BERT: {e}")
 
-        # Cargar el dataset
-        full_dataset = load_dataset('json', data_files=temp_file_path, split='train')
+        # Intentar guardar el modelo y el tokenizer, incluso si hubo errores anteriores
+        try:
+            if 'model' in locals() and 'tokenizer' in locals():
+                model.save_pretrained(output_dir)
+                tokenizer.save_pretrained(output_dir)
+        except Exception as e:
+            app.logger.error(f"Error al guardar el modelo: {e}")
 
-        # Verificar el tamaño del dataset
-        if len(full_dataset) > 1:  # Asegurarse de que hay al menos 2 elementos
-            train_dataset = full_dataset.train_test_split(test_size=0.1)["train"]
-            eval_dataset = full_dataset.train_test_split(test_size=0.1)["test"]
-        else:
-            # Si el dataset es demasiado pequeño, usar el mismo para entrenamiento y validación
-            train_dataset = full_dataset
-            eval_dataset = full_dataset
-
-        # Configurar el Trainer
-        training_args = TrainingArguments(output_dir=output_dir)
-        trainer = Trainer(model=model, args=training_args, train_dataset=train_dataset, eval_dataset=eval_dataset)
-
-        # Entrenar el modelo
-        trainer.train()
-
-        # Guardar el modelo y el tokenizer
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-
+        # Guardar las rutas de los archivos de datos
         data_paths = {
-            "train_file_path": temp_file_path,
-            "eval_file_path": temp_file_path
+            "train_file_path": train_path if 'train_path' in locals() else None,
+            "eval_file_path": eval_path if 'eval_path' in locals() else None
         }
         with open(os.path.join(output_dir, 'data_paths.json'), 'w') as file:
             json.dump(data_paths, file)
@@ -1643,7 +1635,6 @@ def finetune():
     except Exception as e:
         app.logger.error(f"Error general en /finetune: {e}")
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/indexar_dataset', methods=['POST'])
 def indexar_dataset_en_elasticsearch():
