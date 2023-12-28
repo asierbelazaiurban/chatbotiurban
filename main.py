@@ -534,15 +534,15 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
-    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
-    # para mejorar la eficiencia y evitar recargarlos en cada llamada
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=50):
+    # Carga del modelo y el tokenizer
+    # Asegúrate de hacer esto fuera de la función para mejorar la eficiencia
     model = BertModel.from_pretrained(BASE_BERT_DIR)
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
     # Obtener el embedding de la consulta
     embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
-    
+
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
@@ -553,7 +553,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
     query_busqueda = {
         "query": {
             "script_score": {
-                "query": {"match_all": {}},
+                "query": {"match": {"texto": query}},  # Cambiado de "match_all" a "match"
                 "script": {
                     "source": """
                     if (doc['embedding'].size() == 0) {
@@ -565,11 +565,10 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
                 }
             }
         },
-        "size": max_size
+        "size": max_size  # Reducido el tamaño máximo
     }
 
     try:
-        # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         return respuesta['hits']['hits']
     except Exception as e:
@@ -597,7 +596,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
         INDICE_ELASTICSEARCH, 
-        max_size=200
+        max_size=50
     )
 
     if not resultados_elasticsearch:
@@ -613,6 +612,10 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     if not contexto_para_gpt.strip():
         app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
         return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
+
+    # Utilizar las funciones de apoyo para enriquecer el contexto
+    resumen_contexto = generar_resumen_con_bert(contexto_para_gpt)
+    ideas_clave = extraer_ideas_clave_con_bert(contexto_para_gpt)
 
     app.logger.info("Manejando prompt personalizado si existe.")
     try:
@@ -655,12 +658,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
 
 
-
-
-
-
-
-
 def load_and_preprocess_data(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
@@ -676,12 +673,7 @@ def load_and_preprocess_data(file_path):
             processed_data.append(preprocess_text(text))
     return processed_data
 
-def obtener_embedding_bert(oracion):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    return outputs.pooler_output.cpu().numpy()
+
 
 def generar_resumen_con_bert(texto):
     oraciones = sent_tokenize(texto)
@@ -710,74 +702,8 @@ def extraer_ideas_clave_con_bert(texto):
 
     return list(ideas_clave)
 
-def obtener_o_generar_embedding_bert(texto):
-    app.logger.info(f"Iniciando obtener_o_generar_embedding_bert con texto: {texto[:50]}...")
-
-    texto_str = str(texto)
-    app.logger.info("Texto convertido a string.")
-
-    if texto_str in cache_embeddings:
-        app.logger.info("Texto encontrado en cache_embeddings.")
-        return cache_embeddings[texto_str]
-
-    app.logger.info("Generando nuevo embedding para el texto.")
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    inputs = tokenizer.encode_plus(texto_str, return_tensors="pt", max_length=512, truncation=True)
-    app.logger.info("Texto tokenizado.")
-
-    with torch.no_grad():
-        outputs = model(**inputs)
-    app.logger.info("Embedding generado con BERT.")
-
-    embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
-    cache_embeddings[texto_str] = embedding
-    app.logger.info("Embedding almacenado en cache_embeddings.")
-
-    return embedding
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=200):
-    app.logger.info(f"Iniciando buscar_con_bert_en_elasticsearch con query: {query[:50]}...")
-
-    embedding_consulta = obtener_o_generar_embedding_bert(query)
-    app.logger.info("Embedding de consulta obtenido.")
-
-    query_busqueda = {
-        "query": {
-            "script_score": {
-                "query": {"match_all": {}},
-                "script": {
-                    "source": """
-                    if (doc['embedding'].size() == 0) {
-                        return 0.0;
-                    }
-                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
-                    """,
-                    "params": {"query_vector": embedding_consulta}
-                }
-            }
-        },
-        "size": max_size
-    }
-
-    try:
-        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        app.logger.info("Búsqueda en Elasticsearch completada.")
-        app.logger.info("Respuesta")
-        app.logger.info(respuesta)
-        app.logger.info("Respuesta hits")
-        app.logger.info(respuesta['hits']['hits'])
-    
-        return respuesta['hits']['hits']
-    except Exception as e:
-        app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
-        return []
-
-
-
-
-
-from elasticsearch import Elasticsearch, helpers
 
 
 
