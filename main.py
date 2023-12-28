@@ -188,9 +188,9 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-model = BertForTokenClassification.from_pretrained('bert-base-uncased')
-nlp_ner = pipeline("ner", model=model, tokenizer=model)
+#tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+#model = BertForTokenClassification.from_pretrained('bert-base-uncased')
+#nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
 
 def allowed_file(filename, chatbot_id):
@@ -553,6 +553,7 @@ def load_and_preprocess_data(file_path):
     return processed_data
 
 def obtener_embedding_bert(oracion):
+    tokenizer= BertTokenizer.from_pretrained('bert-base-uncased')
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
