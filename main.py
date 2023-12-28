@@ -190,7 +190,7 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-model = BertForSequenceClassification.from_pretrained(BASE_BERT_DIR)
+model = BertModel.from_pretrained('bert-base-uncased')
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
@@ -1637,8 +1637,7 @@ def finetune():
         app.logger.error(f"Error general en /finetune: {e}")
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True)
+
 
 
 @app.route('/indexar_dataset', methods=['POST'])
