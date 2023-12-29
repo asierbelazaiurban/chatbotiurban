@@ -1564,7 +1564,10 @@ def finetune():
   
         model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir, model_name)
      
-
+        app.logger.info("model") 
+        ap.logger.info(model)
+        app.logger.info("tokenizer") 
+        ap.logger.info(tokenizer)
         if model and tokenizer:
             try:
                 model.save_pretrained(output_dir)
