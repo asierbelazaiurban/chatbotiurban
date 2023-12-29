@@ -159,9 +159,9 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 # Configuración global
 
 
-INDICE_ELASTICSEARCH = 'search-iurban'
-INDICE_ELASTICSEARCH_PREFIX = 'search-iurban-prefix'
-ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"
+INDICE_ELASTICSEARCH = 'search-iurban'  ## Por defecto
+INDICE_ELASTICSEARCH_PREFIX = 'search-iurban-prefix'## Por defecto
+ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"## Por defecto
 
 # Found in the 'Manage Deployment' page
 CLOUD_ID = "1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvOjQ0MyQ3ZWRjOWE0YWQ4OTE0OGU1YjFhNTY5MGI2MTAxNDlhMyQ5NTZiNjE0YzgwMTM0NzFlOTQ2NGQwMTE3YzEyZDY3OQ=="
@@ -578,15 +578,12 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=3):
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-    app.logger.info("Iniciando función encontrar_respuesta.")
-    app.logger.info(f"Pregunta recibida: {ultima_pregunta}")
-    app.logger.info(f"Chatbot ID: {chatbot_id}")
-    app.logger.info(f"Contexto adicional: {contexto}")
-
 
     if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
+
+    indice_elasticsearch = f"search-index-{chatbot_id}" 
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
@@ -596,7 +593,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
-        INDICE_ELASTICSEARCH, 
+        indice_elasticsearch, 
         max_size=3
     )
 
