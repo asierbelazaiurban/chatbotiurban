@@ -717,7 +717,7 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
-def finetune_bert(train_file_path, eval_file_path, output_dir, model_name, epochs=1, batch_size=2):
+def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
     try:
         
         dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
@@ -1553,13 +1553,11 @@ def finetune():
 
         # Verificar si el directorio de salida está vacío o no
         if not any(os.scandir(output_dir)):
-            model_name = "bert-base-uncased"
+            model_name = BertModel.from_pretrained("bert-base-uncased")
             app.logger.info("Cargando modelo preentrenado, ya que el directorio está vacío.")
         else:
-            model_name = output_dir
+            model_name = model = BertModel.from_pretrained(output_dir)
             app.logger.info("Cargando modelo desde el directorio existente.")
-
-        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
   
         model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir, model_name)
