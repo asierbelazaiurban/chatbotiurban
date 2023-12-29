@@ -1550,17 +1550,8 @@ def finetune():
         # Modificación aquí para incorporar el chatbot_id en la ruta de salida
         output_dir = os.path.join("data/uploads/bert/", str(chatbot_id)) 
         os.makedirs(output_dir, exist_ok=True)
-
-        # Verificar si el directorio de salida está vacío o no
-        if not any(os.scandir(output_dir)):
-            model_name = BertModel.from_pretrained("bert-base-uncased")
-            app.logger.info("Cargando modelo preentrenado, ya que el directorio está vacío.")
-        else:
-            model_name = model = BertModel.from_pretrained(output_dir)
-            app.logger.info("Cargando modelo desde el directorio existente.")
-
   
-        model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir, model_name)
+        model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
      
         app.logger.info("model") 
         app.logger.info(model)
