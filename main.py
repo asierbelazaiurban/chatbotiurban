@@ -594,7 +594,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
         texto_procesado, 
         indice_elasticsearch, 
-        max_size=3
+        max_size=3,
         chatbot_id
     )
 
