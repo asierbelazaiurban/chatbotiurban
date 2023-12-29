@@ -1519,13 +1519,7 @@ def transform_json(input_path, output_path):
                 json.dump(value, file)
                 file.write('\n')
 
-from flask import Flask, jsonify, request
-import os
-import json
 
-app = Flask(__name__)
-
-BASE_DATASET_DIR = "data/uploads/datasets/"  # Asegúrate de que este sea el directorio correcto
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
