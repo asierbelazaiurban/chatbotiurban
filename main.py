@@ -177,7 +177,7 @@ if not os.path.exists(BASE_BERT_DIR):
     os.makedirs(BASE_BERT_DIR)
 # Modelos y tokenizadores
 # Cargar el tokenizador y el modelo preentrenado
-model = BertModel.from_pretrained(BASE_BERT_DIR)
+model = BertModel.from_pretrained("bert-base-uncased")
 tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 nlp_ner = pipeline("ner", model=model, tokenizer=model)
 
@@ -537,7 +537,7 @@ def obtener_embedding_bert(oracion, model, tokenizer):
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=3):
     # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
     # para mejorar la eficiencia y evitar recargarlos en cada llamada
-    model = BertModel.from_pretrained(BASE_BERT_DIR)
+    model = BertModel.from_pretrained("data/uploads/bert/", str(chatbot_id))
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
     # Obtener el embedding de la consulta
@@ -720,9 +720,9 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
-def finetune_bert(train_file_path, eval_file_path, output_dir=BASE_BERT_DIR, model_name="bert-base-uncased", epochs=1, batch_size=2):
+def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
     try:
-        model = BertForSequenceClassification.from_pretrained(model_name, num_labels=2)
+        model = BertForSequenceClassification.from_pretrained(os.path.join("data/uploads/bert/", str(chatbot_id)), num_labels=2)
         tokenizer = BertTokenizer.from_pretrained(model_name)
 
         dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
@@ -1522,6 +1522,14 @@ def transform_json(input_path, output_path):
                 json.dump(value, file)
                 file.write('\n')
 
+from flask import Flask, jsonify, request
+import os
+import json
+
+app = Flask(__name__)
+
+BASE_DATASET_DIR = "data/uploads/datasets/"  # Asegúrate de que este sea el directorio correcto
+
 @app.route('/finetune', methods=['POST'])
 def finetune():
     try:
@@ -1534,6 +1542,7 @@ def finetune():
         temp_data_dir = 'temp_data/'
         os.makedirs(temp_data_dir, exist_ok=True)
 
+        # Modificación aquí para incorporar el chatbot_id en la ruta
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
@@ -1541,14 +1550,18 @@ def finetune():
         temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
         temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
 
+        # Suponiendo que prepare_data_for_finetuning_bert es una función definida en otro lugar
         try:
             prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
             prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
         except Exception as e:
             app.logger.error(f"Error en la preparación de los datos: {e}")
 
-        output_dir = "data/uploads/bert/"  # Usar output_dir directamente
+        # Modificación aquí para incorporar el chatbot_id en la ruta de salida
+        output_dir = os.path.join("data/uploads/bert/", str(chatbot_id)) 
+        os.makedirs(output_dir, exist_ok=True)
 
+        # Suponiendo que finetune_bert es una función definida en otro lugar
         try:
             model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
         except Exception as e:
@@ -1578,33 +1591,37 @@ def finetune():
         app.logger.error(f"Error general en /finetune: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+
+
 @app.route('/indexar_dataset', methods=['POST'])
 def indexar_dataset_en_elasticsearch():
     data = request.get_json()
     chatbot_id = data.get("chatbot_id")
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
+    
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
         basic_auth=("elastic", ELASTIC_PASSWORD)
     )
 
+    indice_elasticsearch = f"search-index-{chatbot_id}"  # Nombre del índice personalizado
+
+    # Crear el índice si no existe
+    if not es_client.indices.exists(index=indice_elasticsearch):
+        es_client.indices.create(index=indice_elasticsearch)
+
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     if not os.path.exists(dataset_file_path):
         app.logger.error("El archivo del dataset no existe.")
-        return False
+        return jsonify({"error": "El archivo del dataset no existe"}), 404
 
     try:
         with open(dataset_file_path, 'r') as file:
             dataset = json.load(file)
     except Exception as e:
         app.logger.error(f"Error al leer el dataset: {e}")
-        return False
-
-    # Verificar y eliminar documentos ya indexados
-    for id_documento, contenido in dataset.items():
-        documento_id = contenido.get('indice')
-        if es_client.exists(index=INDICE_ELASTICSEARCH, id=documento_id):
-            es_client.delete(index=INDICE_ELASTICSEARCH, id=documento_id)
+        return jsonify({"error": f"Error al leer el dataset: {e}"}), 500
 
     documentos_para_indexar = []
     for id_documento, contenido in dataset.items():
@@ -1612,9 +1629,9 @@ def indexar_dataset_en_elasticsearch():
         if not texto:
             app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
             continue
-     
+
         documento = {
-            "_index": INDICE_ELASTICSEARCH,
+            "_index": indice_elasticsearch,
             "_id": contenido.get('indice'),
             "_source": {
                 "text": texto,
