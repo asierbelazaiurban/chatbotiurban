@@ -1529,19 +1529,20 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-        temp_data_dir = 'temp_data/'
+        # Modificación aquí para incluir chatbot_id en temp_data_dir
+        temp_data_dir = os.path.join('data/temp_data', str(chatbot_id))
         os.makedirs(temp_data_dir, exist_ok=True)
 
-        # Modificación aquí para incorporar el chatbot_id en la ruta
+        
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data_{chatbot_id}.json")
-        temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data_{chatbot_id}.json")
+        temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data.json")
+        temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data.json")
 
-        # Suponiendo que prepare_data_for_finetuning_bert es una función definida en otro lugar
         try:
+            # Asumiendo que prepare_data_for_finetuning_bert es una función definida en otro lugar
             prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
             prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
         except Exception as e:
@@ -1550,6 +1551,15 @@ def finetune():
         # Modificación aquí para incorporar el chatbot_id en la ruta de salida
         output_dir = os.path.join("data/uploads/bert/", str(chatbot_id)) 
         os.makedirs(output_dir, exist_ok=True)
+
+        # Verificar si el directorio de salida está vacío o no
+        if not any(os.scandir(output_dir)):
+            model_name = BertModel.from_pretrained("bert-base-uncased")
+            app.logger.info("Cargando modelo preentrenado, ya que el directorio está vacío.")
+        else:
+            model_name =  BertModel.from_pretrained(output_dir)
+            app.logger.info("Cargando modelo desde el directorio existente.")
+
   
         model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
      
