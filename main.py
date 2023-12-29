@@ -1533,7 +1533,6 @@ def finetune():
         os.makedirs(temp_data_dir, exist_ok=True)
 
         # Incorporar el chatbot_id en la ruta del dataset
-        BASE_DATASET_DIR = "path_to_base_dataset" # Define esta ruta según tu configuración
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
