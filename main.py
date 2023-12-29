@@ -719,8 +719,8 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
 
 def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
     try:
-        model = BertForSequenceClassification.from_pretrained(os.path.join("data/uploads/bert/", str(chatbot_id)), num_labels=2)
-        tokenizer = BertTokenizer.from_pretrained(model_name)
+    
+        tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
         dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
         train_dataset = dataset['train']
@@ -840,7 +840,8 @@ def comprobar_coherencia_gpt(pregunta, respuesta):
         ]
     )
     
-    respuesta_traducida = respuesta_traducida.choices[0].message['content'].strip()
+    respuesta_traducida = respue
+    sta_traducida.choices[0].message['content'].strip()
 
     prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta_traducida}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
 
