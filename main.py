@@ -592,6 +592,8 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
     resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch, chatbot_id)
+    app.logger.info("resultados_elasticsearch")
+    app.logger.info(resultados_elasticsearch)
 
     if not resultados_elasticsearch:
         app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
@@ -646,54 +648,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
 
 
-def load_and_preprocess_data(file_path):
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-    except Exception as e:
-        print(f"Error al cargar el archivo: {e}")
-        return []
 
-    processed_data = []
-    for item in data:
-        text = item.get('text')
-        if isinstance(text, str):
-            processed_data.append(preprocess_text(text))
-    return processed_data
-
-
-
-def generar_resumen_con_bert(texto):
-    oraciones = sent_tokenize(texto)
-    embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
-
-    # Calcular la similitud de cada oración con el texto completo
-    similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
-
-    # Seleccionar las oraciones más representativas
-    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
-    resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
-
-    return resumen
-
-def extraer_ideas_clave_con_bert(texto):
-    # Obtener entidades nombradas
-    entidades = nlp_ner(texto)
-
-    # Crear una lista para almacenar las ideas clave
-    ideas_clave = set()
-
-    # Filtrar y agregar entidades relevantes a las ideas clave
-    for entidad in entidades:
-        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:  # Ejemplo de tipos de entidades
-            ideas_clave.add(entidad['word'])
-
-    return list(ideas_clave)
-
-
-
-
-from elasticsearch import Elasticsearch, helpers
 
 
 
