@@ -542,6 +542,7 @@ def generar_consulta_gpt2(pregunta, model, tokenizer, max_length=50):
 
 def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id):
     # Cargar el modelo GPT-2 ajustado para el chatbot_id específico
+    max_size = 50
     model, tokenizer = cargar_modelo_gpt2(chatbot_id)
 
     # Generar consulta utilizando GPT-2
