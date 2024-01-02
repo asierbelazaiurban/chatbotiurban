@@ -534,7 +534,7 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, max_size=3, chatbot_id):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
     # para mejorar la eficiencia y evitar recargarlos en cada llamada
     model = BertModel.from_pretrained("data/uploads/bert/", str(chatbot_id))
@@ -591,12 +591,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
     app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(
-        texto_procesado, 
-        indice_elasticsearch, 
-        max_size=3,
-        chatbot_id
-    )
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch, chatbot_id)
 
     if not resultados_elasticsearch:
         app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
