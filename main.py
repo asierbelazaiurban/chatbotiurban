@@ -534,7 +534,7 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch=, chatbot_id):
     # Configuración del logger
     app.logger.setLevel(logging.INFO)
 
@@ -600,7 +600,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    indice_elasticsearch = f"search-index-{chatbot_id}" 
+    indice_elasticsearch = "search-asier-iurban"
     app.logger.info("indice")
     app.logger.info(f"search-index-{chatbot_id}")
 
