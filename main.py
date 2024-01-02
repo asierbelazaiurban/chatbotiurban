@@ -534,7 +534,7 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id, app):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     # Configuración del logger
     app.logger.setLevel(logging.INFO)
 
