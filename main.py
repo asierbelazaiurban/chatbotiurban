@@ -535,14 +535,28 @@ def obtener_embedding_bert(oracion, model, tokenizer):
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
-    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
-    # para mejorar la eficiencia y evitar recargarlos en cada llamada
-    model = BertModel.from_pretrained("data/uploads/bert/", str(chatbot_id))
+    # Configuración del logger
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Carga el tokenizer
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
+
+    # Verifica si el directorio con el modelo específico existe y no está vacío
+    model_path = f"data/uploads/bert/{chatbot_id}"
+    if os.path.exists(model_path) and os.listdir(model_path):
+        model = BertModel.from_pretrained(model_path)
+        logger.info(f"Modelo cargado desde {model_path}")
+    else:
+        model = BertModel.from_pretrained('bert-base-uncased')
+        logger.info("Modelo bert-base-uncased cargado por defecto")
+
+    # Tamaño máximo de resultados
+    max_size = 50
+
     # Obtener el embedding de la consulta
     embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
-    
+
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
@@ -571,11 +585,14 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        return respuesta['hits']['hits']
+        respuesta_hits = respuesta['hits']['hits']
+        app.logger.info("respuesta_hits")
+        app.logger.info(respuesta_hits)
+        return respuesta_hits
     except Exception as e:
-        print(f"Error en la búsqueda en Elasticsearch: {e}")
+        logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
-
+       
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
 
