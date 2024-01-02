@@ -536,7 +536,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         return "Información insuficiente para generar respuesta."
 
     # Cargar el dataset y buscar contexto relevante
-    dataset = cargar_dataset("ruta/a/tu/dataset.json")
+    dataset = cargar_modelo_gpt2(chatbot_id)
     contexto_dataset = buscar_en_dataset(ultima_pregunta, dataset)
 
     # Combinar contexto del dataset con contexto adicional proporcionado, si existe
