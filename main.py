@@ -548,30 +548,34 @@ def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id)
     # Generar consulta utilizando GPT-2
     consulta_gpt2 = generar_consulta_gpt2(pregunta, model, tokenizer)
 
+    # Aquí asumo que necesitas convertir la consulta_gpt2 en un embedding,
+    # pero la función específica para hacerlo depende de tu implementación.
+    embedding_consulta = convertir_a_embedding(consulta_gpt2, model, tokenizer)
+
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
-        cloud_id=CLOUD_ID,
-        basic_auth=("elastic", ELASTIC_PASSWORD)
+        cloud_id="CLOUD_ID",  # Asegúrate de que CLOUD_ID sea una variable definida o una cadena literal
+        basic_auth=("elastic", "ELASTIC_PASSWORD")  # Reemplaza ELASTIC_PASSWORD por la variable o valor correspondiente
     )
 
     # Construir la consulta de búsqueda en Elasticsearch
-     query_busqueda = {
-            "query": {
-                "script_score": {
-                    "query": {"match_all": {}},
-                    "script": {
-                        "source": """
-                        if (doc['embedding'].size() == 0) {
-                            return 0.0;
-                        }
-                        return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
-                        """,
-                        "params": {"query_vector": embedding_consulta.tolist()}
+    query_busqueda = {
+        "query": {
+            "script_score": {
+                "query": {"match_all": {}},
+                "script": {
+                    "source": """
+                    if (doc['embedding'].size() == 0) {
+                        return 0.0;
                     }
+                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
+                    """,
+                    "params": {"query_vector": embedding_consulta.tolist()}
                 }
-            },
-            "size": max_size
-        }
+            }
+        },
+        "size": max_size
+    }
 
     try:
         # Realizar la búsqueda
@@ -580,7 +584,6 @@ def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id)
     except Exception as e:
         print(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
-
 
 
 
