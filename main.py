@@ -539,6 +539,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     # para mejorar la eficiencia y evitar recargarlos en cada llamada
     model = BertModel.from_pretrained("data/uploads/bert/", str(chatbot_id))
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    max_size = 50
     
     # Obtener el embedding de la consulta
     embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
