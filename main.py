@@ -535,27 +535,14 @@ def obtener_embedding_bert(oracion, model, tokenizer):
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
-    # Configuración del logger
-    app.logger.setLevel(logging.INFO)
-
-    # Carga el tokenizer
+    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
+    # para mejorar la eficiencia y evitar recargarlos en cada llamada
+    model = BertModel.from_pretrained("data/uploads/bert/", str(chatbot_id))
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-    # Verifica si el directorio con el modelo específico existe y no está vacío
-    model_path = f"data/uploads/bert/{chatbot_id}"
-    if os.path.exists(model_path) and os.listdir(model_path):
-        model = BertModel.from_pretrained(model_path)
-        app.logger.info(f"Modelo cargado desde {model_path}")
-    else:
-        model = BertModel.from_pretrained('bert-base-uncased')
-        app.logger.info("Modelo bert-base-uncased cargado por defecto")
-
-    # Tamaño máximo de resultados
-    max_size = 50
-
+    
     # Obtener el embedding de la consulta
     embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
-
+    
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
@@ -584,14 +571,10 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        resultados = respuesta.get('hits', {}).get('hits', [])
-        app.logger.info("Resultados de búsqueda obtenidos")
-        app.logger.info(resultados)
-        return resultados
+        return respuesta['hits']['hits']
     except Exception as e:
-        app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
+        print(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
-
 
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
@@ -600,9 +583,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
-    indice_elasticsearch = "search-asier-iurban"
-    app.logger.info("indice")
-    app.logger.info(indice_elasticsearch)
+    indice_elasticsearch = f"search-index-{chatbot_id}" 
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
@@ -610,9 +591,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
     app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch, chatbot_id)
-    app.logger.info("resultados_elasticsearch")
-    app.logger.info(resultados_elasticsearch)
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch,º1qchatbot_id)
 
     if not resultados_elasticsearch:
         app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
@@ -666,6 +645,55 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         return "Error al generar respuesta."
 
 
+
+def load_and_preprocess_data(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            data = json.load(file)
+    except Exception as e:
+        print(f"Error al cargar el archivo: {e}")
+        return []
+
+    processed_data = []
+    for item in data:
+        text = item.get('text')
+        if isinstance(text, str):
+            processed_data.append(preprocess_text(text))
+    return processed_data
+
+
+
+def generar_resumen_con_bert(texto):
+    oraciones = sent_tokenize(texto)
+    embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
+
+    # Calcular la similitud de cada oración con el texto completo
+    similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
+
+    # Seleccionar las oraciones más representativas
+    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
+    resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
+
+    return resumen
+
+def extraer_ideas_clave_con_bert(texto):
+    # Obtener entidades nombradas
+    entidades = nlp_ner(texto)
+
+    # Crear una lista para almacenar las ideas clave
+    ideas_clave = set()
+
+    # Filtrar y agregar entidades relevantes a las ideas clave
+    for entidad in entidades:
+        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:  # Ejemplo de tipos de entidades
+            ideas_clave.add(entidad['word'])
+
+    return list(ideas_clave)
+
+
+
+
+from elasticsearch import Elasticsearch, helpers
 
 
 
