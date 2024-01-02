@@ -700,6 +700,10 @@ from elasticsearch import Elasticsearch, helpers
 # Fine-tuning de BERT
 
 def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
+    # Borrar y volver a crear el archivo de salida si se van a generar nuevos datos
+    if os.path.exists(output_file_path):
+        os.remove(output_file_path)
+
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
     
     with open(json_file_path, 'r', encoding='utf-8') as file:
@@ -713,9 +717,14 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
+
 def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
     try:
-        
+        # Borrar y volver a crear el directorio de salida si se va a hacer una nueva ejecución
+        if os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
+
         dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
         train_dataset = dataset['train']
         eval_dataset = dataset['eval']
@@ -745,6 +754,7 @@ def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-
     except Exception as e:
         print(f"Error durante el fine-tuning: {e}")
         return None, None, None, None
+
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
@@ -1525,11 +1535,9 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-        # Modificación aquí para incluir chatbot_id en temp_data_dir
         temp_data_dir = os.path.join('data/temp_data', str(chatbot_id))
         os.makedirs(temp_data_dir, exist_ok=True)
 
-        
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         if not os.path.exists(dataset_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
@@ -1537,38 +1545,25 @@ def finetune():
         temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data.json")
         temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data.json")
 
-        try:
-            # Asumiendo que prepare_data_for_finetuning_bert es una función definida en otro lugar
-            prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
-            prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
-        except Exception as e:
-            app.logger.error(f"Error en la preparación de los datos: {e}")
+        # Supongamos que prepare_data_for_finetuning_bert y finetune_bert están definidas en otro lugar
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
+        prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
 
-        # Modificación aquí para incorporar el chatbot_id en la ruta de salida
-        output_dir = os.path.join("data/uploads/bert/", str(chatbot_id)) 
+        output_dir = os.path.join("data/uploads/bert/", str(chatbot_id))
         os.makedirs(output_dir, exist_ok=True)
 
-        # Verificar si el directorio de salida está vacío o no
-        if not any(os.scandir(output_dir)):
-            model_name = BertModel.from_pretrained("bert-base-uncased")
-            app.logger.info("Cargando modelo preentrenado, ya que el directorio está vacío.")
-        else:
-            model_name =  BertModel.from_pretrained(output_dir)
-            app.logger.info("Cargando modelo desde el directorio existente.")
-
-  
         model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
-     
-        app.logger.info("model") 
-        app.logger.info(model)
-        app.logger.info("tokenizer") 
-        app.logger.info(tokenizer)
+
         if model and tokenizer:
             try:
                 model.save_pretrained(output_dir)
                 tokenizer.save_pretrained(output_dir)
+
+                # Borrar los directorios y archivos temporales
+                shutil.rmtree(temp_data_dir)
+
             except Exception as e:
-                app.logger.error(f"Error al guardar el modelo: {e}")
+                app.logger.error(f"Error al guardar el modelo o limpiar los temporales: {e}")
                 return jsonify({"error": str(e)}), 500
 
             data_paths = {
@@ -1585,6 +1580,7 @@ def finetune():
     except Exception as e:
         app.logger.error(f"Error general en /finetune: {e}")
         return jsonify({"error": str(e)}), 500
+        
 
 
 
