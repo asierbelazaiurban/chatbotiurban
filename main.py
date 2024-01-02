@@ -504,8 +504,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
-# Función para preprocesar texto
-cache_embeddings = {}
+
 
 def preprocess_text(text):
     # Aquí puedes agregar o modificar las reglas de preprocesamiento según tus necesidades
@@ -539,6 +538,21 @@ def generar_consulta_gpt2(pregunta, model, tokenizer, max_length=50):
     input_ids = tokenizer.encode(pregunta, return_tensors='pt')
     output = model.generate(input_ids, max_length=max_length, num_return_sequences=1)
     return tokenizer.decode(output[0], skip_special_tokens=True)
+
+def convertir_a_embedding(texto, modelo, tokenizer):
+    # Codificar texto para obtener tokens
+    input_ids = tokenizer.encode(texto, return_tensors='pt')
+
+    # Obtener estados ocultos del modelo
+    with torch.no_grad():
+        outputs = modelo(input_ids)
+        hidden_states = outputs.last_hidden_state
+
+    # Obtener el vector de características del primer token (CLS) o una media de todos los tokens
+    # Aquí estoy utilizando el promedio de todos los tokens
+    embedding = torch.mean(hidden_states, dim=1).squeeze()
+
+    return embedding
 
 def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id):
     # Cargar el modelo GPT-2 ajustado para el chatbot_id específico
