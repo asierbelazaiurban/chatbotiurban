@@ -1405,7 +1405,7 @@ def transform_json(input_path, output_path):
                 file.write('\n')
 
 
-
+@app.route('/finetune_gpt2', methods=['POST'])
 def finetune_gpt2(chatbot_id, model_name="gpt2", epochs=3, batch_size=2):
     # Directorio de salida
     output_dir = f"data/gpt2/{chatbot_id}"
