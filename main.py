@@ -1406,9 +1406,11 @@ def transform_json(input_path, output_path):
 
 
 
-def finetune_gpt2(chatbot_id, dataset_file_path, model_name="gpt2", epochs=3, batch_size=2):
+def finetune_gpt2(chatbot_id, model_name="gpt2", epochs=3, batch_size=2):
     # Directorio de salida
     output_dir = f"data/gpt2/{chatbot_id}"
+
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
     # Si el directorio existe, borrarlo y crear uno nuevo
     if os.path.exists(output_dir):
