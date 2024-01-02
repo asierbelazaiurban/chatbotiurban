@@ -585,7 +585,10 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        return respuesta['hits']['hits']
+        resultados = respuesta['hits']['hits']
+        app.logger.info("resultados")
+        app.logger.info(resultados)
+        return resultados
     except Exception as e:
         logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
