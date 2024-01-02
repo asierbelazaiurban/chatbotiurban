@@ -1407,10 +1407,19 @@ def transform_json(input_path, output_path):
 
 
 @app.route('/finetune_gpt2', methods=['POST'])
-def finetune_gpt2(chatbot_id, model_name="gpt2", epochs=3, batch_size=2):
+def finetune_gpt2():
+    data = request.json
+    chatbot_id = data.get('chatbot_id')
+    model_name = data.get('model_name', "gpt2")
+    epochs = data.get('epochs', 3)
+    batch_size = data.get('batch_size', 2)
+
+    # Comprueba si todos los datos necesarios están presentes
+    if not chatbot_id:
+        return jsonify({"error": "chatbot_id es requerido"}), 400
+
     # Directorio de salida
     output_dir = f"data/gpt2/{chatbot_id}"
-
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
 
     # Si el directorio existe, borrarlo y crear uno nuevo
@@ -1418,43 +1427,48 @@ def finetune_gpt2(chatbot_id, model_name="gpt2", epochs=3, batch_size=2):
         shutil.rmtree(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
-    # Cargar el modelo y el tokenizer
-    model = GPT2LMHeadModel.from_pretrained(model_name)
-    tokenizer = GPT2Tokenizer.from_pretrained(model_name)
+    try:
+        # Cargar el modelo y el tokenizer
+        model = GPT2LMHeadModel.from_pretrained(model_name)
+        tokenizer = GPT2Tokenizer.from_pretrained(model_name)
 
-    # Preparar el conjunto de datos
-    dataset = TextDataset(
-        tokenizer=tokenizer,
-        file_path=dataset_file_path,
-        block_size=128)
+        # Preparar el conjunto de datos
+        dataset = TextDataset(
+            tokenizer=tokenizer,
+            file_path=dataset_file_path,
+            block_size=128)
 
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, mlm=False)
+        data_collator = DataCollatorForLanguageModeling(
+            tokenizer=tokenizer, mlm=False)
 
-    # Configurar los argumentos de entrenamiento
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        overwrite_output_dir=True,
-        num_train_epochs=epochs,
-        per_device_train_batch_size=batch_size,
-        save_steps=10_000,
-        save_total_limit=2,
-    )
+        # Configurar los argumentos de entrenamiento
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            overwrite_output_dir=True,
+            num_train_epochs=epochs,
+            per_device_train_batch_size=batch_size,
+            save_steps=10_000,
+            save_total_limit=2,
+        )
 
-    # Inicializar el Trainer
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        data_collator=data_collator,
-        train_dataset=dataset,
-    )
+        # Inicializar el Trainer
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            data_collator=data_collator,
+            train_dataset=dataset,
+        )
 
-    # Ajuste fino del modelo
-    trainer.train()
+        # Ajuste fino del modelo
+        trainer.train()
 
-    # Guardar el modelo ajustado y el tokenizer
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+        # Guardar el modelo ajustado y el tokenizer
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
+
+        return jsonify({"message": "Ajuste fino completado con éxito"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 
