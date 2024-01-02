@@ -555,14 +555,23 @@ def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id)
     )
 
     # Construir la consulta de búsqueda en Elasticsearch
-    query_busqueda = {
-        "query": {
-            "match": {
-                "campo_del_documento": consulta_gpt2
-            }
-        },
-        "size": max_size
-    }
+     query_busqueda = {
+            "query": {
+                "script_score": {
+                    "query": {"match_all": {}},
+                    "script": {
+                        "source": """
+                        if (doc['embedding'].size() == 0) {
+                            return 0.0;
+                        }
+                        return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
+                        """,
+                        "params": {"query_vector": embedding_consulta.tolist()}
+                    }
+                }
+            },
+            "size": max_size
+        }
 
     try:
         # Realizar la búsqueda
