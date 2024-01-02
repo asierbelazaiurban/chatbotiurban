@@ -560,7 +560,7 @@ def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id)
         return False
 
 
-import openai
+
 
 def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     if not ultima_pregunta or not chatbot_id:
@@ -823,7 +823,7 @@ def ask():
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
                 if ultima_respuesta:
                     fuente_respuesta = 'dataset'
 
