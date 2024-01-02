@@ -54,7 +54,7 @@ from transformers import BertModel, BertTokenizer
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
 from datasets import load_dataset
 import json
-from datasets import TextDataset, DataCollatorForLanguageModeling
+from datasets import  DataCollatorForLanguageModeling
 
 import torch
 
