@@ -529,6 +529,17 @@ def buscar_en_dataset(pregunta, dataset):
     return resultadosencontrar
 
 
+def palabra_clave_en_entrada(pregunta, entrada):
+    # Convertir la pregunta y la entrada del dataset a minúsculas para comparación
+    pregunta = pregunta.lower()
+    texto_entrada = entrada['texto'].lower()  # Asumiendo que la entrada del dataset tiene un campo 'texto'
+
+    # Dividir la pregunta en palabras clave
+    palabras_clave = pregunta.split()
+
+    # Verificar si alguna de las palabras clave está en la entrada del dataset
+    return any(palabra in texto_entrada for palabra in palabras_clave)
+
 
 def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     if not ultima_pregunta or not chatbot_id:
