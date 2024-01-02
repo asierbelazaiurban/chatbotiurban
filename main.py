@@ -505,99 +505,28 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
 
-
-def preprocess_text(text):
-    # Aquí puedes agregar o modificar las reglas de preprocesamiento según tus necesidades
-    text = text.lower()
-    text = re.sub(r'https?://\S+|www\.\S+', '', text)
-    text = re.sub(r'@\w+', '', text)
-    text = re.sub(r'#\w+', '', text)
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    text = re.sub(r'\d+', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text
-
 def cargar_modelo_gpt2(chatbot_id):
     output_dir = f"data/uploads/gpt2/{chatbot_id}"
-    
+
+    # Intentar cargar el modelo fine-tuned específico
     if os.path.exists(output_dir):
         model = GPT2LMHeadModel.from_pretrained(output_dir)
         tokenizer = GPT2Tokenizer.from_pretrained(output_dir)
     else:
+        # Si no existe un modelo fine-tuned, cargar el modelo GPT-2 estándar
+        print(f"No se encontró un modelo fine-tuned para chatbot_id {chatbot_id}, cargando el modelo GPT-2 estándar.")
         model = GPT2LMHeadModel.from_pretrained("gpt2")
         tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
     return model, tokenizer
-
-
-def dividir_texto(texto, max_longitud=512):
-    # Esta función divide el texto en fragmentos de tamaño manejable para GPT-2
-    return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
-
-def generar_consulta_gpt2(pregunta, model, tokenizer, max_length=50):
-    input_ids = tokenizer.encode(pregunta, return_tensors='pt')
-    output = model.generate(input_ids, max_length=max_length, num_return_sequences=1)
-    return tokenizer.decode(output[0], skip_special_tokens=True)
-
-def convertir_a_embedding(texto, modelo, tokenizer):
-    # Codificar texto para obtener tokens
-    input_ids = tokenizer.encode(texto, return_tensors='pt')
-
-    # Obtener estados ocultos del modelo
-    with torch.no_grad():
-        outputs = modelo(input_ids)
-        hidden_states = outputs.last_hidden_state
-
-    # Obtener el vector de características del primer token (CLS) o una media de todos los tokens
-    # Aquí estoy utilizando el promedio de todos los tokens
-    embedding = torch.mean(hidden_states, dim=1).squeeze()
-
-    return embedding
-
-def buscar_con_gpt2_en_elasticsearch(pregunta, indice_elasticsearch, chatbot_id):
-    # Cargar el modelo GPT-2 ajustado para el chatbot_id específico
-    max_size = 50
-    model, tokenizer = cargar_modelo_gpt2(chatbot_id)
-
-    # Generar consulta utilizando GPT-2
-    consulta_gpt2 = generar_consulta_gpt2(pregunta, model, tokenizer)
-
-    # Aquí asumo que necesitas convertir la consulta_gpt2 en un embedding,
-    # pero la función específica para hacerlo depende de tu implementación.
-    embedding_consulta = convertir_a_embedding(consulta_gpt2, model, tokenizer)
-
-    # Conectar a Elasticsearch
-    es_client = Elasticsearch(
-        cloud_id="CLOUD_ID",  # Asegúrate de que CLOUD_ID sea una variable definida o una cadena literal
-        basic_auth=("elastic", "ELASTIC_PASSWORD")  # Reemplaza ELASTIC_PASSWORD por la variable o valor correspondiente
-    )
-
-    # Construir la consulta de búsqueda en Elasticsearch
-    query_busqueda = {
-        "query": {
-            "script_score": {
-                "query": {"match_all": {}},
-                "script": {
-                    "source": """
-                    if (doc['embedding'].size() == 0) {
-                        return 0.0;
-                    }
-                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
-                    """,
-                    "params": {"query_vector": embedding_consulta.tolist()}
-                }
-            }
-        },
-        "size": max_size
-    }
-
-    try:
-        # Realizar la búsqueda
-        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        return respuesta['hits']['hits']
-    except Exception as e:
-        print(f"Error en la búsqueda en Elasticsearch: {e}")
-        return False
+def buscar_en_dataset(pregunta, dataset):
+    # Implementa aquí tu lógica de búsqueda en el dataset
+    # Por ejemplo, buscar coincidencias de palabras clave
+    resultados = []
+    for entrada in dataset:
+        if palabra_clave_en_entrada(pregunta, entrada):
+            resultados.append(entrada)
+    return resultadosencontrar
 
 
 
@@ -606,52 +535,36 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         app.logger.info("Falta información importante: pregunta o chatbot_id")
         return "Información insuficiente para generar respuesta."
 
-    indice_elasticsearch = f"search-index-{chatbot_id}"
-    texto_procesado = preprocess_text(ultima_pregunta + " " + contexto)
+    # Cargar el dataset y buscar contexto relevante
+    dataset = cargar_dataset("ruta/a/tu/dataset.json")
+    contexto_dataset = buscar_en_dataset(ultima_pregunta, dataset)
 
-    # Realizar búsqueda semántica en Elasticsearch
-    resultados_elasticsearch = buscar_con_gpt2_en_elasticsearch(texto_procesado, indice_elasticsearch, chatbot_id)
+    # Combinar contexto del dataset con contexto adicional proporcionado, si existe
+    contexto_total = contexto_dataset + " " + contexto if contexto else contexto_dataset
 
-    if not resultados_elasticsearch:
-        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
-        return "No se encontraron resultados relevantes."
-
-    app.logger.info("Creando contexto para GPT-2 a partir de los resultados de Elasticsearch.")
-    contexto_para_gpt2 = " ".join([
-        resultado['_source'].get('text', '') 
-        for resultado in resultados_elasticsearch[:5]
-    ])
-
-    if not contexto_para_gpt2.strip():
-        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
-        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
-
-    # Cargar el modelo GPT-2 ajustado para el chatbot_id específico y generar respuesta inicial
+    # Cargar el modelo GPT-2 (fine-tuned o estándar) y generar respuesta inicial
     model_gpt2, tokenizer_gpt2 = cargar_modelo_gpt2(chatbot_id)
-    respuesta_inicial = generar_respuesta_gpt2(contexto_para_gpt2, model_gpt2, tokenizer_gpt2)
+    respuesta_inicial = generar_respuesta_gpt2_afinado(ultima_pregunta, contexto_total, model_gpt2, tokenizer_gpt2)
 
     # Preparar prompt para GPT-4
     try:
-        with open(os.path.join(BASE_PROMPTS_DIR, str(chatbot_id), 'prompt.txt'), 'r') as file:
-            prompt_personalizado = file.read()
-            app.logger.info("Prompt personalizado cargado con éxito.")
+        prompt_personalizado = cargar_prompt_personalizado(chatbot_id)
+        app.logger.info("Prompt personalizado cargado con éxito.")
     except Exception as e:
         app.logger.error(f"Error al cargar prompt personalizado: {e}")
-        prompt_personalizado = None
+        prompt_personalizado = (
+            "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
+            "1. Mantén la coherencia con la pregunta original. "
+            "2. Responde siempre en el mismo idioma de la pregunta. "
+            "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+            "4. Encuentra la mejor respuesta en relación a la pregunta que te llega. "
+            "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
+        )
 
-    final_prompt = prompt_personalizado if prompt_personalizado else (
-        "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega. "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
-    )
-
-    prompt_gpt4 = f"Contexto: {respuesta_inicial}\nPregunta: {ultima_pregunta}\n{final_prompt}\nRespuesta:"
+    prompt_gpt4 = f"Contexto: {contexto_total}\nRespuesta GPT-2: {respuesta_inicial}\nPregunta: {ultima_pregunta}\n{prompt_personalizado}\nRespuesta GPT-4:"
 
     # Generar respuesta final utilizando GPT-4
-    app.logger.info("Generando respuesta refinada utilizando GPT-4-1106-preview.")
+    app.logger.info("Generando respuesta refinada utilizando GPT-4.")
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4-1106-preview",
@@ -664,8 +577,11 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         app.logger.info("Respuesta refinada generada con éxito.")
         return respuesta_final
     except Exception as e:
-        app.logger.error(f"Error al generar respuesta refinada con GPT-4-1106-preview: {e}")
+        app.logger.error(f"Error al generar respuesta refinada con GPT-4: {e}")
         return "Error al generar respuesta refinada."
+
+# Las funciones cargar_dataset(), buscar_en_dataset(), cargar_prompt_personalizado(), y generar_respuesta_gpt2_afinado() 
+# deberían estar definidas en otra parte de tu código.
 
 
 
