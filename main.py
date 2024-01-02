@@ -602,6 +602,8 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         return False
 
     indice_elasticsearch = f"search-index-{chatbot_id}" 
+    app.logger.info("indice")
+    app.logger.info(f"search-index-{chatbot_id}")
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
