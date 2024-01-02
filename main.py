@@ -602,7 +602,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
     indice_elasticsearch = "search-asier-iurban"
     app.logger.info("indice")
-    app.logger.info(f"search-index-{chatbot_id}")
+    app.logger.info(indice_elasticsearch)
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
