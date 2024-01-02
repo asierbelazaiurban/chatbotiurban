@@ -534,10 +534,9 @@ def obtener_embedding_bert(oracion, model, tokenizer):
     return outputs.pooler_output.cpu().numpy()
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id, app):
     # Configuración del logger
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+    app.logger.setLevel(logging.INFO)
 
     # Carga el tokenizer
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -546,10 +545,10 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     model_path = f"data/uploads/bert/{chatbot_id}"
     if os.path.exists(model_path) and os.listdir(model_path):
         model = BertModel.from_pretrained(model_path)
-        logger.info(f"Modelo cargado desde {model_path}")
+        app.logger.info(f"Modelo cargado desde {model_path}")
     else:
         model = BertModel.from_pretrained('bert-base-uncased')
-        logger.info("Modelo bert-base-uncased cargado por defecto")
+        app.logger.info("Modelo bert-base-uncased cargado por defecto")
 
     # Tamaño máximo de resultados
     max_size = 50
@@ -585,12 +584,12 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        resultados = respuesta['hits']['hits']
-        app.logger.info("resultados")
+        resultados = respuesta.get('hits', {}).get('hits', [])
+        app.logger.info("Resultados de búsqueda obtenidos")
         app.logger.info(resultados)
         return resultados
     except Exception as e:
-        logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
+        app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
 
 
@@ -665,8 +664,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     except Exception as e:
         app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
         return "Error al generar respuesta."
-
-
 
 
 
