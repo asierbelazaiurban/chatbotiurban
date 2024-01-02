@@ -508,61 +508,62 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 def cargar_modelo_gpt2(chatbot_id):
     output_dir = f"data/uploads/gpt2/{chatbot_id}"
 
-    # Intentar cargar el modelo fine-tuned específico
     if os.path.exists(output_dir):
         model = GPT2LMHeadModel.from_pretrained(output_dir)
         tokenizer = GPT2Tokenizer.from_pretrained(output_dir)
     else:
-        # Si no existe un modelo fine-tuned, cargar el modelo GPT-2 estándar
         print(f"No se encontró un modelo fine-tuned para chatbot_id {chatbot_id}, cargando el modelo GPT-2 estándar.")
         model = GPT2LMHeadModel.from_pretrained("gpt2")
         tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
     return model, tokenizer
+
+# Generar texto con GPT-2
+def generar_texto_con_gpt2(modelo, tokenizer, texto_entrada):
+    input_ids = tokenizer.encode(texto_entrada, return_tensors='pt')
+    output = modelo.generate(input_ids, max_length=50, num_return_sequences=1)
+    texto_generado = tokenizer.decode(output[0], skip_special_tokens=True)
+    return texto_generado
+
+# Cargar el dataset
+def cargar_dataset(ruta):
+    with open(ruta, 'r') as archivo:
+        return json.load(archivo)
+
+# Buscar en el dataset
 def buscar_en_dataset(pregunta, dataset):
-    # Implementa aquí tu lógica de búsqueda en el dataset
-    # Por ejemplo, buscar coincidencias de palabras clave
     resultados = []
-    for entrada in dataset:
-        if palabra_clave_en_entrada(pregunta, entrada):
-            resultados.append(entrada)
-    return resultadosencontrar
-
-
-def palabra_clave_en_entrada(pregunta, entrada):
-    # Convertir la pregunta y la entrada del dataset a minúsculas para comparación
     pregunta = pregunta.lower()
-    texto_entrada = entrada['texto'].lower()  # Asumiendo que la entrada del dataset tiene un campo 'texto'
-
-    # Dividir la pregunta en palabras clave
-    palabras_clave = pregunta.split()
-
-    # Verificar si alguna de las palabras clave está en la entrada del dataset
-    return any(palabra in texto_entrada for palabra in palabras_clave)
-
+    for entrada in dataset:
+        texto_entrada = entrada['texto'].lower()  # Ajustar según la estructura de tu dataset
+        if pregunta in texto_entrada:
+            resultados.append(texto_entrada)
+    return resultados
 
 def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     if not ultima_pregunta or not chatbot_id:
         app.logger.info("Falta información importante: pregunta o chatbot_id")
         return "Información insuficiente para generar respuesta."
 
-    # Cargar el dataset y buscar contexto relevante
-    dataset = cargar_modelo_gpt2(chatbot_id)
+    # Cargar el dataset
+    dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+    dataset = cargar_dataset(dataset_file_path)
+
+    # Buscar en el dataset
     contexto_dataset = buscar_en_dataset(ultima_pregunta, dataset)
 
-    # Combinar contexto del dataset con contexto adicional proporcionado, si existe
-    contexto_total = contexto_dataset + " " + contexto if contexto else contexto_dataset
+    # Combinar contexto del dataset con contexto adicional
+    contexto_total = " ".join(contexto_dataset) + " " + contexto
 
-    # Cargar el modelo GPT-2 (fine-tuned o estándar) y generar respuesta inicial
+    # Cargar el modelo GPT-2 y generar respuesta inicial
     model_gpt2, tokenizer_gpt2 = cargar_modelo_gpt2(chatbot_id)
-    respuesta_inicial = generar_respuesta_gpt2_afinado(ultima_pregunta, contexto_total, model_gpt2, tokenizer_gpt2)
+    texto_entrada = contexto_total + " " + ultima_pregunta
+    respuesta_inicial = generar_texto_con_gpt2(model_gpt2, tokenizer_gpt2, texto_entrada)
 
-    # Preparar prompt para GPT-4
-    try:
-        prompt_personalizado = cargar_prompt_personalizado(chatbot_id)
-        app.logger.info("Prompt personalizado cargado con éxito.")
-    except Exception as e:
-        app.logger.error(f"Error al cargar prompt personalizado: {e}")
+    # Cargar prompt personalizado
+    prompt_personalizado = cargar_prompt_personalizado(chatbot_id)
+    if prompt_personalizado is None:
+        app.logger.error(f"Error al cargar prompt personalizado para chatbot_id {chatbot_id}")
         prompt_personalizado = (
             "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
             "1. Mantén la coherencia con la pregunta original. "
@@ -571,38 +572,23 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
             "4. Encuentra la mejor respuesta en relación a la pregunta que te llega. "
             "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
         )
+    else:
+        app.logger.info("Prompt personalizado cargado con éxito.")
 
+    # Refinar respuesta con GPT-4
     prompt_gpt4 = f"Contexto: {contexto_total}\nRespuesta GPT-2: {respuesta_inicial}\nPregunta: {ultima_pregunta}\n{prompt_personalizado}\nRespuesta GPT-4:"
-
-    # Generar respuesta final utilizando GPT-4
     app.logger.info("Generando respuesta refinada utilizando GPT-4.")
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
-            messages=[
-                {"role": "system", "content": prompt_gpt4},
-                {"role": "user", "content": ""}
-            ]
+        response = openai.Completion.create(
+            model="gpt-4-1106-preview",  # Ajustar según el modelo específico de GPT-4
+            prompt=prompt_gpt4,
+            max_tokens=100
         )
-        respuesta_final = response.choices[0].message['content'].strip()
-        app.logger.info("Respuesta refinada generada con éxito.")
+        respuesta_final = response.choices[0].text.strip()
         return respuesta_final
     except Exception as e:
         app.logger.error(f"Error al generar respuesta refinada con GPT-4: {e}")
         return "Error al generar respuesta refinada."
-
-# Las funciones cargar_dataset(), buscar_en_dataset(), cargar_prompt_personalizado(), y generar_respuesta_gpt2_afinado() 
-# deberían estar definidas en otra parte de tu código.
-
-
-
-
-
-
-
-
-
-
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 
