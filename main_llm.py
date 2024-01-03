@@ -1418,6 +1418,7 @@ def indexar_dataset_en_elasticsearch():
     chatbot_id = data.get("chatbot_id")
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
     
+    # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
         basic_auth=("elastic", ELASTIC_PASSWORD)
@@ -1425,10 +1426,33 @@ def indexar_dataset_en_elasticsearch():
 
     indice_elasticsearch = f"search-index-{chatbot_id}"  # Nombre del índice personalizado
 
-    # Crear el índice si no existe
-    if not es_client.indices.exists(index=indice_elasticsearch):
-        es_client.indices.create(index=indice_elasticsearch)
+    # Eliminar el índice existente si existe
+    if es_client.indices.exists(index=indice_elasticsearch):
+        es_client.indices.delete(index=indice_elasticsearch)
 
+    # Definir el mapeo para el índice
+    mapeo = {
+        "mappings": {
+            "properties": {
+                "embedding": {"type": "dense_vector", "dims": 768}
+            }
+        }
+    }
+
+    # Crear el índice con el mapeo definido
+    es_client.indices.create(index=indice_elasticsearch, body=mapeo)
+
+    # Cargar BERT y su tokenizer
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertModel.from_pretrained('bert-base-uncased')
+
+    def generar_embedding(texto):
+        inputs = tokenizer(texto, return_tensors="pt", max_length=512, truncation=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
+
+    # Leer el dataset
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     if not os.path.exists(dataset_file_path):
         app.logger.error("El archivo del dataset no existe.")
@@ -1441,42 +1465,28 @@ def indexar_dataset_en_elasticsearch():
         app.logger.error(f"Error al leer el dataset: {e}")
         return jsonify({"error": f"Error al leer el dataset: {e}"}), 500
 
-    documentos_para_indexar = []
+    # Preparar los documentos para la indexación en bloque
+    acciones_bulk = []
     for id_documento, contenido in dataset.items():
         texto = contenido.get('dialogue', '')
-        if not texto:
-            app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
-            continue
-
-        documento = {
-            "_index": indice_elasticsearch,
-            "_id": contenido.get('indice'),
-            "_source": {
-                "text": texto,
-                "url": contenido.get('url', '')   
+        if texto:
+            embedding = generar_embedding(texto)
+            accion = {
+                "_index": indice_elasticsearch,
+                "_id": id_documento,
+                "_source": {
+                    "text": texto,
+                    "url": contenido.get('url', ''),
+                    "embedding": embedding
+                }
             }
-        }
-        documentos_para_indexar.append(documento)
+            acciones_bulk.append(accion)
 
-    total_documentos = len(documentos_para_indexar)
-    documentos_fallidos = 0
+    # Realizar la indexación en bloque
+    if acciones_bulk:
+        helpers.bulk(es_client, acciones_bulk)
 
-    for documento in documentos_para_indexar:
-        try:
-            resultado = es_client.index(index=documento["_index"], id=documento["_id"], body=documento["_source"])
-            if resultado.get('result') != 'created' and resultado.get('result') != 'updated':
-                raise Exception(f"Documento no indexado correctamente: {resultado}")
-        except Exception as e:
-            documentos_fallidos += 1
-            app.logger.error(f"Error al indexar documento con ID: {documento['_id']}, Error: {e}")
-
-    if documentos_fallidos > 0:
-        app.logger.error(f"Indexación completada con {documentos_fallidos} de {total_documentos} documentos fallidos.")
-    else:
-        app.logger.info("Indexación completada con éxito.")
-
-    mensaje_exito = "Indexación completada con éxito" if documentos_fallidos == 0 else "Indexación completada con errores"
-    return jsonify({"mensaje": mensaje_exito}), 200
+    return jsonify({"mensaje": "Indexación completada con éxito"}), 200
 
 
 
