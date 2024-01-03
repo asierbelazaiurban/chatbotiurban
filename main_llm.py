@@ -557,11 +557,11 @@ def traducir_a_espanol(texto):
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
-    query_traducida = traducir_a_espanol(query)
+    query = traducir_a_espanol(query)
     app.logger.info("query_traducida")
     app.logger.info(query_traducida)
     
-    embedding_consulta = obtener_embedding_bert(query_traducida)
+    embedding_consulta = obtener_embedding_bert(query)
 
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
