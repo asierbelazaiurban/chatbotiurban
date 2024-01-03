@@ -836,6 +836,7 @@ def ask():
         if not ultima_respuesta and os.path.exists(dataset_file_path):
             with open(dataset_file_path, 'r') as file:
                 datos_del_dataset = json.load(file)
+            app.logger.info("Antes de encontrar_respuesta ")
             ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
             if ultima_respuesta:
                 fuente_respuesta = 'dataset'
