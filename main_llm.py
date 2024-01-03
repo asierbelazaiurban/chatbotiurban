@@ -579,7 +579,7 @@ def buscar_con_bert_en_elasticsearch(query):
         return []
        
 
-def encontrar_respuesta(ultima_pregunta, , chatbot_id, contexto=""):
+def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
 
     if not ultima_pregunta or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
