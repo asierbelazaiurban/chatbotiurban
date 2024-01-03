@@ -151,6 +151,7 @@ BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 BASE_PROMPTS_DIR = "data/uploads/prompts/"
 BASE_BERT_DIR = "data/uploads/bert/"
+BASE_PREESTABLECIDAS_DIR = "data/uploads/pre_established_answers/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -771,9 +772,11 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
 
+    json_file_path = os.path.join(BASE_PREESTABLECIDAS_DIR, str(chatbot_id), 'pre_established_answers.json')
+
     if not os.path.exists(json_file_path):
         app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None
+        return False
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
