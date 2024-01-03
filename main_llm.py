@@ -507,55 +507,28 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
 
 
-
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
 # Función para preprocesar texto
 cache_embeddings = {}
 def preprocess_text(text):
-    # Aquí puedes agregar o modificar las reglas de preprocesamiento según tus necesidades
+    # Preprocesamiento básico del texto
     text = text.lower()
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'#\w+', '', text)
     text = text.translate(str.maketrans('', '', string.punctuation))
-    text = re.sub(r'\d+', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-
-def dividir_texto_largo(texto, max_longitud=512):
-    return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
-
-def obtener_embedding_bert(oracion, model, tokenizer):
+def obtener_embedding_bert(oracion):
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
-    return outputs.pooler_output.cpu().numpy()
+    return outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
 
-
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
-    # Configuración del logger
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
-    # Carga el tokenizer
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-    # Verifica si el directorio con el modelo específico existe y no está vacío
-    model_path = f"data/uploads/bert/{chatbot_id}"
-    if os.path.exists(model_path) and os.listdir(model_path):
-        model = BertModel.from_pretrained(model_path)
-        logger.info(f"Modelo cargado desde {model_path}")
-    else:
-        model = BertModel.from_pretrained('bert-base-uncased')
-        logger.info("Modelo bert-base-uncased cargado por defecto")
-
-    # Tamaño máximo de resultados
-    max_size = 50
-
-    # Obtener el embedding de la consulta
-    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
+def buscar_con_bert_en_elasticsearch(query):
+    embedding_consulta = obtener_embedding_bert(query)
 
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
@@ -569,26 +542,18 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
             "script_score": {
                 "query": {"match_all": {}},
                 "script": {
-                    "source": """
-                    if (doc['embedding'].size() == 0) {
-                        return 0.0;
-                    }
-                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
-                    """,
-                    "params": {"query_vector": embedding_consulta.tolist()}
+                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                    "params": {"query_vector": embedding_consulta}
                 }
             }
         },
-        "size": max_size
+        "size": 10
     }
 
+    # Realizar la búsqueda
     try:
-        # Realizar la búsqueda
-        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        respuesta_hits = respuesta['hits']['hits']
-        app.logger.info("respuesta_hits")
-        app.logger.info(respuesta_hits)
-        return respuesta_hits
+        respuesta = es_client.search(index=ELASTIC_INDEX, body=query_busqueda)
+        return respuesta['hits']['hits']
     except Exception as e:
         logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
@@ -663,49 +628,7 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
 
 
-def load_and_preprocess_data(file_path):
-    try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-    except Exception as e:
-        print(f"Error al cargar el archivo: {e}")
-        return []
 
-    processed_data = []
-    for item in data:
-        text = item.get('text')
-        if isinstance(text, str):
-            processed_data.append(preprocess_text(text))
-    return processed_data
-
-
-
-def generar_resumen_con_bert(texto):
-    oraciones = sent_tokenize(texto)
-    embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
-
-    # Calcular la similitud de cada oración con el texto completo
-    similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
-
-    # Seleccionar las oraciones más representativas
-    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
-    resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
-
-    return resumen
-
-def extraer_ideas_clave_con_bert(texto):
-    # Obtener entidades nombradas
-    entidades = nlp_ner(texto)
-
-    # Crear una lista para almacenar las ideas clave
-    ideas_clave = set()
-
-    # Filtrar y agregar entidades relevantes a las ideas clave
-    for entidad in entidades:
-        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:  # Ejemplo de tipos de entidades
-            ideas_clave.add(entidad['word'])
-
-    return list(ideas_clave)
 
 
 
@@ -1466,68 +1389,6 @@ def list_folders():
     directory = 'data/uploads/scraping/'
     folders = [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]
     return jsonify(folders)
-
-
-def create_or_empty_directory(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
-    else:
-        for file in os.listdir(path):
-            file_path = os.path.join(path, file)
-            if os.path.isfile(file_path):
-                os.unlink(file_path)
-
-def prepare_data_for_finetuning_bert(json_file_path, tokenizer):
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        texts = [item.get("dialogue", "").strip() for item in data.values()]
-
-    return texts
-
-@app.route('/finetune', methods=['POST'])
-def finetune():
-    try:
-        data = request.get_json()
-        chatbot_id = data.get("chatbot_id")
-
-        if not chatbot_id:
-            return jsonify({"error": "chatbot_id no proporcionado"}), 400
-
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        output_dir = os.path.join('data/finetune', str(chatbot_id), 'output_dir')
-        os.makedirs(output_dir, exist_ok=True)
-
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        texts = prepare_data_for_finetuning_bert(dataset_file_path, tokenizer)
-
-        dataset = load_dataset('text', data_files={'train': texts})
-        model = BertForMaskedLM.from_pretrained('bert-base-uncased')
-
-        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=True, mlm_probability=0.15)
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            overwrite_output_dir=True,
-            num_train_epochs=3,
-            per_device_train_batch_size=16,
-            save_steps=10_000,
-            save_total_limit=2,
-        )
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            data_collator=data_collator,
-            train_dataset=dataset['train'],
-        )
-
-        trainer.train()
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-
-        return jsonify({"message": "Fine-tuning completado con éxito"}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 
