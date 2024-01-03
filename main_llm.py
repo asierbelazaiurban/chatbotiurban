@@ -332,7 +332,7 @@ def generar_contexto_con_openai(historial):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
@@ -381,7 +381,7 @@ def identificar_saludo_despedida(frase):
     try:
         # Enviar la frase directamente a OpenAI para determinar si es un saludo o despedida
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": "Identifica si la siguiente frase es exclusivamente un saludo o una despedida, sin información adicional o solicitudes. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
                 {"role": "user", "content": frase}
@@ -409,7 +409,7 @@ def identificar_saludo_despedida(frase):
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_elegida}
@@ -546,7 +546,7 @@ def cargar_datos_json(json_file_path):
 def traducir_a_espanol(texto):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": "Traduce al español el siguiente texto:"},
                 {"role": "user", "content": texto}
@@ -761,7 +761,7 @@ def traducir_texto_con_openai(texto, idioma_destino):
     try:
         prompt = f"Traduce este texto al {idioma_destino}: {texto}"
         response = openai.Completion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             prompt=prompt,
             max_tokens=60
         )
@@ -827,43 +827,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     app.logger.info("No se encontró una coincidencia adecuada")
     return False
 
-
-def comprobar_coherencia_gpt(pregunta, respuesta):
-
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-    # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
-    respuesta_traducida = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": f".No traduzcas los enlaces déjalos como están. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Si la pregunta es en ingles responde en ingles y asi con todo los idiomas, catalán, frances y todos los que tengas disponibles. No le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma."},                
-            {"role": "user", "content": respuesta_mejorada}
-        ]
-    )
-    
-    respuesta_traducida = respue
-    sta_traducida.choices[0].message['content'].strip()
-
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta_traducida}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
-
-    response = ChatCompletion.create(
-        model="gpt-4",  # O el modelo que prefieras
-        messages=[
-            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    # Limpiar la respuesta de puntuación y espacios adicionales
-    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
-
-    app.logger.info(respuesta_gpt)
-
-    # Evaluar la respuesta
-    if respuesta_gpt == "true":
-        return True
-    else:
-        return False
 
 
 ####### FIN Utils busqueda en Json #######
@@ -1442,7 +1405,7 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
+    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo-1106')
 
     if not new_prompt or not chatbot_id:
         app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
