@@ -1506,9 +1506,8 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-        BASE_DATASET_DIR = 'ruta/a/tu/directorio/de/datasets'
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
+        output_dir = os.path.join('data/finetune', str(chatbot_id), 'output_dir')
         os.makedirs(output_dir, exist_ok=True)
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
