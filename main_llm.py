@@ -626,7 +626,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     app.logger.info("Prompt final generado.")
 
     prompt_base = f"Contexto: {resumen_gpt2}\nPregunta: {ultima_pregunta}\nRespuesta:"
-    app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
+    app.logger.info("Generando respuesta utilizando gpt-3.5-turbo-1106")
     
     try:
         response = openai.ChatCompletion.create(
@@ -736,7 +736,8 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
             pad_token_id=tokenizador.eos_token_id
             )
         resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
-
+        app.logger.info("resumen_final gpt2")
+        app.logger.info(resumen_final)
         return resumen_final
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
