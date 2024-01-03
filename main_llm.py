@@ -562,7 +562,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
                 }
             }
         },
-        "size": 2
+        "size": 50
     }
 
     # Realizar la búsqueda
@@ -598,10 +598,10 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     app.logger.info(resultados_elasticsearch)
 
     # Generación de resumen con GPT-2
-    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch)
+    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch, texto_procesado)
     app.logger.info("resumen gpt2")
     app.logger.info(resumen_gpt2)
-    
+
     if not resumen_gpt2:
         app.logger.info("No se pudo generar un resumen con GPT-2.")
         return "No se pudo generar un resumen."
@@ -682,26 +682,23 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 # Función para resumir texto utilizando GPT-2
-def resumir_con_gpt2(texto_completo):
+def resumir_con_gpt2(resultados_elasticsearch, pregunta):
     try:
-        # Carga el modelo y el tokenizador de GPT-2
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
         tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
-
-        # Configura el token de relleno del tokenizador como eos_token
         tokenizador.pad_token = tokenizador.eos_token
-
-        # Asegúrate de que el modelo esté en modo de evaluación
         modelo.eval()
 
         MAX_LENGTH = 1024  # Ajusta según el modelo
+
+        # Preparar el texto combinando la pregunta con los resultados de Elasticsearch
+        texto_completo = f"{pregunta} " + " ".join([resultado['_source'].get('text', '') for resultado in resultados_elasticsearch[:5]])
         partes = list(dividir_texto(texto_completo, MAX_LENGTH))
-        resumenes = []
+        resumen_primario = []
 
         for parte in partes:
-            # Codifica el texto y crea la máscara de atención
             inputs = tokenizador.encode_plus(
-                "Resumen en 150 palabras: " + parte,
+                parte,
                 add_special_tokens=True,
                 max_length=MAX_LENGTH,
                 return_tensors='pt',
@@ -709,8 +706,6 @@ def resumir_con_gpt2(texto_completo):
                 truncation=True,
                 return_attention_mask=True
             )
-
-            # Genera el resumen con GPT-2
             outputs = modelo.generate(
                 input_ids=inputs['input_ids'],
                 attention_mask=inputs['attention_mask'],
@@ -718,12 +713,32 @@ def resumir_con_gpt2(texto_completo):
                 pad_token_id=tokenizador.eos_token_id
             )
             texto_generado = tokenizador.decode(outputs[0], skip_special_tokens=True)
-            resumenes.append(texto_generado)
+            resumen_primario.append(texto_generado)
 
-        return ' '.join(resumenes) if resumenes else "No se pudo generar un resumen."
+        # Re-resumir para obtener un resumen más corto de 100 palabras
+        texto_resumen_primario = ' '.join(resumen_primario)
+        inputs = tokenizador.encode_plus(
+            f"Resumen en 400 palabras: {texto_resumen_primario}",
+            add_special_tokens=True,
+            max_length=MAX_LENGTH,
+            return_tensors='pt',
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True
+        )
+        output_resumen_final = modelo.generate(
+            input_ids=inputs['input_ids'],
+            attention_mask=inputs['attention_mask'],
+            max_length=MAX_LENGTH,
+            pad_token_id=tokenizador.eos_token_id
+        )
+        resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
+
+        return resumen_final
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
+
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 
