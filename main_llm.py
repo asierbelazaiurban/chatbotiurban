@@ -562,7 +562,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
                 }
             }
         },
-        "size": 10
+        "size": 2
     }
 
     # Realizar la búsqueda
@@ -684,6 +684,8 @@ def resumir_con_gpt2(texto_completo):
         
         # Añade el texto generado a la lista de resúmenes
         resumenes.append(texto_generado)
+        app.logger.info("resumen gpt2")
+        app.logger.info(resumenes.append(texto_generado))
 
     return ' '.join(resumenes)
 
