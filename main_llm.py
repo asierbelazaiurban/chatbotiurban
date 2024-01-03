@@ -682,9 +682,9 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 # Función para resumir texto utilizando GPT-2
-def resumir_con_gpt2(texto_resultados):
+def resumir_con_gpt2(texto_plano):
     app.logger.info("Generando resumen con GPT-2.")
-    app.logger.info(texto_resultados)
+    app.logger.info(texto_plano)
 
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
@@ -695,12 +695,12 @@ def resumir_con_gpt2(texto_resultados):
         MAX_LENGTH = 1024  # Ajusta según el modelo
 
         # Verificar que el texto no esté vacío
-        if not texto_resultados.strip():
+        if not texto_plano.strip():
             return "No hay suficiente contenido para generar un resumen."
 
-        # Generar el resumen con GPT-2
+        # Generar el resumen primario con GPT-2
         inputs = tokenizador.encode_plus(
-            texto_resultados,
+            texto_plano,
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
@@ -715,13 +715,31 @@ def resumir_con_gpt2(texto_resultados):
             pad_token_id=tokenizador.eos_token_id,
             no_repeat_ngram_size=3
         )
-        resumen = tokenizador.decode(outputs[0], skip_special_tokens=True)
+        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
 
-        return resumen
+        # Re-resumir para obtener un resumen más corto de 400 palabras
+        inputs_resumen_final = tokenizador.encode_plus(
+            f"Resumen en 400 palabras: {resumen_primario}",
+            add_special_tokens=True,
+            max_length=MAX_LENGTH,
+            return_tensors='pt',
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True
+        )
+        output_resumen_final = modelo.generate(
+            input_ids=inputs_resumen_final['input_ids'],
+            attention_mask=inputs_resumen_final['attention_mask'],
+            max_length=MAX_LENGTH,
+            pad_token_id=tokenizador.eos_token_id
+        )
+        resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
+
+        return resumen_final
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
-
+        
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 # Nuevo Procesamiento de consultas de usuario
@@ -881,7 +899,7 @@ def ask():
        
         app.logger.info("Antes de encontrar_respuesta cache")
         #respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
-        respuesta_cache = False        
+        respuesta_cache = False
         app.logger.info("despues de encontrar_respuesta cache")
         app.logger.info(respuesta_cache)
         if respuesta_cache:
@@ -892,46 +910,45 @@ def ask():
             if ultima_respuesta:
                 fuente_respuesta = 'saludo_o_despedida'
 
-        if not ultima_respuesta:
-            #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-            ultima_respuesta = False
-            if ultima_respuesta:
-                fuente_respuesta = 'preestablecida'
+            if not ultima_respuesta:
+                #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                ultima_respuesta = False
+                if ultima_respuesta:
+                    fuente_respuesta = 'preestablecida'
 
-        if not ultima_respuesta:
-            #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-            ultima_respuesta = False
-            if ultima_respuesta:
-                fuente_respuesta = 'eventos'
+            if not ultima_respuesta:
+                #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                ultima_respuesta = False
+                if ultima_respuesta:
+                    fuente_respuesta = 'eventos'
 
 
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        if not ultima_respuesta and os.path.exists(dataset_file_path):
-            with open(dataset_file_path, 'r') as file:
-                datos_del_dataset = json.load(file)
-            app.logger.info("Antes de encontrar_respuesta ")
-            ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
-            if ultima_respuesta:
-                fuente_respuesta = 'dataset'
+            dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+            if not ultima_respuesta and os.path.exists(dataset_file_path):
+                with open(dataset_file_path, 'r') as file:
+                    datos_del_dataset = json.load(file)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto)
+                if ultima_respuesta:
+                    fuente_respuesta = 'dataset'
 
-        if not ultima_respuesta:
-            fuente_respuesta = 'respuesta_por_defecto'
-            #ultima_respuesta = seleccionar_respuesta_por_defecto()
-            #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
-            ultima_respuesta = False
+            if not ultima_respuesta:
+                fuente_respuesta = 'respuesta_por_defecto'
+                #ultima_respuesta = seleccionar_respuesta_por_defecto()
+                #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+                ultima_respuesta = False
 
-        if ultima_respuesta and fuente_respuesta != 'dataset':
-            ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                pregunta=ultima_pregunta, 
-                respuesta=ultima_respuesta, 
-                new_prompt="", 
-                contexto_adicional=contexto, 
-                temperature="", 
-                model_gpt="", 
-                chatbot_id=chatbot_id
-            )
-            ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-            fuente_respuesta = 'mejorada'
+            if ultima_respuesta and fuente_respuesta != 'dataset':
+                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                    pregunta=ultima_pregunta, 
+                    respuesta=ultima_respuesta, 
+                    new_prompt="", 
+                    contexto_adicional=contexto, 
+                    temperature="", 
+                    model_gpt="", 
+                    chatbot_id=chatbot_id
+                )
+                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+                fuente_respuesta = 'mejorada'
 
             return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
