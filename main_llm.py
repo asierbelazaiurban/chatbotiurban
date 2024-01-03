@@ -598,7 +598,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     app.logger.info(resultados_elasticsearch)
 
     # Generación de resumen con GPT-2
-    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch, texto_procesado)
+    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch)
 
     app.logger.info("resumen_gpt2")
     app.logger.info(resumen_gpt2)
