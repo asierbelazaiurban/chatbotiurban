@@ -546,16 +546,16 @@ def cargar_datos_json(json_file_path):
 def traducir_a_espanol(texto):
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-1106",
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Traduce al Español, literalmente"},
-                {"role": "user", "content": ""}
+                {"role": "system", "content": "Traduce al español el siguiente texto:"},
+                {"role": "user", "content": texto}
             ]
         )
-        return respuesta.choices[0].text.strip()
+        return response.choices[0].text.strip()
     except Exception as e:
         app.logger.error(f"Error al traducir texto: {e}")
-        return texto  
+        return texto  # Devuelve el texto original si la traducción falla
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
