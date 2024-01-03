@@ -691,8 +691,11 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
 
         MAX_LENGTH = 1024  # Ajusta según el modelo
 
+        # Asegurarse de que cada resultado de Elasticsearch es un diccionario y tiene una clave '_source'
+        resultados_procesados = [resultado['_source']['text'] for resultado in resultados_elasticsearch if '_source' in resultado and 'text' in resultado['_source']]
+
         # Preparar el texto combinando la pregunta con los resultados de Elasticsearch
-        texto_completo = f"{pregunta} " + " ".join([resultado['_source'].get('text', '') for resultado in resultados_elasticsearch[:5]])
+        texto_completo = f"{pregunta} " + " ".join(resultados_procesados)
         partes = list(dividir_texto(texto_completo, MAX_LENGTH))
         resumen_primario = []
 
@@ -718,7 +721,7 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
         # Re-resumir para obtener un resumen más corto de 100 palabras
         texto_resumen_primario = ' '.join(resumen_primario)
         inputs = tokenizador.encode_plus(
-            f"Resumen en 400 palabras: {texto_resumen_primario}",
+            f"Resumen en 100 palabras: {texto_resumen_primario}",
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
@@ -731,7 +734,7 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
             attention_mask=inputs['attention_mask'],
             max_length=MAX_LENGTH,
             pad_token_id=tokenizador.eos_token_id
-        )
+            )
         resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
 
         return resumen_final
