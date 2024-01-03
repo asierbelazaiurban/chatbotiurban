@@ -690,9 +690,11 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
 
         MAX_LENGTH = 1024  # Ajusta según el modelo
 
-        # Verificar y procesar los resultados de Elasticsearch
-        if not isinstance(resultados_elasticsearch, list):
-            raise ValueError("Los resultados de Elasticsearch deben ser una lista.")
+        # Adaptar los resultados de Elasticsearch al formato esperado
+        if isinstance(resultados_elasticsearch, dict):
+            resultados_elasticsearch = resultados_elasticsearch.get('hits', {}).get('hits', [])
+        elif not isinstance(resultados_elasticsearch, list):
+            resultados_elasticsearch = []
 
         texto_resultados = " ".join([res['_source']['text'] for res in resultados_elasticsearch if '_source' in res and 'text' in res['_source']])
 
@@ -735,15 +737,15 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
             pad_token_id=tokenizador.eos_token_id
         )
         resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
+
         app.logger.info("resumen_final GPT2")
         app.logger.info(resumen_final)
         return resumen_final
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
-        return False
+        return f"Error al generar resumen: {e}"
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
-
 
 # Nuevo Procesamiento de consultas de usuario
 
