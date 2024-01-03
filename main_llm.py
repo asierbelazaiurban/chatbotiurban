@@ -665,30 +665,41 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 def resumir_con_gpt2(texto_completo):
-    # Carga el modelo y el tokenizador de GPT-2
-    modelo = GPT2LMHeadModel.from_pretrained('gpt2')
-    tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
+    try:
+        modelo = GPT2LMHeadModel.from_pretrained('gpt2')
+        tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
+        modelo.eval()
 
-    # Asegúrate de que el modelo esté en modo de evaluación
-    modelo.eval()
+        MAX_LENGTH = 1024  # Ajusta según el modelo
+        partes = list(dividir_texto(texto_completo, MAX_LENGTH))
+        resumenes = []
 
-    # Divide el texto si es demasiado largo para el modelo
-    MAX_LENGTH = 1024  # o ajusta según el modelo
-    partes = list(dividir_texto(texto_completo, MAX_LENGTH))
-    resumenes = []
+        for parte in partes:
+            # Codifica el texto y crea la máscara de atención
+            inputs = tokenizador.encode_plus(
+                "Resumen en 150 palabras: " + parte,
+                add_special_tokens=True,
+                max_length=MAX_LENGTH,
+                return_tensors='pt',
+                padding='max_length',
+                truncation=True,
+                return_attention_mask=True
+            )
 
-    for parte in partes:
-        # Codifica el texto para el modelo
-        inputs = tokenizador.encode("Resumen en 150 palabras: " + parte, return_tensors='pt')
-        
-        # Genera el resumen con GPT-2
-        outputs = modelo.generate(inputs, max_length=MAX_LENGTH)
-        texto_generado = tokenizador.decode(outputs[0], skip_special_tokens=True)
-        
-        # Añade el texto generado a la lista de resúmenes
-        resumenes.append(texto_generado)
+            # Genera el resumen con GPT-2
+            outputs = modelo.generate(
+                input_ids=inputs['input_ids'],
+                attention_mask=inputs['attention_mask'],
+                max_length=MAX_LENGTH,
+                pad_token_id=tokenizador.eos_token_id
+            )
+            texto_generado = tokenizador.decode(outputs[0], skip_special_tokens=True)
+            resumenes.append(texto_generado)
 
-    return ' '.join(resumenes)
+        return ' '.join(resumenes) if resumenes else "No se pudo generar un resumen."
+    except Exception as e:
+        app.logger.error(f"Error al generar resumen con GPT-2: {e}")
+        return f"Error al generar resumen: {e}"
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
