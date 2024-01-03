@@ -52,9 +52,6 @@ from transformers import BertForTokenClassification
 from transformers import Trainer, TrainingArguments
 from transformers import BertModel, BertTokenizer
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
-from flask import Flask, request, jsonify
-from datasets import load_dataset
-
 from datasets import load_dataset
 import json
 
@@ -538,28 +535,14 @@ def obtener_embedding_bert(oracion, model, tokenizer):
 
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
-    # Configuración del logger
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
-
-    # Carga el tokenizer
+    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
+    # para mejorar la eficiencia y evitar recargarlos en cada llamada
+    model = BertModel.from_pretrained('bert-base-uncased')
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-    # Verifica si el directorio con el modelo específico existe y no está vacío
-    model_path = f"data/uploads/bert/{chatbot_id}"
-    if os.path.exists(model_path) and os.listdir(model_path):
-        model = BertModel.from_pretrained(model_path)
-        logger.info(f"Modelo cargado desde {model_path}")
-    else:
-        model = BertModel.from_pretrained('bert-base-uncased')
-        logger.info("Modelo bert-base-uncased cargado por defecto")
-
-    # Tamaño máximo de resultados
-    max_size = 50
-
+    
     # Obtener el embedding de la consulta
     embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
-
+    
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
@@ -588,14 +571,11 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
     try:
         # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        respuesta_hits = respuesta['hits']['hits']
-        app.logger.info("respuesta_hits")
-        app.logger.info(respuesta_hits)
-        return respuesta_hits
+        return respuesta['hits']['hits']
     except Exception as e:
-        logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
+        print(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
-       
+
 
 def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
 
@@ -711,6 +691,60 @@ def extraer_ideas_clave_con_bert(texto):
     return list(ideas_clave)
 
 
+
+
+from elasticsearch import Elasticsearch, helpers
+
+
+
+# Fine-tuning de BERT
+
+def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+
+    with open(output_file_path, 'w', encoding='utf-8') as file:
+        for key, item in data.items():
+            text = item.get("dialogue", "").strip()
+            label = 0  # Define cómo asignar las etiquetas basadas en tu dataset
+            if text:
+                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
+                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
+
+def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
+    try:
+        
+        dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
+        train_dataset = dataset['train']
+        eval_dataset = dataset['eval']
+
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            num_train_epochs=epochs,
+            per_device_train_batch_size=batch_size,
+            warmup_steps=500,
+            weight_decay=0.01,
+            logging_dir='./logs',
+        )
+
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset
+        )
+
+        trainer.train()
+
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
+
+        return model, tokenizer, train_file_path, eval_file_path
+    except Exception as e:
+        print(f"Error durante el fine-tuning: {e}")
+        return None, None, None, None
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
@@ -1480,6 +1514,8 @@ def transform_json(input_path, output_path):
                 json.dump(value, file)
                 file.write('\n')
 
+
+
 @app.route('/finetune', methods=['POST'])
 def finetune():
     try:
@@ -1489,18 +1525,20 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
+        BASE_DATASET_DIR = 'ruta/a/tu/directorio/de/datasets'
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
         train_file_path = os.path.join('data/temp_data', str(chatbot_id), 'train_data.json')
         eval_file_path = os.path.join('data/temp_data', str(chatbot_id), 'eval_data.json')
 
-        if not os.path.exists(train_file_path) or not os.path.exists(eval_file_path):
-            return jsonify({"error": "Archivo del dataset no encontrado"}), 404
+        prepare_data_for_finetuning_bert(dataset_file_path, train_file_path)
+        prepare_data_for_finetuning_bert(dataset_file_path, eval_file_path)
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         if os.path.isdir(output_dir) and os.listdir(output_dir):
-            model = BertForSequenceClassification.from_pretrained(output_dir)
+            model = BertModel.from_pretrained(output_dir)
         else:
-            model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+            model = BertModel.from_pretrained('bert-base-uncased')
 
         training_args = TrainingArguments(
             output_dir=output_dir,
@@ -1546,6 +1584,7 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
             if text:
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
+
 
 
 
