@@ -590,6 +590,12 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
+    texto_procesado = preprocess_text(texto_completo)
+
+    app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
+    app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, f"search-index-{chatbot_id}")
+    app.logger.info(resultados_elasticsearch)
 
     # Generación de resumen con GPT-2
     resumen_gpt2 = resumir_con_gpt2(texto_completo)
@@ -640,29 +646,31 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 
 MAX_TOKENS = 1024  # Ajusta según el límite de tu modelo GPT-2
 
-def dividir_texto(texto, max_longitud):
-    palabras = texto.split()
-    for i in range(0, len(palabras), max_longitud):
-        yield ' '.join(palabras[i:i + max_longitud])
-
 def resumir_con_gpt2(texto_completo):
-    partes = list(dividir_texto(texto_completo, MAX_TOKENS))
+    # Carga el modelo y el tokenizador de GPT-2
+    modelo = GPT2LMHeadModel.from_pretrained('gpt2')
+    tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
+
+    # Asegúrate de que el modelo esté en modo de evaluación
+    modelo.eval()
+
+    # Divide el texto si es demasiado largo para el modelo
+    MAX_LENGTH = 1024  # o ajusta según el modelo
+    partes = list(dividir_texto(texto_completo, MAX_LENGTH))
     resumenes = []
 
     for parte in partes:
-        try:
-            resumen = openai.Completion.create(
-                engine="gpt-2",  # o especifica la variante de GPT-2 que prefieras
-                prompt=f"Resumen en 150 palabras: {parte}",
-                max_tokens=MAX_TOKENS
-            )
-            resumenes.append(resumen.choices[0].text.strip())
-        except Exception as e:
-            app.logger.error(f"Error al generar resumen con GPT-2: {e}")
-            continue
+        # Codifica el texto para el modelo
+        inputs = tokenizador.encode("Resumen en 150 palabras: " + parte, return_tensors='pt')
+        
+        # Genera el resumen con GPT-2
+        outputs = modelo.generate(inputs, max_length=MAX_LENGTH)
+        texto_generado = tokenizador.decode(outputs[0], skip_special_tokens=True)
+        
+        # Añade el texto generado a la lista de resúmenes
+        resumenes.append(texto_generado)
 
     return ' '.join(resumenes)
-
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
