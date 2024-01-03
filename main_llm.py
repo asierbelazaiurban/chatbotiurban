@@ -601,8 +601,8 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch)
     app.logger.info("resumen gpt2")
     app.logger.info(resumen_gpt2)
-
-    if resumen_gpt2 = None:
+    
+    if not resumen_gpt2:
         app.logger.info("No se pudo generar un resumen con GPT-2.")
         return "No se pudo generar un resumen."
 
