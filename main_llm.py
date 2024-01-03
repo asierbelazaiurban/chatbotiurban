@@ -557,7 +557,7 @@ def traducir_a_espanol(texto):
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
-    query = traducir_a_espanol(query)
+    #query = traducir_a_espanol(query)
     app.logger.info("query")
     app.logger.info(query)
     
@@ -788,7 +788,8 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
     pregunta_usuario = traducir_a_espanol(pregunta_usuario)
-    
+    app.info.logger(pregunta_usuario);
+
     json_file_path = os.path.join(BASE_PREESTABLECIDAS_DIR, str(chatbot_id), 'pre_established_answers.json')
 
     if not os.path.exists(json_file_path):
@@ -880,17 +881,20 @@ def ask():
             return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
 
         if ultima_respuesta == "":
-            ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
+            #ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
+            ultima_respuesta = False
             if ultima_respuesta:
                 fuente_respuesta = 'saludo_o_despedida'
 
             if not ultima_respuesta:
                 ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+                ultima_respuesta = False
                 if ultima_respuesta:
                     fuente_respuesta = 'preestablecida'
 
             if not ultima_respuesta:
-                ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+                ultima_respuesta = False
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
 
