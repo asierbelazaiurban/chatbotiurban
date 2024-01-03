@@ -708,7 +708,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
 
         # Generar el resumen primario con GPT-2
         inputs = tokenizador.encode_plus(
-             f"Resumen en 200 palabras: {texto_combinado}",,
+             f"Resumen en 200 palabras: {texto_combinado}",
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
