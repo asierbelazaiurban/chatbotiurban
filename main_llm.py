@@ -682,9 +682,10 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 # Función para resumir texto utilizando GPT-2
-def resumir_con_gpt2(resultados_elasticsearch):
-    app.logger.info("app.logger.info(resultados_elasticsearch")
-    app.logger.info(resultados_elasticsearch)
+def resumir_con_gpt2(texto_resultados):
+    app.logger.info("Generando resumen con GPT-2.")
+    app.logger.info(texto_resultados)
+
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
         tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
@@ -692,14 +693,6 @@ def resumir_con_gpt2(resultados_elasticsearch):
         modelo.eval()
 
         MAX_LENGTH = 1024  # Ajusta según el modelo
-
-        # Adaptar los resultados de Elasticsearch al formato esperado
-        if isinstance(resultados_elasticsearch, dict):
-            resultados_elasticsearch = resultados_elasticsearch.get('hits', {}).get('hits', [])
-        elif not isinstance(resultados_elasticsearch, list):
-            resultados_elasticsearch = []
-
-        texto_resultados = " ".join([res['_source']['text'] for res in resultados_elasticsearch if '_source' in res and 'text' in res['_source']])
 
         # Verificar que el texto no esté vacío
         if not texto_resultados.strip():
