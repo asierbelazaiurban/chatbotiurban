@@ -527,6 +527,21 @@ def obtener_embedding_bert(oracion):
         outputs = model(**inputs)
     return outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
 
+def cargar_datos_json(json_file_path):
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        try:
+            data = json.load(file)
+            # Asegúrate de que data es un diccionario
+            if isinstance(data, dict):
+                return data
+            else:
+                logger.error("Los datos cargados no son un diccionario.")
+                return {}
+        except json.JSONDecodeError as e:
+            logger.error(f"Error al decodificar JSON: {e}")
+            return {}
+
+
 def buscar_con_bert_en_elasticsearch(query):
     embedding_consulta = obtener_embedding_bert(query)
 
@@ -553,15 +568,20 @@ def buscar_con_bert_en_elasticsearch(query):
     # Realizar la búsqueda
     try:
         respuesta = es_client.search(index=ELASTIC_INDEX, body=query_busqueda)
-        return respuesta['hits']['hits']
+        # Asegurarte de que respuesta contiene la estructura esperada
+        if 'hits' in respuesta and 'hits' in respuesta['hits']:
+            return respuesta['hits']['hits']
+        else:
+            logger.error("La estructura de la respuesta no es la esperada.")
+            return []
     except Exception as e:
         logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
-        return False
+        return []
        
 
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
+def encontrar_respuesta(ultima_pregunta, , chatbot_id, contexto=""):
 
-    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
+    if not ultima_pregunta or not chatbot_id:
         app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
         return False
 
@@ -625,11 +645,6 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
     except Exception as e:
         app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
         return "Error al generar respuesta."
-
-
-
-
-
 
 
 
@@ -820,7 +835,7 @@ def ask():
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
                 if ultima_respuesta:
                     fuente_respuesta = 'dataset'
 
