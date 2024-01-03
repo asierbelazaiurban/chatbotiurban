@@ -558,8 +558,8 @@ def traducir_a_espanol(texto):
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
     query = traducir_a_espanol(query)
-    app.logger.info("query_traducida")
-    app.logger.info(query_traducida)
+    app.logger.info("query")
+    app.logger.info(query)
     
     embedding_consulta = obtener_embedding_bert(query)
 
@@ -605,8 +605,6 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     if not ultima_pregunta or not chatbot_id:
         app.logger.info("Falta información importante: pregunta o chatbot_id")
         return False
-
-    ultima_pregunta = traducir_a_espanol(ultima_pregunta)
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
@@ -789,7 +787,8 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
-
+    pregunta_usuario = traducir_a_espanol(pregunta_usuario)
+    
     json_file_path = os.path.join(BASE_PREESTABLECIDAS_DIR, str(chatbot_id), 'pre_established_answers.json')
 
     if not os.path.exists(json_file_path):
