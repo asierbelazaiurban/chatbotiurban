@@ -545,10 +545,12 @@ def cargar_datos_json(json_file_path):
 
 def traducir_a_espanol(texto):
     try:
-        respuesta = openai.Completion.create(
-            model="text-davinci-002",  # O el modelo de GPT-3 más apropiado
-            prompt=f"Traducir al español: {texto}",
-            max_tokens=60  # Ajusta según sea necesario
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-1106",
+            messages=[
+                {"role": "system", "content": Traduce al Español, literalmente},
+                {"role": "user", "content": ""}
+            ]
         )
         return respuesta.choices[0].text.strip()
     except Exception as e:
@@ -558,8 +560,8 @@ def traducir_a_espanol(texto):
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
     query_traducida = traducir_a_espanol(query)
-    app.logging.info("query_traducida")
-    app.logging.info(query_traducida)
+    app.logger.info("query_traducida")
+    app.logger.info(query_traducida)
     
     embedding_consulta = obtener_embedding_bert(query)
 
