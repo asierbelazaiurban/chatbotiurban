@@ -808,6 +808,7 @@ def ask():
        
         app.logger.info("Antes de encontrar_respuesta cache")
         respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
+        respuesta_cache = False        
         app.logger.info("despues de encontrar_respuesta cache")
         app.logger.info(respuesta_cache)
         if respuesta_cache:
@@ -818,45 +819,45 @@ def ask():
             if ultima_respuesta:
                 fuente_respuesta = 'saludo_o_despedida'
 
-            if not ultima_respuesta:
-                #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
-                if ultima_respuesta:
-                    fuente_respuesta = 'preestablecida'
+        if not ultima_respuesta:
+            #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
+            ultima_respuesta = False
+            if ultima_respuesta:
+                fuente_respuesta = 'preestablecida'
 
-            if not ultima_respuesta:
-                #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
-                if ultima_respuesta:
-                    fuente_respuesta = 'eventos'
+        if not ultima_respuesta:
+            #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
+            ultima_respuesta = False
+            if ultima_respuesta:
+                fuente_respuesta = 'eventos'
 
 
-            dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-            if not ultima_respuesta and os.path.exists(dataset_file_path):
-                with open(dataset_file_path, 'r') as file:
-                    datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
-                if ultima_respuesta:
-                    fuente_respuesta = 'dataset'
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
+        if not ultima_respuesta and os.path.exists(dataset_file_path):
+            with open(dataset_file_path, 'r') as file:
+                datos_del_dataset = json.load(file)
+            ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
+            if ultima_respuesta:
+                fuente_respuesta = 'dataset'
 
-            if not ultima_respuesta:
-                fuente_respuesta = 'respuesta_por_defecto'
-                #ultima_respuesta = seleccionar_respuesta_por_defecto()
-                #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
-                ultima_respuesta = False
+        if not ultima_respuesta:
+            fuente_respuesta = 'respuesta_por_defecto'
+            #ultima_respuesta = seleccionar_respuesta_por_defecto()
+            #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+            ultima_respuesta = False
 
-            if ultima_respuesta and fuente_respuesta != 'dataset':
-                ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
-                    pregunta=ultima_pregunta, 
-                    respuesta=ultima_respuesta, 
-                    new_prompt="", 
-                    contexto_adicional=contexto, 
-                    temperature="", 
-                    model_gpt="", 
-                    chatbot_id=chatbot_id
-                )
-                ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
-                fuente_respuesta = 'mejorada'
+        if ultima_respuesta and fuente_respuesta != 'dataset':
+            ultima_respuesta_mejorada = mejorar_respuesta_generales_con_openai(
+                pregunta=ultima_pregunta, 
+                respuesta=ultima_respuesta, 
+                new_prompt="", 
+                contexto_adicional=contexto, 
+                temperature="", 
+                model_gpt="", 
+                chatbot_id=chatbot_id
+            )
+            ultima_respuesta = ultima_respuesta_mejorada if ultima_respuesta_mejorada else ultima_respuesta
+            fuente_respuesta = 'mejorada'
 
             return jsonify({'respuesta': ultima_respuesta, 'fuente': fuente_respuesta})
 
