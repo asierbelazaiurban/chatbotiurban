@@ -573,23 +573,15 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
             app.logger.info("Respuesta de Elasticsearch recibida.")
 
             # Procesar y formatear los resultados
-            resultados_formatados = []
-            for hit in hits:
-                score = hit['_score']
-                source = hit['_source']
-                texto = source.get('text', 'No disponible')
-                url = source.get('url', 'No disponible')
+            resultados_texto = [hit['_source'].get('text', 'No disponible') for hit in hits]
 
-                resultado = f"Texto: {texto}\nURL: {url}\nScore: {score}\n---"
-                resultados_formatados.append(resultado)
-
-            return '\n'.join(resultados_formatados)
+            return ' '.join(resultados_texto)
         else:
             app.logger.error("La estructura de la respuesta no es la esperada.")
-            return "No se encontraron resultados."
+            return False
     except Exception as e:
         app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
-        return "Error al realizar la búsqueda."    
+        return False
             
 def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
 
