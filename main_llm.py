@@ -706,9 +706,9 @@ def resumir_con_gpt2(texto_plano, pregunta):
         if not texto_combinado.strip():
             return "No hay suficiente contenido para generar un resumen."
 
-        # Generar el resumen con GPT-2
+        # Generar el resumen primario con GPT-2
         inputs = tokenizador.encode_plus(
-            texto_combinado,
+             f"Resumen en 200 palabras: {texto_combinado}",,
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
@@ -721,18 +721,11 @@ def resumir_con_gpt2(texto_plano, pregunta):
             attention_mask=inputs['attention_mask'],
             max_length=MAX_LENGTH,
             pad_token_id=tokenizador.eos_token_id,
-            no_repeat_ngram_size=3,
-            length_penalty=2.0,  # Para fomentar respuestas más cortas y concisas
-            num_return_sequences=1,
-            stop_token='</s>',  # Token de finalización
+            no_repeat_ngram_size=3
         )
-        resumen = tokenizador.decode(outputs[0], skip_special_tokens=True)
+        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
 
-        # Limitar el resumen a 400 palabras
-        palabras_resumen = resumen.split()
-        resumen_acotado = ' '.join(palabras_resumen[:400])
-
-        return resumen_acotado
+        return resumen_primario
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
