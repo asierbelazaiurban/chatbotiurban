@@ -1479,7 +1479,7 @@ def transform_json(input_path, output_path):
                 json.dump(value, file)
                 file.write('\n')
 
-
+from transformers import BertTokenizer, BertForQuestionAnswering, TrainingArguments, Trainer
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
@@ -1501,9 +1501,9 @@ def finetune():
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         if os.path.isdir(output_dir) and os.listdir(output_dir):
-            model = BertModel.from_pretrained(output_dir)
+            model = BertForQuestionAnswering.from_pretrained(output_dir)
         else:
-            model = BertModel.from_pretrained('bert-base-uncased')
+            model = BertForQuestionAnswering.from_pretrained('bert-base-uncased')
 
         training_args = TrainingArguments(
             output_dir=output_dir,
