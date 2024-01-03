@@ -599,7 +599,8 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 
     # Generación de resumen con GPT-2
     resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch, texto_procesado)
-    app.logger.info("resumen gpt2")
+
+    app.logger.info("resumen_gpt2")
     app.logger.info(resumen_gpt2)
 
     if not resumen_gpt2:
@@ -681,7 +682,7 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 # Función para resumir texto utilizando GPT-2
-def resumir_con_gpt2(resultados_elasticsearch, pregunta):
+def resumir_con_gpt2(resultados_elasticsearch):
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
         tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
@@ -698,10 +699,9 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
 
         texto_resultados = " ".join([res['_source']['text'] for res in resultados_elasticsearch if '_source' in res and 'text' in res['_source']])
 
-        # Preparar el texto completo con la pregunta y los resultados
-        texto_completo = f"Pregunta: {pregunta}\nResultados: {texto_resultados}\nResumen:"
+        # Generar el resumen primario con GPT-2
         inputs = tokenizador.encode_plus(
-            texto_completo,
+            texto_resultados,
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
@@ -709,8 +709,6 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
             truncation=True,
             return_attention_mask=True
         )
-
-        # Generar el resumen primario con GPT-2
         outputs = modelo.generate(
             input_ids=inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
@@ -738,16 +736,16 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
         )
         resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
 
-        app.logger.info("resumen_final GPT2")
-        app.logger.info(resumen_final)
         return resumen_final
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
 
+
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 # Nuevo Procesamiento de consultas de usuario
+
 
 
 def traducir_texto_con_openai(texto, idioma_destino):
