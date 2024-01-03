@@ -510,7 +510,7 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
 # Función para preprocesar texto
-cache_embeddings = {}
+
 def preprocess_text(text):
     # Preprocesamiento básico del texto
     text = text.lower()
@@ -568,19 +568,28 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Realizar la búsqueda
     try:
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        # Asegurarte de que respuesta contiene la estructura esperada
         if 'hits' in respuesta and 'hits' in respuesta['hits']:
-            respuesta_hits = respuesta ['hits']['hits']
-            app.logger.info("respuesta_hits")
-            app.logger.info(respuesta_hits)
+            hits = respuesta['hits']['hits']
+            app.logger.info("Respuesta de Elasticsearch recibida.")
 
-            return respuesta_hits
+            # Procesar y formatear los resultados
+            resultados_formatados = []
+            for hit in hits:
+                score = hit['_score']
+                source = hit['_source']
+                texto = source.get('text', 'No disponible')
+                url = source.get('url', 'No disponible')
+
+                resultado = f"Texto: {texto}\nURL: {url}\nScore: {score}\n---"
+                resultados_formatados.append(resultado)
+
+            return '\n'.join(resultados_formatados)
         else:
             app.logger.error("La estructura de la respuesta no es la esperada.")
-            return False
+            return "No se encontraron resultados."
     except Exception as e:
         app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
-        return False       
+        return "Error al realizar la búsqueda."    
             
 def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
 
