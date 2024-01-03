@@ -593,7 +593,7 @@ def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
 
     app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch,º1qchatbot_id)
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch, chatbot_id)
 
     if not resultados_elasticsearch:
         app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
