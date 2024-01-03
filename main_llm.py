@@ -598,7 +598,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
    
 
     # Generación de resumen con GPT-2
-    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch)
+    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch, texto_procesado)
 
     app.logger.info("resumen_gpt2")
     app.logger.info(resumen_gpt2)
@@ -682,9 +682,12 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 # Función para resumir texto utilizando GPT-2
-def resumir_con_gpt2(texto_plano):
-    app.logger.info("Generando resumen con GPT-2.")
-    app.logger.info(texto_plano)
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
+def resumir_con_gpt2(texto_plano, pregunta):
+    app.logger.info("Generando resumen con GPT-2 en función de la pregunta.")
+    app.logger.info("Pregunta: " + pregunta)
+    app.logger.info("Texto: " + texto_plano)
 
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
@@ -694,13 +697,16 @@ def resumir_con_gpt2(texto_plano):
 
         MAX_LENGTH = 1024  # Ajusta según el modelo
 
-        # Verificar que el texto no esté vacío
-        if not texto_plano.strip():
+        # Combinar la pregunta con el texto plano
+        texto_combinado = f"Pregunta: {pregunta}\nTexto: {texto_plano}"
+
+        # Verificar que el texto combinado no esté vacío
+        if not texto_combinado.strip():
             return "No hay suficiente contenido para generar un resumen."
 
         # Generar el resumen primario con GPT-2
         inputs = tokenizador.encode_plus(
-            texto_plano,
+            texto_combinado,
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
@@ -739,7 +745,8 @@ def resumir_con_gpt2(texto_plano):
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
-        
+
+
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 # Nuevo Procesamiento de consultas de usuario
@@ -927,7 +934,7 @@ def ask():
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
                 if ultima_respuesta:
                     fuente_respuesta = 'dataset'
 
