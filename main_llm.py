@@ -545,17 +545,15 @@ def cargar_datos_json(json_file_path):
 
 def traducir_a_espanol(texto):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": "Traduce al español el siguiente texto:"},
-                {"role": "user", "content": texto}
-            ]
+        response = openai.Completion.create(
+            model="text-davinci-003",  # Cambiando al modelo "text-davinci-003" que es más genérico
+            prompt=f"Traduce este texto al español: '{texto}'",
+            max_tokens=60
         )
         return response.choices[0].text.strip()
     except Exception as e:
-        app.logger.error(f"Error al traducir texto: {e}")
-        return texto  # Devuelve el texto original si la traducción falla
+        app.logger.error(f"Error al traducir texto con GPT-3: {e}")
+        return texto  
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
@@ -563,7 +561,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     app.logger.info("query_traducida")
     app.logger.info(query_traducida)
     
-    embedding_consulta = obtener_embedding_bert(query)
+    embedding_consulta = obtener_embedding_bert(query_traducida)
 
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
@@ -607,6 +605,8 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     if not ultima_pregunta or not chatbot_id:
         app.logger.info("Falta información importante: pregunta o chatbot_id")
         return False
+
+    ultima_pregunta = traducir_a_espanol(ultima_pregunta)
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
