@@ -599,6 +599,9 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 
     # Generación de resumen con GPT-2
     resumen_gpt2 = resumir_con_gpt2(texto_completo)
+    app.logger.info("resumen gpt2")
+    app.logger.info(resumen_gpt2)
+    
     if not resumen_gpt2:
         app.logger.info("No se pudo generar un resumen con GPT-2.")
         return "No se pudo generar un resumen."
@@ -627,7 +630,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": ""}
@@ -684,8 +687,6 @@ def resumir_con_gpt2(texto_completo):
         
         # Añade el texto generado a la lista de resúmenes
         resumenes.append(texto_generado)
-        app.logger.info("resumen gpt2")
-        app.logger.info(resumenes.append(texto_generado))
 
     return ' '.join(resumenes)
 
