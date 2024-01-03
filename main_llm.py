@@ -1477,15 +1477,12 @@ def create_or_empty_directory(path):
             if os.path.isfile(file_path):
                 os.unlink(file_path)
 
-def prepare_data_for_finetuning_bert(json_file_path, output_file_path, tokenizer):
+def prepare_data_for_finetuning_bert(json_file_path, tokenizer):
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
+        texts = [item.get("dialogue", "").strip() for item in data.values()]
 
-    with open(output_file_path, 'w', encoding='utf-8') as output_file:
-        for item in data.values():
-            text = item.get("dialogue", "").strip()
-            if text:
-                output_file.write(text + '\n')
+    return texts
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
