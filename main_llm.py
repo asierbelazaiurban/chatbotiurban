@@ -1490,18 +1490,20 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
+        BASE_DATASET_DIR = 'ruta/a/tu/directorio/de/datasets'
+        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
         output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
         train_file_path = os.path.join('data/temp_data', str(chatbot_id), 'train_data.json')
         eval_file_path = os.path.join('data/temp_data', str(chatbot_id), 'eval_data.json')
 
-        if not os.path.exists(train_file_path) or not os.path.exists(eval_file_path):
-            return jsonify({"error": "Archivo del dataset no encontrado"}), 404
+        prepare_data_for_finetuning_bert(dataset_file_path, train_file_path)
+        prepare_data_for_finetuning_bert(dataset_file_path, eval_file_path)
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         if os.path.isdir(output_dir) and os.listdir(output_dir):
-            model = BertForSequenceClassification.from_pretrained(output_dir)
+            model = BertModel.from_pretrained(output_dir)
         else:
-            model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+            model = BertModel.from_pretrained('bert-base-uncased')
 
         training_args = TrainingArguments(
             output_dir=output_dir,
@@ -1547,7 +1549,6 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
             if text:
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
-
 
 
 
