@@ -51,7 +51,7 @@ from transformers import BertForSequenceClassification, Trainer, TrainingArgumen
 from transformers import BertForTokenClassification
 from transformers import Trainer, TrainingArguments
 from transformers import BertModel, BertTokenizer
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments,BertForQuestionAnswering
 from datasets import load_dataset
 import json
 
@@ -1468,18 +1468,27 @@ def list_folders():
     return jsonify(folders)
 
 
+def create_or_empty_directory(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    else:
+        for file in os.listdir(path):
+            file_path = os.path.join(path, file)
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
 
-def transform_json(input_path, output_path):
-    with open(input_path, 'r', encoding='utf-8') as file:
+def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    
+    with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
 
-    with open(output_path, 'w', encoding='utf-8') as file:
-        for key, value in data.items():
-            if isinstance(value, dict):  # Asegurarse de que el valor es un diccionario
-                json.dump(value, file)
-                file.write('\n')
-
-from transformers import BertTokenizer, BertForQuestionAnswering, TrainingArguments, Trainer
+    with open(output_file_path, 'w', encoding='utf-8') as file:
+        for key, item in data.items():
+            text = item.get("dialogue", "").strip()
+            if text:
+                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
+                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask']}) + '\n')
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
@@ -1490,20 +1499,20 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-            
+        BASE_DATASET_DIR = 'ruta/a/tu/directorio/de/datasets'
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
-        train_file_path = os.path.join('data/temp_data', str(chatbot_id), 'train_data.json')
-        eval_file_path = os.path.join('data/temp_data', str(chatbot_id), 'eval_data.json')
+        temp_data_dir = os.path.join('data/temp_data', str(chatbot_id))
+        output_dir = os.path.join(temp_data_dir, 'output_dir')
+        train_file_path = os.path.join(temp_data_dir, 'train_data.json')
+        eval_file_path = os.path.join(temp_data_dir, 'eval_data.json')
 
+        create_or_empty_directory(temp_data_dir)
+        create_or_empty_directory(output_dir)
         prepare_data_for_finetuning_bert(dataset_file_path, train_file_path)
         prepare_data_for_finetuning_bert(dataset_file_path, eval_file_path)
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        if os.path.isdir(output_dir) and os.listdir(output_dir):
-            model = BertForQuestionAnswering.from_pretrained(output_dir)
-        else:
-            model = BertForQuestionAnswering.from_pretrained('bert-base-uncased')
+        model = BertModel.from_pretrained('bert-base-uncased')
 
         training_args = TrainingArguments(
             output_dir=output_dir,
@@ -1536,19 +1545,6 @@ def finetune():
         app.logger.error(f"Error en el endpoint /finetune: {e}")
         return jsonify({"error": str(e)}), 500
 
-def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        for key, item in data.items():
-            text = item.get("dialogue", "").strip()
-            label = item.get("label", 0)
-            if text:
-                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
-                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
 
 
