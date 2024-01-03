@@ -576,10 +576,10 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
 
             return respuesta_hits
         else:
-            logger.error("La estructura de la respuesta no es la esperada.")
+            app.logger.error("La estructura de la respuesta no es la esperada.")
             return False
     except Exception as e:
-        logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
+        app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False       
             
 def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
