@@ -621,7 +621,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
+        "Recuerda, la respuesta debe ser concisa y no exceder las 200 palabras."
     )
     app.logger.info("Prompt final generado.")
 
@@ -721,7 +721,7 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
         # Re-resumir para obtener un resumen más corto de 100 palabras
         texto_resumen_primario = ' '.join(resumen_primario)
         inputs = tokenizador.encode_plus(
-            f"Resumen en 100 palabras: {texto_resumen_primario}",
+            f"Resumen en 400 palabras: {texto_resumen_primario}",
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
