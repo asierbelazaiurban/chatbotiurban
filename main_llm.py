@@ -543,7 +543,22 @@ def cargar_datos_json(json_file_path):
             return {}
 
 
+def traducir_a_espanol(texto):
+    try:
+        respuesta = openai.Completion.create(
+            model="text-davinci-002",  # O el modelo de GPT-3 más apropiado
+            prompt=f"Traducir al español: {texto}",
+            max_tokens=60  # Ajusta según sea necesario
+        )
+        return respuesta.choices[0].text.strip()
+    except Exception as e:
+        app.logger.error(f"Error al traducir texto: {e}")
+        return texto  
+
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
+    # Traducir la consulta al español
+    query_traducida = traducir_a_espanol(query)
+    
     embedding_consulta = obtener_embedding_bert(query)
 
     # Conectar a Elasticsearch
@@ -563,9 +578,8 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
                 }
             }
         },
-        "size": 5
+        "size": 3
     }
-
 
     # Realizar la búsqueda
     try:
