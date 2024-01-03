@@ -635,7 +635,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-1106",
             messages=[
-                {"role": "system", "content": prompt_base},.
+                {"role": "system", "content": prompt_base},
                 {"role": "user", "content": ""}
             ]
         )
