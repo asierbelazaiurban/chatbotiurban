@@ -710,58 +710,6 @@ def extraer_ideas_clave_con_bert(texto):
 
 
 
-from elasticsearch import Elasticsearch, helpers
-
-
-
-# Fine-tuning de BERT
-
-def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        for key, item in data.items():
-            text = item.get("dialogue", "").strip()
-            label = 0  # Define cómo asignar las etiquetas basadas en tu dataset
-            if text:
-                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
-                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
-
-def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
-    try:
-        
-        dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
-        train_dataset = dataset['train']
-        eval_dataset = dataset['eval']
-
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            num_train_epochs=epochs,
-            per_device_train_batch_size=batch_size,
-            warmup_steps=500,
-            weight_decay=0.01,
-            logging_dir='./logs',
-        )
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset
-        )
-
-        trainer.train()
-
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-
-        return model, tokenizer, train_file_path, eval_file_path
-    except Exception as e:
-        print(f"Error durante el fine-tuning: {e}")
-        return None, None, None, None
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
@@ -1542,66 +1490,63 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-        # Modificación aquí para incluir chatbot_id en temp_data_dir
-        temp_data_dir = os.path.join('data/temp_data', str(chatbot_id))
-        os.makedirs(temp_data_dir, exist_ok=True)
+        output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
+        train_file_path = os.path.join('data/temp_data', str(chatbot_id), 'train_data.json')
+        eval_file_path = os.path.join('data/temp_data', str(chatbot_id), 'eval_data.json')
 
-        
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        if not os.path.exists(dataset_file_path):
+        if not os.path.exists(train_file_path) or not os.path.exists(eval_file_path):
             return jsonify({"error": "Archivo del dataset no encontrado"}), 404
 
-        temp_train_file_path = os.path.join(temp_data_dir, f"temp_train_data.json")
-        temp_eval_file_path = os.path.join(temp_data_dir, f"temp_eval_data.json")
-
-        try:
-            # Asumiendo que prepare_data_for_finetuning_bert es una función definida en otro lugar
-            prepare_data_for_finetuning_bert(dataset_file_path, temp_train_file_path)
-            prepare_data_for_finetuning_bert(dataset_file_path, temp_eval_file_path)
-        except Exception as e:
-            app.logger.error(f"Error en la preparación de los datos: {e}")
-
-        # Modificación aquí para incorporar el chatbot_id en la ruta de salida
-        output_dir = os.path.join("data/uploads/bert/", str(chatbot_id)) 
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Verificar si el directorio de salida está vacío o no
-        if not any(os.scandir(output_dir)):
-            model_name = BertModel.from_pretrained("bert-base-uncased")
-            app.logger.info("Cargando modelo preentrenado, ya que el directorio está vacío.")
+        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        if os.path.isdir(output_dir) and os.listdir(output_dir):
+            model = BertForSequenceClassification.from_pretrained(output_dir)
         else:
-            model_name =  BertModel.from_pretrained(output_dir)
-            app.logger.info("Cargando modelo desde el directorio existente.")
+            model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 
-  
-        model, tokenizer, train_path, eval_path = finetune_bert(temp_train_file_path, temp_eval_file_path, output_dir)
-     
-        app.logger.info("model") 
-        app.logger.info(model)
-        app.logger.info("tokenizer") 
-        app.logger.info(tokenizer)
-        if model and tokenizer:
-            try:
-                model.save_pretrained(output_dir)
-                tokenizer.save_pretrained(output_dir)
-            except Exception as e:
-                app.logger.error(f"Error al guardar el modelo: {e}")
-                return jsonify({"error": str(e)}), 500
+        training_args = TrainingArguments(
+            output_dir=output_dir,
+            num_train_epochs=3,
+            per_device_train_batch_size=16,
+            warmup_steps=500,
+            weight_decay=0.01,
+            logging_dir='./logs',
+        )
 
-            data_paths = {
-                "train_file_path": train_path,
-                "eval_file_path": eval_path
-            }
-            with open(os.path.join(output_dir, 'data_paths.json'), 'w') as file:
-                json.dump(data_paths, file)
+        dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
+        train_dataset = dataset['train']
+        eval_dataset = dataset['eval']
 
-            return jsonify({"message": "Fine-tuning completado con éxito"}), 200
-        else:
-            return jsonify({"error": "El modelo o el tokenizer no se pudieron crear"}), 500
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset
+        )
+
+        trainer.train()
+
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
+
+        return jsonify({"message": "Fine-tuning completado con éxito"}), 200
 
     except Exception as e:
-        app.logger.error(f"Error general en /finetune: {e}")
+        app.logger.error(f"Error en el endpoint /finetune: {e}")
         return jsonify({"error": str(e)}), 500
+
+def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+
+    with open(output_file_path, 'w', encoding='utf-8') as file:
+        for key, item in data.items():
+            text = item.get("dialogue", "").strip()
+            label = item.get("label", 0)
+            if text:
+                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
+                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
 
 
