@@ -690,8 +690,11 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
 
         MAX_LENGTH = 1024  # Ajusta según el modelo
 
-        # Combinar los resultados de Elasticsearch en un solo texto
-        texto_resultados = " ".join([resultado['_source'].get('text', '') for resultado in resultados_elasticsearch[:5]])
+        # Verificar y procesar los resultados de Elasticsearch
+        if not isinstance(resultados_elasticsearch, list):
+            raise ValueError("Los resultados de Elasticsearch deben ser una lista.")
+
+        texto_resultados = " ".join([res['_source']['text'] for res in resultados_elasticsearch if '_source' in res and 'text' in res['_source']])
 
         # Preparar el texto completo con la pregunta y los resultados
         texto_completo = f"Pregunta: {pregunta}\nResultados: {texto_resultados}\nResumen:"
@@ -705,21 +708,40 @@ def resumir_con_gpt2(resultados_elasticsearch, pregunta):
             return_attention_mask=True
         )
 
-        # Generar el resumen con GPT-2
+        # Generar el resumen primario con GPT-2
         outputs = modelo.generate(
             input_ids=inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
             max_length=MAX_LENGTH,
             pad_token_id=tokenizador.eos_token_id,
-            no_repeat_ngram_size=3  # Evitar repeticiones
+            no_repeat_ngram_size=3
         )
-        resumen = tokenizador.decode(outputs[0], skip_special_tokens=True)
-        app.logger.info("resumen_final gpt2")
+        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
+
+        # Re-resumir para obtener un resumen más corto de 400 palabras
+        inputs_resumen_final = tokenizador.encode_plus(
+            f"Resumen en 400 palabras: {resumen_primario}",
+            add_special_tokens=True,
+            max_length=MAX_LENGTH,
+            return_tensors='pt',
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True
+        )
+        output_resumen_final = modelo.generate(
+            input_ids=inputs_resumen_final['input_ids'],
+            attention_mask=inputs_resumen_final['attention_mask'],
+            max_length=MAX_LENGTH,
+            pad_token_id=tokenizador.eos_token_id
+        )
+        resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
+        app.logger.info("resumen_final GPT2")
         app.logger.info(resumen_final)
-        return resumen
+        return resumen_final
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
-        return f"Error al generar resumen: {e}"
+        return False
+
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
 
