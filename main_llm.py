@@ -548,7 +548,7 @@ def traducir_a_espanol(texto):
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-1106",
             messages=[
-                {"role": "system", "content": Traduce al Español, literalmente},
+                {"role": "system", "content": "Traduce al Español, literalmente"},
                 {"role": "user", "content": ""}
             ]
         )
