@@ -619,11 +619,12 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 200 palabras."
+        "1. No hagas referencia a la respuesta original "
+        "2. Mantén la coherencia con la pregunta original. "
+        "3. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
+        "4. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "5. Encuentra la mejor respuesta en relación a la pregunta que te llega "
+        "6.Recuerda, la respuesta debe ser concisa y no exceder las 200 palabras."
     )
     app.logger.info("Prompt final generado.")
 
