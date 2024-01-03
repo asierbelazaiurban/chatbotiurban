@@ -1477,25 +1477,15 @@ def create_or_empty_directory(path):
             if os.path.isfile(file_path):
                 os.unlink(file_path)
 
-def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
+def prepare_data_for_finetuning_bert(json_file_path, output_file_path, tokenizer):
     with open(json_file_path, 'r', encoding='utf-8') as file:
         data = json.load(file)
 
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        for key, item in data.items():
+    with open(output_file_path, 'w', encoding='utf-8') as output_file:
+        for item in data.values():
             text = item.get("dialogue", "").strip()
             if text:
-                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
-                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask']}) + '\n')
-
-def prepare_data_for_finetuning_bert(json_file_path, tokenizer):
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-        texts = [item.get("dialogue", "").strip() for item in data.values()]
-
-    return texts
+                output_file.write(text + '\n')
 
 @app.route('/finetune', methods=['POST'])
 def finetune():
