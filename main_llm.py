@@ -562,8 +562,9 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
                 }
             }
         },
-        "size": 10
+        "size": 5
     }
+
 
     # Realizar la búsqueda
     try:
@@ -626,7 +627,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     )
     app.logger.info("Prompt final generado.")
 
-    prompt_base = f"Contexto: {resumen_gpt2}\nPregunta: {ultima_pregunta}\nRespuesta:"
+    prompt_base = f"Contexto: {texto_procesado}\nPregunta: {ultima_pregunta}\nRespuesta:{resumen_gpt2}"
     app.logger.info("Generando respuesta utilizando gpt-3.5-turbo-1106")
     
     try:
@@ -725,7 +726,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
 
         # Re-resumir para obtener un resumen más corto de 400 palabras
         inputs_resumen_final = tokenizador.encode_plus(
-            f"Resumen en 400 palabras: {resumen_primario}",
+            f"Resumen en 200 palabras: {resumen_primario}",
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
