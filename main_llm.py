@@ -628,14 +628,14 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     )
     app.logger.info("Prompt final generado.")
 
-    prompt_base = f"Contexto: {texto_procesado}\nPregunta: {ultima_pregunta}\nRespuesta:{resumen_gpt2}"
+    prompt_base = f"Contexto: {texto_procesado}\nPregunta: {ultima_pregunta}\nRespuesta:{resumen_gpt2}. Menos de 200 palabras de respuesta."
     app.logger.info("Generando respuesta utilizando gpt-3.5-turbo-1106")
     
     try:
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo-1106",
             messages=[
-                {"role": "system", "content": prompt_base},
+                {"role": "system", "content": prompt_base},.
                 {"role": "user", "content": ""}
             ]
         )
@@ -902,14 +902,12 @@ def ask():
                 fuente_respuesta = 'saludo_o_despedida'
 
             if not ultima_respuesta:
-                #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
+                ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                 if ultima_respuesta:
                     fuente_respuesta = 'preestablecida'
 
             if not ultima_respuesta:
-                #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
+                ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
 
@@ -924,8 +922,8 @@ def ask():
 
             if not ultima_respuesta:
                 fuente_respuesta = 'respuesta_por_defecto'
-                #ultima_respuesta = seleccionar_respuesta_por_defecto()
-                #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+                ultima_respuesta = seleccionar_respuesta_por_defecto()
+                ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
                 ultima_respuesta = False
 
             if ultima_respuesta and fuente_respuesta != 'dataset':
