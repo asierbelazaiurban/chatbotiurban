@@ -542,7 +542,7 @@ def cargar_datos_json(json_file_path):
             return {}
 
 
-def buscar_con_bert_en_elasticsearch(query):
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     embedding_consulta = obtener_embedding_bert(query)
 
     # Conectar a Elasticsearch
@@ -567,18 +567,21 @@ def buscar_con_bert_en_elasticsearch(query):
 
     # Realizar la búsqueda
     try:
-        respuesta = es_client.search(index=ELASTIC_INDEX, body=query_busqueda)
+        respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
         # Asegurarte de que respuesta contiene la estructura esperada
         if 'hits' in respuesta and 'hits' in respuesta['hits']:
-            return respuesta['hits']['hits']
+            respuesta_hits = respuesta ['hits']['hits']
+            app.logger.info("respuesta_hits")
+            app.logger.info(respuesta_hits)
+
+            return respuesta_hits
         else:
             logger.error("La estructura de la respuesta no es la esperada.")
-            return []
+            return False
     except Exception as e:
         logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
-        return []
-       
-
+        return False       
+            
 def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
 
     if not ultima_pregunta or not chatbot_id:
@@ -593,7 +596,7 @@ def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
 
     app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch, chatbot_id)
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_completo, indice_elasticsearch)
 
     if not resultados_elasticsearch:
         app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
