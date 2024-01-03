@@ -807,7 +807,7 @@ def ask():
         contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
        
         app.logger.info("Antes de encontrar_respuesta cache")
-        respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
+        #respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
         respuesta_cache = False        
         app.logger.info("despues de encontrar_respuesta cache")
         app.logger.info(respuesta_cache)
