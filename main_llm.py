@@ -562,7 +562,7 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
                 }
             }
         },
-        "size": 50
+        "size": 10
     }
 
     # Realizar la búsqueda
