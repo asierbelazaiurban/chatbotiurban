@@ -45,7 +45,7 @@ from elasticsearch.helpers import bulk
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM, GPT2Tokenizer, TextDataset, DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
 from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
-from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer, BertForMaskedLM
 
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertForTokenClassification
@@ -1490,6 +1490,13 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask']}) + '\n')
 
+def prepare_data_for_finetuning_bert(json_file_path, tokenizer):
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+        texts = [item.get("dialogue", "").strip() for item in data.values()]
+
+    return texts
+
 @app.route('/finetune', methods=['POST'])
 def finetune():
     try:
@@ -1499,50 +1506,41 @@ def finetune():
         if not chatbot_id:
             return jsonify({"error": "chatbot_id no proporcionado"}), 400
 
-    
+        BASE_DATASET_DIR = 'ruta/a/tu/directorio/de/datasets'
         dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        temp_data_dir = os.path.join('data/temp_data', str(chatbot_id))
-        output_dir = os.path.join(temp_data_dir, 'output_dir')
-        train_file_path = os.path.join(temp_data_dir, 'train_data.json')
-        eval_file_path = os.path.join(temp_data_dir, 'eval_data.json')
-
-        create_or_empty_directory(temp_data_dir)
-        create_or_empty_directory(output_dir)
-        prepare_data_for_finetuning_bert(dataset_file_path, train_file_path)
-        prepare_data_for_finetuning_bert(dataset_file_path, eval_file_path)
+        output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
+        os.makedirs(output_dir, exist_ok=True)
 
         tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        model = BertModel.from_pretrained('bert-base-uncased')
+        texts = prepare_data_for_finetuning_bert(dataset_file_path, tokenizer)
 
+        dataset = load_dataset('text', data_files={'train': texts})
+        model = BertForMaskedLM.from_pretrained('bert-base-uncased')
+
+        data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=True, mlm_probability=0.15)
         training_args = TrainingArguments(
             output_dir=output_dir,
+            overwrite_output_dir=True,
             num_train_epochs=3,
             per_device_train_batch_size=16,
-            warmup_steps=500,
-            weight_decay=0.01,
-            logging_dir='./logs',
+            save_steps=10_000,
+            save_total_limit=2,
         )
-
-        dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
-        train_dataset = dataset['train']
-        eval_dataset = dataset['eval']
 
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset
+            data_collator=data_collator,
+            train_dataset=dataset['train'],
         )
 
         trainer.train()
-
         model.save_pretrained(output_dir)
         tokenizer.save_pretrained(output_dir)
 
         return jsonify({"message": "Fine-tuning completado con éxito"}), 200
 
     except Exception as e:
-        app.logger.error(f"Error en el endpoint /finetune: {e}")
         return jsonify({"error": str(e)}), 500
 
 
