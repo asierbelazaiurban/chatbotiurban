@@ -1547,11 +1547,6 @@ def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
                 encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
                 file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
 
 
 @app.route('/indexar_dataset', methods=['POST'])
