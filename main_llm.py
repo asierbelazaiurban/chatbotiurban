@@ -583,37 +583,19 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
         app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
             
-def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
-
+def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
     if not ultima_pregunta or not chatbot_id:
-        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
+        app.logger.info("Falta información importante: pregunta o chatbot_id")
         return False
-
-    indice_elasticsearch = f"search-index-{chatbot_id}" 
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
-    texto_procesado = preprocess_text(texto_completo)
 
-    app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
-    app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_completo, indice_elasticsearch)
-    app.logger.info(resultados_elasticsearch)
-    app.logger.info("resultados_elasticsearch")
-
-    if not resultados_elasticsearch:
-        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
-        return "No se encontraron resultados relevantes."
-
-    app.logger.info("Creando contexto para GPT a partir de los resultados de Elasticsearch.")
-    contexto_para_gpt = " ".join([
-        resultado['_source'].get('text', '') 
-        for resultado in resultados_elasticsearch[:5] 
-    ])
-
-    if not contexto_para_gpt.strip():
-        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
-        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
+    # Generación de resumen con GPT-2
+    resumen_gpt2 = resumir_con_gpt2(texto_completo)
+    if not resumen_gpt2:
+        app.logger.info("No se pudo generar un resumen con GPT-2.")
+        return "No se pudo generar un resumen."
 
     app.logger.info("Manejando prompt personalizado si existe.")
     try:
@@ -634,7 +616,7 @@ def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
     )
     app.logger.info("Prompt final generado.")
 
-    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
+    prompt_base = f"Contexto: {resumen_gpt2}\nPregunta: {ultima_pregunta}\nRespuesta:"
     app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
     
     try:
@@ -650,9 +632,36 @@ def encontrar_respuesta(ultima_pregunta,  chatbot_id, contexto=""):
         return respuesta
     except Exception as e:
         app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
-        return "Error al generar respuesta."
+        return False
 
 
+
+#### Resunen con GPT2 ####
+
+MAX_TOKENS = 1024  # Ajusta según el límite de tu modelo GPT-2
+
+def dividir_texto(texto, max_longitud):
+    palabras = texto.split()
+    for i in range(0, len(palabras), max_longitud):
+        yield ' '.join(palabras[i:i + max_longitud])
+
+def resumir_con_gpt2(texto_completo):
+    partes = list(dividir_texto(texto_completo, MAX_TOKENS))
+    resumenes = []
+
+    for parte in partes:
+        try:
+            resumen = openai.Completion.create(
+                engine="gpt-2",  # o especifica la variante de GPT-2 que prefieras
+                prompt=f"Resumen en 150 palabras: {parte}",
+                max_tokens=MAX_TOKENS
+            )
+            resumenes.append(resumen.choices[0].text.strip())
+        except Exception as e:
+            app.logger.error(f"Error al generar resumen con GPT-2: {e}")
+            continue
+
+    return ' '.join(resumenes)
 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
