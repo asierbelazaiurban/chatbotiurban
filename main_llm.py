@@ -706,7 +706,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
         if not texto_combinado.strip():
             return "No hay suficiente contenido para generar un resumen."
 
-        # Generar el resumen primario con GPT-2
+        # Generar el resumen con GPT-2
         inputs = tokenizador.encode_plus(
             texto_combinado,
             add_special_tokens=True,
@@ -721,29 +721,18 @@ def resumir_con_gpt2(texto_plano, pregunta):
             attention_mask=inputs['attention_mask'],
             max_length=MAX_LENGTH,
             pad_token_id=tokenizador.eos_token_id,
-            no_repeat_ngram_size=3
+            no_repeat_ngram_size=3,
+            length_penalty=2.0,  # Para fomentar respuestas más cortas y concisas
+            num_return_sequences=1,
+            stop_token='</s>',  # Token de finalización
         )
-        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
+        resumen = tokenizador.decode(outputs[0], skip_special_tokens=True)
 
-        # Re-resumir para obtener un resumen más corto de 400 palabras
-        inputs_resumen_final = tokenizador.encode_plus(
-            f"Resumen en 200 palabras: {resumen_primario}",
-            add_special_tokens=True,
-            max_length=MAX_LENGTH,
-            return_tensors='pt',
-            padding='max_length',
-            truncation=True,
-            return_attention_mask=True
-        )
-        output_resumen_final = modelo.generate(
-            input_ids=inputs_resumen_final['input_ids'],
-            attention_mask=inputs_resumen_final['attention_mask'],
-            max_length=MAX_LENGTH,
-            pad_token_id=tokenizador.eos_token_id
-        )
-        resumen_final = tokenizador.decode(output_resumen_final[0], skip_special_tokens=True)
+        # Limitar el resumen a 400 palabras
+        palabras_resumen = resumen.split()
+        resumen_acotado = ' '.join(palabras_resumen[:400])
 
-        return resumen_final
+        return resumen_acotado
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
