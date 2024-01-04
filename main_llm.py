@@ -162,10 +162,10 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 INDICE_ELASTICSEARCH = 'search-iurban'  ## Por defecto
 INDICE_ELASTICSEARCH_PREFIX = 'search-iurban-prefix'## Por defecto
-ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"## Por defecto
+ELASTIC_PASSWORD = os.environ.get('ELASTIC_PASSWORD')## Por defecto
 
 # Found in the 'Manage Deployment' page
-CLOUD_ID = "1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvOjQ0MyQ3ZWRjOWE0YWQ4OTE0OGU1YjFhNTY5MGI2MTAxNDlhMyQ5NTZiNjE0YzgwMTM0NzFlOTQ2NGQwMTE3YzEyZDY3OQ=="
+CLOUD_ID = os.environ.get('CLOUD_ID')
 
 # Create the client instance
 es_client = Elasticsearch(
@@ -641,11 +641,11 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         "3. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "4. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "5. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "6.Recuerda, la respuesta debe ser concisa y no exceder las 200 palabras."
+        "6.Recuerda, la respuesta debe ser concisa y no exceder las 150 palabras."
     )
     app.logger.info("Prompt final generado.")
 
-    prompt_base = f"Contexto: {texto_procesado}\nPregunta: {ultima_pregunta}\nRespuesta:{resumen_gpt2}. Menos de 200 palabras de respuesta."
+    prompt_base = f"Contexto: {texto_procesado}\nPregunta: {ultima_pregunta}\nRespuesta:{resumen_gpt2}. Menos de 150 palabras de respuesta."
     app.logger.info("Generando respuesta utilizando gpt-3.5-turbo-1106")
     
     try:
@@ -725,7 +725,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
 
         # Generar el resumen primario con GPT-2
         inputs = tokenizador.encode_plus(
-             f"Resumen en 200 palabras: {texto_combinado}",
+             f"Resumen en 150 palabras: {texto_combinado}",
             add_special_tokens=True,
             max_length=MAX_LENGTH,
             return_tensors='pt',
@@ -909,7 +909,6 @@ def ask():
 
             if not ultima_respuesta:
                 fuente_respuesta = 'respuesta_por_defecto'
-                ultima_respuesta = seleccionar_respuesta_por_defecto()
                 ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
                 ultima_respuesta = False
 
