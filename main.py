@@ -752,12 +752,13 @@ def resumir_con_gpt2(texto_plano, pregunta):
 def traducir_respuesta(pregunta, respuesta_en_espanol):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     app.logger.info("PREGUNTAAAAA")
+    app.logger.info(pregunta)
     
     # Combinar la detección del idioma y la traducción en una sola llamada a la API
     try:
         traduccion = openai.Completion.create(
             model="text-davinci-003",
-            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
+            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta,:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
             max_tokens=100,
             api_key=os.environ.get('OPENAI_API_KEY')
         )
