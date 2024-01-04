@@ -740,12 +740,41 @@ def resumir_con_gpt2(texto_plano, pregunta):
             no_repeat_ngram_size=3
         )
         resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
+        resumen_primario = traducir_respuesta(pregunta, resumen_primario)
 
         return resumen_primario
     except Exception as e:
         app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
 
+
+def traducir_respuesta(pregunta, respuesta_en_espanol):
+      openai.api_key = os.environ.get('OPENAI_API_KEY')
+    # Detectar el idioma de la pregunta
+    try:
+        deteccion_idioma = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=f"¿Qué idioma es este?: '{pregunta}'",
+            max_tokens=60,
+            api_key=api_key
+        )
+        idioma_pregunta = deteccion_idioma.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error al detectar el idioma: {e}")
+        return respuesta_en_espanol
+
+    # Traducir la respuesta al idioma de la pregunta
+    try:
+        traduccion = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=f"Traduce este texto al {idioma_pregunta}: '{respuesta_en_espanol}'",
+            max_tokens=60,
+            api_key=api_key
+        )
+        return traduccion.choices[0].text.strip()
+    except Exception as e:
+        print(f"Error al traducir texto: {e}")
+        return respuesta_en_espanol
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
@@ -1214,6 +1243,11 @@ def url_for_scraping_by_sitemap():
         os.makedirs(save_dir, exist_ok=True)
         file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
 
+        existing_urls = set()
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                existing_urls = set(file.read().splitlines())
+
         def request_sitemap(url):
             try:
                 response = requests.get(url)
@@ -1228,11 +1262,12 @@ def url_for_scraping_by_sitemap():
             return jsonify({'error': 'Error al descargar el sitemap'}), 500
 
         soup = BeautifulSoup(sitemap_content, 'xml')
-        urls = [loc.text for loc in soup.find_all('loc')]
+        urls = [loc.text for loc in soup.find_all('loc') if loc.text not in existing_urls]
 
-        with open(file_path, 'w') as file:
+        with open(file_path, 'a') as file:
             for url in urls:
                 file.write(url + '\n')
+                existing_urls.add(url)
 
         app.logger.info(f"Sitemap procesado correctamente para {sitemap_url}")
         return jsonify({'message': 'Sitemap procesado correctamente', 'urls_count': len(urls)})
