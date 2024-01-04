@@ -749,7 +749,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
 
 
 def traducir_respuesta(pregunta, respuesta_en_espanol):
-      openai.api_key = os.environ.get('OPENAI_API_KEY')
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
     # Detectar el idioma de la pregunta
     try:
         deteccion_idioma = openai.Completion.create(
