@@ -758,7 +758,7 @@ def traducir_respuesta(pregunta, respuesta_en_espanol):
     try:
         traduccion = openai.Completion.create(
             model="text-davinci-003",
-            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta,:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
+            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es ingles al ingles, si es italiano al italiano y asi con todos los idomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
             max_tokens=100,
             api_key=os.environ.get('OPENAI_API_KEY')
         )
