@@ -751,6 +751,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
 
 def traducir_respuesta(pregunta, respuesta_en_espanol):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
+    app.logger.info("PREGUNTAAAAA")
     
     # Combinar la detección del idioma y la traducción en una sola llamada a la API
     try:
@@ -760,6 +761,9 @@ def traducir_respuesta(pregunta, respuesta_en_espanol):
             max_tokens=100,
             api_key=api_key
         )
+
+        app.logger.info("RESPUESTA TRADUCIDA")
+        app.logger.info(traduccion.choices[0].text.strip())
         return traduccion.choices[0].text.strip()
     except Exception as e:
         print(f"Error al traducir texto: {e}")
@@ -1179,11 +1183,19 @@ def url_for_scraping():
             except requests.RequestException:
                 return None
 
-        processed_urls = set()
+        urls_data = []
         if os.path.exists(file_path):
             with open(file_path, 'r') as file:
                 for line in file:
-                    processed_urls.add(line.split(',')[0].split(': ')[1])
+                    parts = line.strip().split(', ')
+                    url_info = {
+                        'url': parts[0].split(': ')[1],
+                        'word_count': int(parts[1].split(': ')[1]) if parts[1].split(': ')[1] != 'No disponible' else 0,
+                        'status': parts[2].split(': ')[1]
+                    }
+                    urls_data.append(url_info)
+
+        processed_urls = {url_data['url'] for url_data in urls_data}
 
         urls = set()
         base_response = safe_request(base_url)
@@ -1197,20 +1209,19 @@ def url_for_scraping():
             app.logger.error("Error al obtener respuesta del URL base")
             return jsonify({'error': 'Failed to fetch base URL'}), 500
 
-        urls_data = []
         for url in urls:
             response = safe_request(url)
             if response:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 text = soup.get_text()
                 word_count = len(text.split())
-                urls_data.append({'url': url, 'word_count': word_count, 'status': 'Contadas con éxito'})
+                url_data = {'url': url, 'word_count': word_count, 'status': 'Contadas con éxito'}
             else:
-                urls_data.append({'url': url, 'word_count': 0, 'status': 'Fallo en la solicitud HTTP'})
+                url_data = {'url': url, 'word_count': 0, 'status': 'Fallo en la solicitud HTTP'}
+            urls_data.append(url_data)
 
-        with open(file_path, 'a') as text_file:
-            for url_data in urls_data:
-                text_file.write(f"URL: {url_data['url']}, Palabras: {url_data.get('word_count', 'No disponible')}, Estado: {url_data['status']}\n")
+            with open(file_path, 'a') as text_file:
+                text_file.write(f"URL: {url_data['url']}, Palabras: {url_data['word_count']}, Estado: {url_data['status']}\n")
 
         app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
