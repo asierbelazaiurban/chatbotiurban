@@ -557,7 +557,7 @@ def traducir_a_espanol(texto):
 
 def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
     # Traducir la consulta al español
-    #query = traducir_a_espanol(query)
+    query = traducir_a_espanol(query)
     app.logger.info("query")
     app.logger.info(query)
     
