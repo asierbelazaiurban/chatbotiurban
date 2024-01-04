@@ -45,13 +45,13 @@ from elasticsearch.helpers import bulk
 from transformers import AutoModelForCausalLM, AutoTokenizer, GPTNeoForCausalLM, GPT2Tokenizer, TextDataset, DataCollatorForLanguageModeling
 from transformers import Trainer, TrainingArguments
 from transformers import GPT2Tokenizer, GPTNeoForCausalLM, TrainingArguments, Trainer
-from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer, BertForMaskedLM
 
 from transformers import BertForSequenceClassification, Trainer, TrainingArguments
 from transformers import BertForTokenClassification
 from transformers import Trainer, TrainingArguments
 from transformers import BertModel, BertTokenizer
-from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments
+from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments,BertForQuestionAnswering
 from datasets import load_dataset
 import json
 
@@ -151,6 +151,7 @@ BASE_DIR_SCRAPING = "data/uploads/scraping/"
 BASE_DIR_DOCS = "data/uploads/docs/"
 BASE_PROMPTS_DIR = "data/uploads/prompts/"
 BASE_BERT_DIR = "data/uploads/bert/"
+BASE_PREESTABLECIDAS_DIR = "data/uploads/pre_established_answers/"
 UPLOAD_FOLDER = 'data/uploads/'  # Ajusta esta ruta según sea necesario
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -161,10 +162,10 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'csv', 'docx', 'xlsx', 'pptx'}
 
 INDICE_ELASTICSEARCH = 'search-iurban'  ## Por defecto
 INDICE_ELASTICSEARCH_PREFIX = 'search-iurban-prefix'## Por defecto
-ELASTIC_PASSWORD = "wUx5wvzinjYFzPa3guRrOw4o"## Por defecto
+ELASTIC_PASSWORD = os.environ.get('ELASTIC_PASSWORD')## Por defecto
 
 # Found in the 'Manage Deployment' page
-CLOUD_ID = "1432c4b2cc52479b9a94f9544db4db49:dXMtY2VudHJhbDEuZ2NwLmNsb3VkLmVzLmlvOjQ0MyQ3ZWRjOWE0YWQ4OTE0OGU1YjFhNTY5MGI2MTAxNDlhMyQ5NTZiNjE0YzgwMTM0NzFlOTQ2NGQwMTE3YzEyZDY3OQ=="
+CLOUD_ID = os.environ.get('CLOUD_ID')
 
 # Create the client instance
 es_client = Elasticsearch(
@@ -331,7 +332,7 @@ def generar_contexto_con_openai(historial):
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": "Enviamos una conversación para que entiendas el contexto"},
                 {"role": "user", "content": historial}
@@ -380,7 +381,7 @@ def identificar_saludo_despedida(frase):
     try:
         # Enviar la frase directamente a OpenAI para determinar si es un saludo o despedida
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": "Identifica si la siguiente frase es exclusivamente un saludo o una despedida, sin información adicional o solicitudes. Responder únicamente con 'saludo', 'despedida' o 'ninguna':"},
                 {"role": "user", "content": frase}
@@ -408,7 +409,7 @@ def identificar_saludo_despedida(frase):
 
         # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
         traduccion_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": f"El idioma original es {frase}. Traduce, literalmente {respuesta_elegida}, asegurate de que sea una traducción literal.  Si no hubiera que traducirla por que la: {frase} y :{respuesta_elegida}, estan en el mismo idioma devuélvela tal cual, no le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma. Solo la traducción literal o la frase repetida si es el mismo idioma"},                
                 {"role": "user", "content": respuesta_elegida}
@@ -507,42 +508,61 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
 
 
 
-
 ####### NUEVO SITEMA DE BUSQUEDA #######
 
 # Función para preprocesar texto
-cache_embeddings = {}
+
 def preprocess_text(text):
-    # Aquí puedes agregar o modificar las reglas de preprocesamiento según tus necesidades
+    # Preprocesamiento básico del texto
     text = text.lower()
     text = re.sub(r'https?://\S+|www\.\S+', '', text)
     text = re.sub(r'@\w+', '', text)
     text = re.sub(r'#\w+', '', text)
     text = text.translate(str.maketrans('', '', string.punctuation))
-    text = re.sub(r'\d+', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-
-def dividir_texto_largo(texto, max_longitud=512):
-    return [texto[i:i + max_longitud] for i in range(0, len(texto), max_longitud)]
-
-def obtener_embedding_bert(oracion, model, tokenizer):
+def obtener_embedding_bert(oracion):
     inputs = tokenizer.encode_plus(oracion, return_tensors="pt", max_length=512, truncation=True)
     with torch.no_grad():
         outputs = model(**inputs)
-    return outputs.pooler_output.cpu().numpy()
+    return outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
+
+def cargar_datos_json(json_file_path):
+    with open(json_file_path, 'r', encoding='utf-8') as file:
+        try:
+            data = json.load(file)
+            # Asegúrate de que data es un diccionario
+            if isinstance(data, dict):
+                return data
+            else:
+                logger.error("Los datos cargados no son un diccionario.")
+                return {}
+        except json.JSONDecodeError as e:
+            logger.error(f"Error al decodificar JSON: {e}")
+            return {}
 
 
-def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
-    # Carga el modelo y el tokenizer solo una vez (fuera de esta función si es posible)
-    # para mejorar la eficiencia y evitar recargarlos en cada llamada
-    model = BertModel.from_pretrained('bert-base-uncased')
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+def traducir_a_espanol(texto):
+    try:
+        response = openai.Completion.create(
+            model="text-davinci-003",  # Cambiando al modelo "text-davinci-003" que es más genérico
+            prompt=f"Traduce este texto al español: '{texto}'",
+            max_tokens=60
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        app.logger.error(f"Error al traducir texto con GPT-3: {e}")
+        return texto  
+
+def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch):
+    # Traducir la consulta al español
+    query = traducir_a_espanol(query)
+    app.logger.info("query")
+    app.logger.info(query)
     
-    # Obtener el embedding de la consulta
-    embedding_consulta = obtener_embedding_bert(query, model, tokenizer)
-    
+    embedding_consulta = obtener_embedding_bert(query)
+
     # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
@@ -555,35 +575,36 @@ def buscar_con_bert_en_elasticsearch(query, indice_elasticsearch, chatbot_id):
             "script_score": {
                 "query": {"match_all": {}},
                 "script": {
-                    "source": """
-                    if (doc['embedding'].size() == 0) {
-                        return 0.0;
-                    }
-                    return cosineSimilarity(params.query_vector, 'embedding') + 1.0;
-                    """,
-                    "params": {"query_vector": embedding_consulta.tolist()}
+                    "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                    "params": {"query_vector": embedding_consulta}
                 }
             }
         },
-        "size": max_size
+        "size": 3
     }
 
+    # Realizar la búsqueda
     try:
-        # Realizar la búsqueda
         respuesta = es_client.search(index=indice_elasticsearch, body=query_busqueda)
-        return respuesta['hits']['hits']
+        if 'hits' in respuesta and 'hits' in respuesta['hits']:
+            hits = respuesta['hits']['hits']
+            app.logger.info("Respuesta de Elasticsearch recibida.")
+
+            # Procesar y formatear los resultados
+            resultados_texto = [hit['_source'].get('text', 'No disponible') for hit in hits]
+
+            return ' '.join(resultados_texto)
+        else:
+            app.logger.error("La estructura de la respuesta no es la esperada.")
+            return False
     except Exception as e:
-        print(f"Error en la búsqueda en Elasticsearch: {e}")
+        app.logger.error(f"Error en la búsqueda en Elasticsearch: {e}")
         return False
-
-
-def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto=""):
-
-    if not ultima_pregunta or not datos_del_dataset or not chatbot_id:
-        app.logger.info("Falta información importante: pregunta, dataset o chatbot_id")
+            
+def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
+    if not ultima_pregunta or not chatbot_id:
+        app.logger.info("Falta información importante: pregunta o chatbot_id")
         return False
-
-    indice_elasticsearch = f"search-index-{chatbot_id}" 
 
     app.logger.info("Preprocesando texto combinado de pregunta y contexto.")
     texto_completo = f"{ultima_pregunta} {contexto}".strip()
@@ -591,21 +612,18 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
     app.logger.info(f"Texto procesado para búsqueda: {texto_procesado}")
     app.logger.info("Realizando búsqueda semántica en Elasticsearch.")
-    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado,indice_elasticsearch,º1qchatbot_id)
+    resultados_elasticsearch = buscar_con_bert_en_elasticsearch(texto_procesado, f"search-index-{chatbot_id}")
+   
 
-    if not resultados_elasticsearch:
-        app.logger.info("No se encontraron resultados relevantes en Elasticsearch.")
-        return "No se encontraron resultados relevantes."
+    # Generación de resumen con GPT-2
+    resumen_gpt2 = resumir_con_gpt2(resultados_elasticsearch, texto_procesado)
 
-    app.logger.info("Creando contexto para GPT a partir de los resultados de Elasticsearch.")
-    contexto_para_gpt = " ".join([
-        resultado['_source'].get('text', '') 
-        for resultado in resultados_elasticsearch[:5] 
-    ])
+    app.logger.info("resumen_gpt2")
+    app.logger.info(resumen_gpt2)
 
-    if not contexto_para_gpt.strip():
-        app.logger.info("No se pudo generar contexto a partir de los resultados de Elasticsearch.")
-        return "No se pudo generar contexto a partir de los resultados de Elasticsearch."
+    if not resumen_gpt2:
+        app.logger.info("No se pudo generar un resumen con GPT-2.")
+        return "No se pudo generar un resumen."
 
     app.logger.info("Manejando prompt personalizado si existe.")
     try:
@@ -618,20 +636,21 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
 
     final_prompt = prompt_personalizado if prompt_personalizado else (
         "Somos una agencia de turismo especializada. Mejora la respuesta siguiendo estas instrucciones claras: "
-        "1. Mantén la coherencia con la pregunta original. "
-        "2. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
-        "3. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
-        "4. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "Recuerda, la respuesta debe ser concisa y no exceder las 100 palabras."
+        "1. No hagas referencia a la respuesta original "
+        "2. Mantén la coherencia con la pregunta original. "
+        "3. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
+        "4. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
+        "5. Encuentra la mejor respuesta en relación a la pregunta que te llega "
+        "6.Recuerda, la respuesta debe ser concisa y no exceder las 150 palabras."
     )
     app.logger.info("Prompt final generado.")
 
-    prompt_base = f"Contexto: {contexto_para_gpt}\nPregunta: {ultima_pregunta}\nRespuesta:"
-    app.logger.info("Generando respuesta utilizando GPT-4-1106-preview.")
+    prompt_base = f"Contexto: {texto_procesado}\nPregunta: {ultima_pregunta}\nRespuesta:{resumen_gpt2}. Menos de 150 palabras de respuesta."
+    app.logger.info("Generando respuesta utilizando gpt-3.5-turbo-1106")
     
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4-1106-preview",
+            model="gpt-3.5-turbo-1106",
             messages=[
                 {"role": "system", "content": prompt_base},
                 {"role": "user", "content": ""}
@@ -641,115 +660,98 @@ def encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto
         app.logger.info("Respuesta generada con éxito.")
         return respuesta
     except Exception as e:
-        app.logger.error(f"Error al generar respuesta con GPT-4-1106-preview: {e}")
-        return "Error al generar respuesta."
+        return False
 
 
 
-def load_and_preprocess_data(file_path):
+#### Resunen con GPT2 ####
+
+MAX_TOKENS = 1024  # Ajusta según el límite de tu modelo GPT-2
+def dividir_texto(texto, max_longitud):
+    palabras = texto.split()
+    longitud_actual = 0
+    parte_actual = []
+
+    for palabra in palabras:
+        longitud_actual += len(palabra) + 1  # +1 por el espacio
+        if longitud_actual > max_longitud:
+            yield ' '.join(parte_actual)
+            parte_actual = [palabra]
+            longitud_actual = len(palabra)
+        else:
+            parte_actual.append(palabra)
+
+    yield ' '.join(parte_actual)
+
+
+def dividir_texto(texto, max_longitud):
+    palabras = texto.split()
+    longitud_actual = 0
+    parte_actual = []
+
+    for palabra in palabras:
+        longitud_actual += len(palabra) + 1  # +1 por el espacio
+        if longitud_actual > max_longitud:
+            yield ' '.join(parte_actual)
+            parte_actual = [palabra]
+            longitud_actual = len(palabra)
+        else:
+            parte_actual.append(palabra)
+
+    yield ' '.join(parte_actual)
+
+# Función para resumir texto utilizando GPT-2
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
+def resumir_con_gpt2(texto_plano, pregunta):
+    app.logger.info("Generando resumen con GPT-2 en función de la pregunta.")
+    app.logger.info("Pregunta: " + pregunta)
+    app.logger.info("Texto: " + texto_plano)
+
     try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-    except Exception as e:
-        print(f"Error al cargar el archivo: {e}")
-        return []
+        modelo = GPT2LMHeadModel.from_pretrained('gpt2')
+        tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
+        tokenizador.pad_token = tokenizador.eos_token
+        modelo.eval()
 
-    processed_data = []
-    for item in data:
-        text = item.get('text')
-        if isinstance(text, str):
-            processed_data.append(preprocess_text(text))
-    return processed_data
+        MAX_LENGTH = 1024  # Ajusta según el modelo
 
+        # Combinar la pregunta con el texto plano
+        texto_combinado = f"Pregunta: {pregunta}\nTexto: {texto_plano}"
 
+        # Verificar que el texto combinado no esté vacío
+        if not texto_combinado.strip():
+            return "No hay suficiente contenido para generar un resumen."
 
-def generar_resumen_con_bert(texto):
-    oraciones = sent_tokenize(texto)
-    embeddings = np.array([obtener_embedding_bert(oracion) for oracion in oraciones])
-
-    # Calcular la similitud de cada oración con el texto completo
-    similitudes = cosine_similarity(embeddings, embeddings.mean(axis=0).reshape(1, -1))
-
-    # Seleccionar las oraciones más representativas
-    indices_importantes = np.argsort(similitudes, axis=0)[::-1][:5]  # Ejemplo: seleccionar top 5
-    resumen = ' '.join([oraciones[i] for i in indices_importantes.flatten()])
-
-    return resumen
-
-def extraer_ideas_clave_con_bert(texto):
-    # Obtener entidades nombradas
-    entidades = nlp_ner(texto)
-
-    # Crear una lista para almacenar las ideas clave
-    ideas_clave = set()
-
-    # Filtrar y agregar entidades relevantes a las ideas clave
-    for entidad in entidades:
-        if entidad['entity'] in ['B-ORG', 'B-PER', 'B-LOC']:  # Ejemplo de tipos de entidades
-            ideas_clave.add(entidad['word'])
-
-    return list(ideas_clave)
-
-
-
-
-from elasticsearch import Elasticsearch, helpers
-
-
-
-# Fine-tuning de BERT
-
-def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        for key, item in data.items():
-            text = item.get("dialogue", "").strip()
-            label = 0  # Define cómo asignar las etiquetas basadas en tu dataset
-            if text:
-                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
-                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
-
-def finetune_bert(train_file_path, eval_file_path, output_dir, model_name="bert-base-uncased", epochs=1, batch_size=2):
-    try:
-        
-        dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
-        train_dataset = dataset['train']
-        eval_dataset = dataset['eval']
-
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            num_train_epochs=epochs,
-            per_device_train_batch_size=batch_size,
-            warmup_steps=500,
-            weight_decay=0.01,
-            logging_dir='./logs',
+        # Generar el resumen primario con GPT-2
+        inputs = tokenizador.encode_plus(
+             f"Resumen en 150 palabras: {texto_combinado}",
+            add_special_tokens=True,
+            max_length=MAX_LENGTH,
+            return_tensors='pt',
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True
         )
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset
+        outputs = modelo.generate(
+            input_ids=inputs['input_ids'],
+            attention_mask=inputs['attention_mask'],
+            max_length=MAX_LENGTH,
+            pad_token_id=tokenizador.eos_token_id,
+            no_repeat_ngram_size=3
         )
+        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
 
-        trainer.train()
-
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-
-        return model, tokenizer, train_file_path, eval_file_path
+        return resumen_primario
     except Exception as e:
-        print(f"Error durante el fine-tuning: {e}")
-        return None, None, None, None
+        app.logger.error(f"Error al generar resumen con GPT-2: {e}")
+        return f"Error al generar resumen: {e}"
+
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
-
 # Nuevo Procesamiento de consultas de usuario
+
 
 
 def traducir_texto_con_openai(texto, idioma_destino):
@@ -757,7 +759,7 @@ def traducir_texto_con_openai(texto, idioma_destino):
     try:
         prompt = f"Traduce este texto al {idioma_destino}: {texto}"
         response = openai.Completion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo-1106",
             prompt=prompt,
             max_tokens=60
         )
@@ -785,10 +787,14 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
+    pregunta_usuario = traducir_a_espanol(pregunta_usuario)
+    app.info.logger(pregunta_usuario);
+
+    json_file_path = os.path.join(BASE_PREESTABLECIDAS_DIR, str(chatbot_id), 'pre_established_answers.json')
 
     if not os.path.exists(json_file_path):
         app.logger.warning(f"Archivo JSON no encontrado en la ruta: {json_file_path}")
-        return None
+        return False
 
     with open(json_file_path, 'r', encoding='utf-8') as json_file:
         preguntas_respuestas = json.load(json_file)
@@ -821,43 +827,6 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     app.logger.info("No se encontró una coincidencia adecuada")
     return False
 
-
-def comprobar_coherencia_gpt(pregunta, respuesta):
-
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-    # Realizar una segunda llamada a OpenAI para traducir la respuesta seleccionada
-    respuesta_traducida = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
-        messages=[
-            {"role": "system", "content": f".No traduzcas los enlaces déjalos como están. El idioma original es el de la pregunta:  {pregunta}. Traduce, literalmente {respuesta_mejorada}, al idioma de la pregiunta. Si la pregunta es en ingles responde en ingles y asi con todo los idiomas, catalán, frances y todos los que tengas disponibles. No le añadas ninguna observacion de ningun tipo ni mensaje de error. No agregues comentarios ni observaciones en ningun idioma."},                
-            {"role": "user", "content": respuesta_mejorada}
-        ]
-    )
-    
-    respuesta_traducida = respue
-    sta_traducida.choices[0].message['content'].strip()
-
-    prompt = f"Esta pregunta: '{pregunta}', es coherente con la respuesta: '{respuesta_traducida}'. Responde solo True o False, sin signos de puntuacion y la primera letra en mayúscula."
-
-    response = ChatCompletion.create(
-        model="gpt-4",  # O el modelo que prefieras
-        messages=[
-            {"role": "system", "content": "Por favor, evalúa la coherencia entre la pregunta y la respuesta."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    respuesta_gpt = response.choices[0].message['content'].strip().lower()
-    # Limpiar la respuesta de puntuación y espacios adicionales
-    respuesta_gpt = re.sub(r'\W+', '', respuesta_gpt)
-
-    app.logger.info(respuesta_gpt)
-
-    # Evaluar la respuesta
-    if respuesta_gpt == "true":
-        return True
-    else:
-        return False
 
 
 ####### FIN Utils busqueda en Json #######
@@ -904,7 +873,8 @@ def ask():
         contexto = ' '.join([f"Pregunta: {par['pregunta']} Respuesta: {par['respuesta']}" for par in pares_pregunta_respuesta[:-1]])
        
         app.logger.info("Antes de encontrar_respuesta cache")
-        respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
+        #respuesta_cache = encontrar_respuesta_en_cache(ultima_pregunta, chatbot_id)
+        respuesta_cache = False
         app.logger.info("despues de encontrar_respuesta cache")
         app.logger.info(respuesta_cache)
         if respuesta_cache:
@@ -916,30 +886,26 @@ def ask():
                 fuente_respuesta = 'saludo_o_despedida'
 
             if not ultima_respuesta:
-                #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
+                ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                 if ultima_respuesta:
                     fuente_respuesta = 'preestablecida'
 
             if not ultima_respuesta:
-                #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
+                ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                 if ultima_respuesta:
                     fuente_respuesta = 'eventos'
-
 
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
             if not ultima_respuesta and os.path.exists(dataset_file_path):
                 with open(dataset_file_path, 'r') as file:
                     datos_del_dataset = json.load(file)
-                ultima_respuesta = encontrar_respuesta(ultima_pregunta, datos_del_dataset, chatbot_id, contexto)
+                ultima_respuesta = encontrar_respuesta(ultima_pregunta, chatbot_id, contexto)
                 if ultima_respuesta:
                     fuente_respuesta = 'dataset'
 
             if not ultima_respuesta:
                 fuente_respuesta = 'respuesta_por_defecto'
-                #ultima_respuesta = seleccionar_respuesta_por_defecto()
-                #ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
+                ultima_respuesta = traducir_texto_con_openai(ultima_pregunta, ultima_respuesta)
                 ultima_respuesta = False
 
             if ultima_respuesta and fuente_respuesta != 'dataset':
@@ -962,7 +928,6 @@ def ask():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 
 
@@ -1437,7 +1402,7 @@ def change_params():
     new_prompt = data.get('new_prompt')
     chatbot_id = data.get('chatbot_id')
     temperature = data.get('temperature', '')
-    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo')
+    model_gpt = data.get('model_gpt', 'gpt-3.5-turbo-1106')
 
     if not new_prompt or not chatbot_id:
         app.logger.warning("Los campos 'new_prompt' y 'chatbot_id' son requeridos.")
@@ -1504,96 +1469,13 @@ def list_folders():
 
 
 
-def transform_json(input_path, output_path):
-    with open(input_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-
-    with open(output_path, 'w', encoding='utf-8') as file:
-        for key, value in data.items():
-            if isinstance(value, dict):  # Asegurarse de que el valor es un diccionario
-                json.dump(value, file)
-                file.write('\n')
-
-
-
-@app.route('/finetune', methods=['POST'])
-def finetune():
-    try:
-        data = request.get_json()
-        chatbot_id = data.get("chatbot_id")
-
-        if not chatbot_id:
-            return jsonify({"error": "chatbot_id no proporcionado"}), 400
-
-        BASE_DATASET_DIR = 'ruta/a/tu/directorio/de/datasets'
-        dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
-        output_dir = os.path.join('data/temp_data', str(chatbot_id), 'output_dir')
-        train_file_path = os.path.join('data/temp_data', str(chatbot_id), 'train_data.json')
-        eval_file_path = os.path.join('data/temp_data', str(chatbot_id), 'eval_data.json')
-
-        prepare_data_for_finetuning_bert(dataset_file_path, train_file_path)
-        prepare_data_for_finetuning_bert(dataset_file_path, eval_file_path)
-
-        tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        if os.path.isdir(output_dir) and os.listdir(output_dir):
-            model = BertModel.from_pretrained(output_dir)
-        else:
-            model = BertModel.from_pretrained('bert-base-uncased')
-
-        training_args = TrainingArguments(
-            output_dir=output_dir,
-            num_train_epochs=3,
-            per_device_train_batch_size=16,
-            warmup_steps=500,
-            weight_decay=0.01,
-            logging_dir='./logs',
-        )
-
-        dataset = load_dataset('json', data_files={'train': train_file_path, 'eval': eval_file_path})
-        train_dataset = dataset['train']
-        eval_dataset = dataset['eval']
-
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset
-        )
-
-        trainer.train()
-
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-
-        return jsonify({"message": "Fine-tuning completado con éxito"}), 200
-
-    except Exception as e:
-        app.logger.error(f"Error en el endpoint /finetune: {e}")
-        return jsonify({"error": str(e)}), 500
-
-def prepare_data_for_finetuning_bert(json_file_path, output_file_path):
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    
-    with open(json_file_path, 'r', encoding='utf-8') as file:
-        data = json.load(file)
-
-    with open(output_file_path, 'w', encoding='utf-8') as file:
-        for key, item in data.items():
-            text = item.get("dialogue", "").strip()
-            label = item.get("label", 0)
-            if text:
-                encoding = tokenizer.encode_plus(text, add_special_tokens=True, max_length=512, padding='max_length', truncation=True)
-                file.write(json.dumps({"input_ids": encoding['input_ids'], "attention_mask": encoding['attention_mask'], "labels": label}) + '\n')
-
-
-
-
 @app.route('/indexar_dataset', methods=['POST'])
 def indexar_dataset_en_elasticsearch():
     data = request.get_json()
     chatbot_id = data.get("chatbot_id")
     app.logger.info(f"Iniciando indexar_dataset_en_elasticsearch para chatbot_id: {chatbot_id}")
     
+    # Conectar a Elasticsearch
     es_client = Elasticsearch(
         cloud_id=CLOUD_ID,
         basic_auth=("elastic", ELASTIC_PASSWORD)
@@ -1601,10 +1483,33 @@ def indexar_dataset_en_elasticsearch():
 
     indice_elasticsearch = f"search-index-{chatbot_id}"  # Nombre del índice personalizado
 
-    # Crear el índice si no existe
-    if not es_client.indices.exists(index=indice_elasticsearch):
-        es_client.indices.create(index=indice_elasticsearch)
+    # Eliminar el índice existente si existe
+    if es_client.indices.exists(index=indice_elasticsearch):
+        es_client.indices.delete(index=indice_elasticsearch)
 
+    # Definir el mapeo para el índice
+    mapeo = {
+        "mappings": {
+            "properties": {
+                "embedding": {"type": "dense_vector", "dims": 768}
+            }
+        }
+    }
+
+    # Crear el índice con el mapeo definido
+    es_client.indices.create(index=indice_elasticsearch, body=mapeo)
+
+    # Cargar BERT y su tokenizer
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertModel.from_pretrained('bert-base-uncased')
+
+    def generar_embedding(texto):
+        inputs = tokenizer(texto, return_tensors="pt", max_length=512, truncation=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
+
+    # Leer el dataset
     dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
     if not os.path.exists(dataset_file_path):
         app.logger.error("El archivo del dataset no existe.")
@@ -1617,42 +1522,28 @@ def indexar_dataset_en_elasticsearch():
         app.logger.error(f"Error al leer el dataset: {e}")
         return jsonify({"error": f"Error al leer el dataset: {e}"}), 500
 
-    documentos_para_indexar = []
+    # Preparar los documentos para la indexación en bloque
+    acciones_bulk = []
     for id_documento, contenido in dataset.items():
         texto = contenido.get('dialogue', '')
-        if not texto:
-            app.logger.warning(f"Texto vacío para documento con ID: {id_documento}, se omitirá.")
-            continue
-
-        documento = {
-            "_index": indice_elasticsearch,
-            "_id": contenido.get('indice'),
-            "_source": {
-                "text": texto,
-                "url": contenido.get('url', '')   
+        if texto:
+            embedding = generar_embedding(texto)
+            accion = {
+                "_index": indice_elasticsearch,
+                "_id": id_documento,
+                "_source": {
+                    "text": texto,
+                    "url": contenido.get('url', ''),
+                    "embedding": embedding
+                }
             }
-        }
-        documentos_para_indexar.append(documento)
+            acciones_bulk.append(accion)
 
-    total_documentos = len(documentos_para_indexar)
-    documentos_fallidos = 0
+    # Realizar la indexación en bloque
+    if acciones_bulk:
+        helpers.bulk(es_client, acciones_bulk)
 
-    for documento in documentos_para_indexar:
-        try:
-            resultado = es_client.index(index=documento["_index"], id=documento["_id"], body=documento["_source"])
-            if resultado.get('result') != 'created' and resultado.get('result') != 'updated':
-                raise Exception(f"Documento no indexado correctamente: {resultado}")
-        except Exception as e:
-            documentos_fallidos += 1
-            app.logger.error(f"Error al indexar documento con ID: {documento['_id']}, Error: {e}")
-
-    if documentos_fallidos > 0:
-        app.logger.error(f"Indexación completada con {documentos_fallidos} de {total_documentos} documentos fallidos.")
-    else:
-        app.logger.info("Indexación completada con éxito.")
-
-    mensaje_exito = "Indexación completada con éxito" if documentos_fallidos == 0 else "Indexación completada con errores"
-    return jsonify({"mensaje": mensaje_exito}), 200
+    return jsonify({"mensaje": "Indexación completada con éxito"}), 200
 
 
 
