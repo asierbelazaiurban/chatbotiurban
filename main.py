@@ -1247,16 +1247,43 @@ def url_for_scraping_uploading_sitemap():
         new_urls = [url for url in all_urls if url not in existing_urls]
 
         if not new_urls:
-            app.logger.info("No había ninguna URL nueva para procesar")
+            app.logger.info("No habia ninguna URL nueva para procesar")
             return jsonify({'message': 'Procesado con éxito. No había ninguna URL nueva'})
 
-        urls_data = process_new_urls(new_urls, file_path)
+        urls_data = []
+        for url in new_urls:
+            response = safe_request(url, 3)
+            if response:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                text = soup.get_text()
+                word_count = len(text.split())
+                urls_data.append({'url': url, 'word_count': word_count, 'message': 'Procesado con éxito'})
+                with open(file_path, 'a') as file:
+                    file.write(f"URL: {url}, Palabras: {word_count}\n")
+            else:
+                app.logger.error(f"Failed to process URL after retries: {url}")
+                urls_data.append({'url': url, 'word_count': 0, 'message': 'Error al procesar después de reintentos'})
 
         app.logger.info("Sitemap procesado exitosamente")
         return jsonify(urls_data)
     except Exception as e:
-        app.logger.error(f"Error inesperado: {e}")
+        app.logger.error(f"Error inesperado en url_for_scraping_uploading_sitemap: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+def safe_request(url, max_retries):
+    session = requests.Session()
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    retries = Retry(total=max_retries, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+
+    try:
+        response = session.get(url, headers=headers)
+        response.raise_for_status()
+        return response
+    except requests.RequestException as e:
+        app.logger.error(f"Error en la petición HTTP: {e}")
+        return None
 
 def process_new_urls(new_urls, file_path):
     urls_data = []
