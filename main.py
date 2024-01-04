@@ -641,7 +641,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
         "3. Responde siempre en el mismo idioma de la pregunta. ES LO MAS IMPORTANTE "
         "4. Si falta información, sugiere contactar a info@iurban.es para más detalles. "
         "5. Encuentra la mejor respuesta en relación a la pregunta que te llega "
-        "6.Recuerda, la respuesta debe ser concisa y no exceder las 150 palabras."
+        "6. Recuerda, la respuesta debe ser concisa y no exceder las 150 palabras."
     )
     app.logger.info("Prompt final generado.")
 
@@ -1170,9 +1170,6 @@ def url_for_scraping():
 
         file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
 
-        if os.path.exists(file_path):
-            os.remove(file_path)
-
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
 
@@ -1182,13 +1179,19 @@ def url_for_scraping():
             except requests.RequestException:
                 return None
 
+        processed_urls = set()
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                for line in file:
+                    processed_urls.add(line.split(',')[0].split(': ')[1])
+
         urls = set()
         base_response = safe_request(base_url)
         if base_response:
             soup = BeautifulSoup(base_response.content, 'html.parser')
             for tag in soup.find_all('a', href=True):
                 url = urljoin(base_url, tag.get('href'))
-                if same_domain(url):
+                if same_domain(url) and url not in processed_urls:
                     urls.add(url)
         else:
             app.logger.error("Error al obtener respuesta del URL base")
@@ -1201,13 +1204,13 @@ def url_for_scraping():
                 soup = BeautifulSoup(response.content, 'html.parser')
                 text = soup.get_text()
                 word_count = len(text.split())
-                urls_data.append({'url': url, 'word_count': word_count})
+                urls_data.append({'url': url, 'word_count': word_count, 'status': 'Contadas con éxito'})
             else:
-                urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
+                urls_data.append({'url': url, 'word_count': 0, 'status': 'Fallo en la solicitud HTTP'})
 
-        with open(file_path, 'w') as text_file:
+        with open(file_path, 'a') as text_file:
             for url_data in urls_data:
-                text_file.write(f"URL: {url_data['url']}, Palabras: {url_data.get('word_count', 'No disponible')}\n")
+                text_file.write(f"URL: {url_data['url']}, Palabras: {url_data.get('word_count', 'No disponible')}, Estado: {url_data['status']}\n")
 
         app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
