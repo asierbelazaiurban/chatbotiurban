@@ -54,7 +54,8 @@ from transformers import BertModel, BertTokenizer
 from transformers import BertTokenizer, BertForSequenceClassification, Trainer, TrainingArguments,BertForQuestionAnswering
 from datasets import load_dataset
 import json
-
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 import torch
 
 # Descarga de paquetes necesarios de NLTK
@@ -1242,11 +1243,12 @@ def url_for_scraping_uploading_sitemap():
 
         sitemap_content = sitemap_file.read()
         soup = BeautifulSoup(sitemap_content, 'xml')
-        urls = [loc.text for loc in soup.find_all('loc') if loc.text not in existing_urls]
+        all_urls = [loc.text for loc in soup.find_all('loc')]
+        new_urls = [url for url in all_urls if url not in existing_urls]
 
         urls_data = []
-        for url in urls:
-            response = safe_request(url)
+        for url in new_urls:
+            response = safe_request(url, 3)
             if response:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 text = soup.get_text()
@@ -1254,9 +1256,8 @@ def url_for_scraping_uploading_sitemap():
                 urls_data.append({'url': url, 'word_count': word_count})
                 with open(file_path, 'a') as file:
                     file.write(f"URL: {url}, Palabras: {word_count}\n")
-                    existing_urls.add(url)
             else:
-                urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
+                app.logger.error(f"Failed to process URL after retries: {url}")
 
         app.logger.info("Sitemap procesado exitosamente")
         return jsonify(urls_data)
@@ -1264,13 +1265,20 @@ def url_for_scraping_uploading_sitemap():
         app.logger.error(f"Error inesperado en url_for_scraping_uploading_sitemap: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
-def safe_request(url):
+def safe_request(url, max_retries):
+    session = requests.Session()
+    retries = Retry(total=max_retries, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+
     try:
-        response = requests.get(url)
+        response = session.get(url)
         response.raise_for_status()
         return response
     except requests.RequestException as e:
         app.logger.error(f"Error en la petición HTTP: {e}")
+        return None
+
         return None
 
 
