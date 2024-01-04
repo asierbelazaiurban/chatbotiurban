@@ -22,7 +22,7 @@ import sys
 from datasets import load_dataset
 import string  
 import shutil 
-
+from requests.exceptions import RequestException
 # ---------------------------
 # Librerías de Terceros
 # ---------------------------
@@ -1157,11 +1157,17 @@ def url_for_scraping():
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
 
+        def safe_request(url):
+            try:
+                return requests.get(url)
+            except requests.RequestException:
+                return None
+
         urls = set()
         base_response = safe_request(base_url)
         if base_response:
             soup = BeautifulSoup(base_response.content, 'html.parser')
-            for tag in soup.find_all('a'):
+            for tag in soup.find_all('a', href=True):
                 url = urljoin(base_url, tag.get('href'))
                 if same_domain(url):
                     urls.add(url)
@@ -1182,7 +1188,7 @@ def url_for_scraping():
 
         with open(file_path, 'w') as text_file:
             for url_data in urls_data:
-                text_file.write(url_data['url'] + '\n')
+                text_file.write(f"URL: {url_data['url']}, Palabras: {url_data.get('word_count', 'No disponible')}\n")
 
         app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
