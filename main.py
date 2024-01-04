@@ -759,7 +759,7 @@ def traducir_respuesta(pregunta, respuesta_en_espanol):
             model="text-davinci-003",
             prompt=f"Detectar el idioma de esta pregunta y traducir la siguiente respuesta al idioma detectado:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
             max_tokens=100,
-            api_key=api_key
+            api_key=os.environ.get('OPENAI_API_KEY')
         )
 
         app.logger.info("RESPUESTA TRADUCIDA")
