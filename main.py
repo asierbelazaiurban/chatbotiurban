@@ -1215,18 +1215,21 @@ def url_for_scraping():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
-@app.route('/url_for_scraping_by_sitemap', methods=['POST'])
-def url_for_scraping_by_sitemap():
+@app.route('/url_for_scraping_uploading_sitemap', methods=['POST'])
+def url_for_scraping_uploading_sitemap():
     try:
-        app.logger.info("Procesando solicitud de scraping por sitemap")
+        app.logger.info("Procesando solicitud de scraping por sitemap subido")
 
-        data = request.get_json()
-        sitemap_url = data.get('url')
-        chatbot_id = data.get('chatbot_id')
+        if 'sitemap_file' not in request.files:
+            app.logger.warning("No se subió archivo de sitemap")
+            return jsonify({'error': 'No file uploaded'}), 400
 
-        if not sitemap_url:
-            app.logger.warning("No se proporcionó URL del sitemap")
-            return jsonify({'error': 'No URL provided'}), 400
+        sitemap_file = request.files['sitemap_file']
+        chatbot_id = request.form.get('chatbot_id')
+
+        if not chatbot_id:
+            app.logger.warning("No se proporcionó ID de chatbot")
+            return jsonify({'error': 'No Chatbot ID provided'}), 400
 
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
         os.makedirs(save_dir, exist_ok=True)
@@ -1237,28 +1240,7 @@ def url_for_scraping_by_sitemap():
             with open(file_path, 'r') as file:
                 existing_urls = set(file.read().splitlines())
 
-        def request_sitemap(url):
-            try:
-                response = requests.get(url)
-                response.raise_for_status()
-                return response.text
-            except requests.RequestException as e:
-                app.logger.error(f"Error al descargar el sitemap: {e}")
-                return None
-
-        def safe_request(url):
-            try:
-                response = requests.get(url)
-                response.raise_for_status()
-                return response
-            except requests.RequestException as e:
-                app.logger.error(f"Error en la petición HTTP: {e}")
-                return None
-
-        sitemap_content = request_sitemap(sitemap_url)
-        if not sitemap_content:
-            return jsonify({'error': 'Failed to fetch sitemap'}), 500
-
+        sitemap_content = sitemap_file.read()
         soup = BeautifulSoup(sitemap_content, 'xml')
         urls = [loc.text for loc in soup.find_all('loc') if loc.text not in existing_urls]
 
@@ -1276,11 +1258,20 @@ def url_for_scraping_by_sitemap():
             else:
                 urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
 
-        app.logger.info(f"Sitemap processed successfully for {sitemap_url}")
+        app.logger.info("Sitemap procesado exitosamente")
         return jsonify(urls_data)
     except Exception as e:
-        app.logger.error(f"Unexpected error in url_for_scraping_by_sitemap: {e}")
+        app.logger.error(f"Error inesperado en url_for_scraping_uploading_sitemap: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+def safe_request(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        return response
+    except requests.RequestException as e:
+        app.logger.error(f"Error en la petición HTTP: {e}")
+        return None
 
 
 @app.route('/delete_urls', methods=['POST'])
