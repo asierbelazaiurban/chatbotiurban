@@ -766,7 +766,7 @@ def traducir_respuesta(pregunta, respuesta_en_espanol):
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
-# Nuevo Procesamiento de consultas de usuario
+
 
 
 
@@ -803,8 +803,8 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
-    pregunta_usuario = traducir_a_espanol(pregunta_usuario)
-    app.logger.info(pregunta_usuario)
+    pregunta_usuario_traducidad = traducir_a_espanol(pregunta_usuario)
+    app.logger.info(pregunta_usuario_traducidad)
 
     json_file_path = os.path.join(BASE_PREESTABLECIDAS_DIR, str(chatbot_id), 'pre_established_answers.json')
 
@@ -816,7 +816,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
         preguntas_respuestas = json.load(json_file)
 
     # Genera embeddings para la pregunta del usuario
-    embedding_pregunta_usuario = modelo.encode(pregunta_usuario, convert_to_tensor=True)
+    embedding_pregunta_usuario = modelo.encode(pregunta_usuario_traducidad, convert_to_tensor=True)
 
     # Primera pasada: buscar por similitud con las preguntas completas
     preguntas = [entry["Pregunta"][0] for entry in preguntas_respuestas.values()]
@@ -838,6 +838,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
 
     if max_similitud >= umbral_similitud:
         respuesta_mejor_coincidencia = list(preguntas_respuestas.values())[mejor_coincidencia]["respuesta"]
+        respuesta_mejor_coincidencia  = traducir_respuesta(pregunta_usuario, respuesta_mejor_coincidencia)
         return respuesta_mejor_coincidencia
 
     app.logger.info("No se encontró una coincidencia adecuada")
@@ -1225,7 +1226,7 @@ def url_for_scraping_by_sitemap():
 
         if not sitemap_url:
             app.logger.warning("No se proporcionó URL del sitemap")
-            return jsonify({'error': 'No se proporcionó URL del sitemap'}), 400
+            return jsonify({'error': 'No URL provided'}), 400
 
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
         os.makedirs(save_dir, exist_ok=True)
@@ -1256,7 +1257,7 @@ def url_for_scraping_by_sitemap():
 
         sitemap_content = request_sitemap(sitemap_url)
         if not sitemap_content:
-            return jsonify({'error': 'Error al descargar el sitemap'}), 500
+            return jsonify({'error': 'Failed to fetch sitemap'}), 500
 
         soup = BeautifulSoup(sitemap_content, 'xml')
         urls = [loc.text for loc in soup.find_all('loc') if loc.text not in existing_urls]
@@ -1273,14 +1274,13 @@ def url_for_scraping_by_sitemap():
                     file.write(f"URL: {url}, Palabras: {word_count}\n")
                     existing_urls.add(url)
             else:
-                urls_data.append({'url': url, 'message': 'Failed HTTP request'})
+                urls_data.append({'url': url, 'message': 'Failed HTTP request after retries'})
 
-        app.logger.info(f"Sitemap procesado correctamente para {sitemap_url}")
-        return jsonify({'message': 'Sitemap procesado correctamente', 'urls_data': urls_data})
+        app.logger.info(f"Sitemap processed successfully for {sitemap_url}")
+        return jsonify(urls_data)
     except Exception as e:
-        app.logger.error(f"Error inesperado en url_for_scraping_by_sitemap: {e}")
-        return jsonify({'error': f'Error inesperado: {str(e)}'}), 500
-
+        app.logger.error(f"Unexpected error in url_for_scraping_by_sitemap: {e}")
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
 @app.route('/delete_urls', methods=['POST'])
