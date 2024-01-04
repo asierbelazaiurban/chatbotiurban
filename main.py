@@ -1216,6 +1216,15 @@ def url_for_scraping():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
+from flask import Flask, request, jsonify
+import os
+import requests
+from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+app = Flask(__name__)
+
 @app.route('/url_for_scraping_uploading_sitemap', methods=['POST'])
 def url_for_scraping_uploading_sitemap():
     try:
@@ -1245,6 +1254,10 @@ def url_for_scraping_uploading_sitemap():
         soup = BeautifulSoup(sitemap_content, 'xml')
         all_urls = [loc.text for loc in soup.find_all('loc')]
         new_urls = [url for url in all_urls if url not in existing_urls]
+
+        if not new_urls:
+            app.logger.info("No habia ninguna URL nueva para procesar")
+            return jsonify({'message': 'Procesado con exito. No habia ninguna URL nueva'})
 
         urls_data = []
         for url in new_urls:
@@ -1277,8 +1290,6 @@ def safe_request(url, max_retries):
         return response
     except requests.RequestException as e:
         app.logger.error(f"Error en la petición HTTP: {e}")
-        return None
-
         return None
 
 
