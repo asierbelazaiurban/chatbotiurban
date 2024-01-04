@@ -881,23 +881,19 @@ def ask():
             return jsonify({'respuesta': respuesta_cache, 'fuente': 'cache'})
 
         if ultima_respuesta == "":
-            #ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
-            ultima_respuesta = False
+            ultima_respuesta = identificar_saludo_despedida(ultima_pregunta)
             if ultima_respuesta:
                 fuente_respuesta = 'saludo_o_despedida'
 
             if not ultima_respuesta:
-                #ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
+                ultima_respuesta = buscar_en_respuestas_preestablecidas_nlp(ultima_pregunta, chatbot_id)
                 if ultima_respuesta:
                     fuente_respuesta = 'preestablecida'
 
-            if not ultima_respuesta:
-                #ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
-                ultima_respuesta = False
+            """if not ultima_respuesta:
+                ultima_respuesta = obtener_eventos(ultima_pregunta, chatbot_id)
                 if ultima_respuesta:
-                    fuente_respuesta = 'eventos'
-
+                    fuente_respuesta = 'eventos'"""
 
             dataset_file_path = os.path.join(BASE_DATASET_DIR, str(chatbot_id), 'dataset.json')
             if not ultima_respuesta and os.path.exists(dataset_file_path):
