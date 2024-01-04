@@ -1160,7 +1160,6 @@ def save_urls():
 def url_for_scraping():
     try:
         app.logger.info("Procesando solicitud de scraping de URL")
-
         data = request.get_json()
         base_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
@@ -1171,7 +1170,6 @@ def url_for_scraping():
 
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
         os.makedirs(save_dir, exist_ok=True)
-
         file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
 
         def same_domain(url):
@@ -1179,56 +1177,40 @@ def url_for_scraping():
 
         def safe_request(url):
             try:
-                return requests.get(url)
-            except requests.RequestException:
-                return None
+                response = requests.get(url)
+                if response.status_code == 200:
+                    return response, None
+                else:
+                    return None, 'Respuesta no exitosa'
+            except requests.RequestException as e:
+                return None, str(e)
 
         urls_data = []
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as file:
-                for line in file:
-                    parts = line.strip().split(', ')
-                    url_info = {
-                        'url': parts[0].split(': ')[1],
-                        'word_count': int(parts[1].split(': ')[1]) if parts[1].split(': ')[1] != 'No disponible' else 0,
-                        'status': parts[2].split(': ')[1]
-                    }
-                    urls_data.append(url_info)
-
-        processed_urls = {url_data['url'] for url_data in urls_data}
-
-        urls = set()
-        base_response = safe_request(base_url)
+        base_response, error = safe_request(base_url)
         if base_response:
             soup = BeautifulSoup(base_response.content, 'html.parser')
             for tag in soup.find_all('a', href=True):
                 url = urljoin(base_url, tag.get('href'))
-                if same_domain(url) and url not in processed_urls:
-                    urls.add(url)
+                if same_domain(url):
+                    response, error = safe_request(url)
+                    if response:
+                        word_count = len(response.text.split())
+                        status = 'Contadas con éxito'
+                    else:
+                        word_count = 0
+                        status = f'Fallo en la solicitud HTTP: {error}'
+                    urls_data.append({'url': url, 'word_count': word_count, 'status': status})
+                    with open(file_path, 'a') as text_file:
+                        text_file.write(f"{url}\n")
         else:
-            app.logger.error("Error al obtener respuesta del URL base")
+            app.logger.error(f"Error al obtener respuesta del URL base: {error}")
             return jsonify({'error': 'Failed to fetch base URL'}), 500
-
-        for url in urls:
-            response = safe_request(url)
-            if response:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                text = soup.get_text()
-                word_count = len(text.split())
-                url_data = {'url': url, 'word_count': word_count, 'status': 'Contadas con éxito'}
-            else:
-                url_data = {'url': url, 'word_count': 0, 'status': 'Fallo en la solicitud HTTP'}
-            urls_data.append(url_data)
-
-            with open(file_path, 'a') as text_file:
-                text_file.write(f"URL: {url_data['url']}, Palabras: {url_data['word_count']}, Estado: {url_data['status']}\n")
 
         app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
     except Exception as e:
         app.logger.error(f"Error inesperado en url_for_scraping: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
 
 @app.route('/url_for_scraping_uploading_sitemap', methods=['POST'])
 def url_for_scraping_uploading_sitemap():
@@ -1258,28 +1240,19 @@ def url_for_scraping_uploading_sitemap():
         sitemap_content = sitemap_file.read()
         soup = BeautifulSoup(sitemap_content, 'xml')
         all_urls = [loc.text for loc in soup.find_all('loc')]
-        new_urls = [url for url in all_urls if url not in existing_urls]
+        new_urls_data = []
 
-        if not new_urls:
-            app.logger.info("No habia ninguna URL nueva para procesar")
-            return jsonify({'message': 'Procesado con éxito. No había ninguna URL nueva'})
-
-        urls_data = []
-        for url in new_urls:
-            response = safe_request(url, 3)
-            if response:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                text = soup.get_text()
-                word_count = len(text.split())
-                urls_data.append({'url': url, 'word_count': word_count, 'message': 'Procesado con éxito'})
+        for url in all_urls:
+            if url not in existing_urls:
+                response, error = requests.get(url), None
+                word_count = len(response.text.split()) if response else 0
+                status = 'Contadas con éxito' if response else f'Fallo en la solicitud HTTP: {error}'
+                new_urls_data.append({'url': url, 'word_count': word_count, 'status': status})
                 with open(file_path, 'a') as file:
-                    file.write(f"URL: {url}, Palabras: {word_count}\n")
-            else:
-                app.logger.error(f"Failed to process URL after retries: {url}")
-                urls_data.append({'url': url, 'word_count': 0, 'message': 'Error al procesar después de reintentos'})
+                    file.write(f"{url}\n")
 
         app.logger.info("Sitemap procesado exitosamente")
-        return jsonify(urls_data)
+        return jsonify(new_urls_data)
     except Exception as e:
         app.logger.error(f"Error inesperado en url_for_scraping_uploading_sitemap: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
