@@ -787,7 +787,7 @@ def buscar_en_respuestas_preestablecidas_nlp(pregunta_usuario, chatbot_id, umbra
     modelo = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
     pregunta_usuario = traducir_a_espanol(pregunta_usuario)
-    app.logger.info(pregunta_usuario);
+    app.logger.info(pregunta_usuario)
 
     json_file_path = os.path.join(BASE_PREESTABLECIDAS_DIR, str(chatbot_id), 'pre_established_answers.json')
 
