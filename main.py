@@ -1247,27 +1247,31 @@ def url_for_scraping_uploading_sitemap():
         new_urls = [url for url in all_urls if url not in existing_urls]
 
         if not new_urls:
-            app.logger.info("No habia ninguna URL nueva para procesar")
-            return jsonify({'message': 'Procesado con exito. No habia ninguna URL nueva'})
+            app.logger.info("No había ninguna URL nueva para procesar")
+            return jsonify({'message': 'Procesado con éxito. No había ninguna URL nueva'})
 
-        urls_data = []
-        for url in new_urls:
-            response = safe_request(url, 3)
-            if response:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                text = soup.get_text()
-                word_count = len(text.split())
-                urls_data.append({'url': url, 'word_count': word_count})
-                with open(file_path, 'a') as file:
-                    file.write(f"URL: {url}, Palabras: {word_count}\n")
-            else:
-                app.logger.error(f"Failed to process URL after retries: {url}")
+        urls_data = process_new_urls(new_urls, file_path)
 
         app.logger.info("Sitemap procesado exitosamente")
         return jsonify(urls_data)
     except Exception as e:
-        app.logger.error(f"Error inesperado en url_for_scraping_uploading_sitemap: {e}")
+        app.logger.error(f"Error inesperado: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+def process_new_urls(new_urls, file_path):
+    urls_data = []
+    for url in new_urls:
+        response = safe_request(url, 3)
+        if response:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            text = soup.get_text()
+            word_count = len(text.split())
+            urls_data.append({'url': url, 'word_count': word_count})
+            with open(file_path, 'a') as file:
+                file.write(f"{url}\n")
+        else:
+            app.logger.error(f"Failed to process URL after retries: {url}")
+    return urls_data
 
 def safe_request(url, max_retries):
     session = requests.Session()
