@@ -1257,6 +1257,15 @@ def url_for_scraping_by_sitemap():
                 app.logger.error(f"Error al descargar el sitemap: {e}")
                 return None
 
+        def safe_request(url):
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                return response
+            except requests.RequestException as e:
+                app.logger.error(f"Error en la petición HTTP: {e}")
+                return None
+
         sitemap_content = request_sitemap(sitemap_url)
         if not sitemap_content:
             return jsonify({'error': 'Error al descargar el sitemap'}), 500
@@ -1264,13 +1273,22 @@ def url_for_scraping_by_sitemap():
         soup = BeautifulSoup(sitemap_content, 'xml')
         urls = [loc.text for loc in soup.find_all('loc') if loc.text not in existing_urls]
 
-        with open(file_path, 'a') as file:
-            for url in urls:
-                file.write(url + '\n')
-                existing_urls.add(url)
+        urls_data = []
+        for url in urls:
+            response = safe_request(url)
+            if response:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                text = soup.get_text()
+                word_count = len(text.split())
+                urls_data.append({'url': url, 'word_count': word_count})
+                with open(file_path, 'a') as file:
+                    file.write(f"URL: {url}, Palabras: {word_count}\n")
+                    existing_urls.add(url)
+            else:
+                urls_data.append({'url': url, 'message': 'Failed HTTP request'})
 
         app.logger.info(f"Sitemap procesado correctamente para {sitemap_url}")
-        return jsonify({'message': 'Sitemap procesado correctamente', 'urls_count': len(urls)})
+        return jsonify({'message': 'Sitemap procesado correctamente', 'urls_data': urls_data})
     except Exception as e:
         app.logger.error(f"Error inesperado en url_for_scraping_by_sitemap: {e}")
         return jsonify({'error': f'Error inesperado: {str(e)}'}), 500
