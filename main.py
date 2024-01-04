@@ -1216,15 +1216,6 @@ def url_for_scraping():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
-from flask import Flask, request, jsonify
-import os
-import requests
-from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-
-app = Flask(__name__)
-
 @app.route('/url_for_scraping_uploading_sitemap', methods=['POST'])
 def url_for_scraping_uploading_sitemap():
     try:
