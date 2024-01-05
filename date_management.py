@@ -46,7 +46,7 @@ def get_openai_response(texto, fecha_actual):
     instruccion_gpt4 = ("Tu tarea es identificar las referencias temporales en la pregunta del usuario y convertirlas a fechas específicas en formato MySQL, utilizando la fecha actual como referencia. Ejemplos de referencias temporales incluyen 'dentro de dos días', 'el finde', 'la semana que viene', 'mañana', 'en 2024', etc. La fecha actual es: " + fecha_actual.strftime("%Y-%m-%d"))
 
     respuesta = openai.ChatCompletion.create(
-        model="gpt-4-1106-preview",
+        model="gpt-3.5-turbo-1106",
         messages=[
             {"role": "system", "content": instruccion_gpt4},
             {"role": "user", "content": texto},
