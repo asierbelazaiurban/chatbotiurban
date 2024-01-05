@@ -680,21 +680,6 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 #### Resunen con GPT2 ####
 
 MAX_TOKENS = 1024  # Ajusta según el límite de tu modelo GPT-2
-def dividir_texto(texto, max_longitud):
-    palabras = texto.split()
-    longitud_actual = 0
-    parte_actual = []
-
-    for palabra in palabras:
-        longitud_actual += len(palabra) + 1  # +1 por el espacio
-        if longitud_actual > max_longitud:
-            yield ' '.join(parte_actual)
-            parte_actual = [palabra]
-            longitud_actual = len(palabra)
-        else:
-            parte_actual.append(palabra)
-
-    yield ' '.join(parte_actual)
 
 
 def dividir_texto(texto, max_longitud):
