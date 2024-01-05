@@ -682,7 +682,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 MAX_TOKENS = 1024  # Ajusta según el límite de tu modelo GPT-2
 
 
-def dividir_texto(texto, max_longitud):
+def dividir_texto(texto, max_longitud=MAX_TOKENS):
     palabras = texto.split()
     longitud_actual = 0
     parte_actual = []
@@ -698,52 +698,46 @@ def dividir_texto(texto, max_longitud):
 
     yield ' '.join(parte_actual)
 
-# Función para resumir texto utilizando GPT-2
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 def resumir_con_gpt2(texto_plano, pregunta):
-    app.logger.info("Generando resumen con GPT-2 en función de la pregunta.")
-    app.logger.info("Pregunta: " + pregunta)
-    app.logger.info("Texto: " + texto_plano)
-
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
         tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
         tokenizador.pad_token = tokenizador.eos_token
         modelo.eval()
 
-        MAX_LENGTH = 1024  # Ajusta según el modelo
+        MAX_LENGTH = 1024
 
-        # Combinar la pregunta con el texto plano
         texto_combinado = f"Pregunta: {pregunta}\nTexto: {texto_plano}"
 
-        # Verificar que el texto combinado no esté vacío
-        if not texto_combinado.strip():
-            return "No hay suficiente contenido para generar un resumen."
+        # Dividir el texto si es demasiado largo
+        segmentos = list(dividir_texto(texto_combinado, MAX_LENGTH))
 
-        # Generar el resumen primario con GPT-2
-        inputs = tokenizador.encode_plus(
-             f"Resumen en 150 palabras: {texto_combinado}",
-            add_special_tokens=True,
-            max_length=MAX_LENGTH,
-            return_tensors='pt',
-            padding='max_length',
-            truncation=True,
-            return_attention_mask=True
-        )
-        outputs = modelo.generate(
-            input_ids=inputs['input_ids'],
-            attention_mask=inputs['attention_mask'],
-            max_length=MAX_LENGTH,
-            pad_token_id=tokenizador.eos_token_id,
-            no_repeat_ngram_size=3
-        )
-        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
-        resumen_primario = traducir_respuesta(pregunta, resumen_primario)
+        resumenes = []
+        for segmento in segmentos:
+            inputs = tokenizador.encode_plus(
+                f"Resumen en 150 palabras: {segmento}",
+                add_special_tokens=True,
+                max_length=MAX_LENGTH,
+                return_tensors='pt',
+                padding='max_length',
+                truncation=True,
+                return_attention_mask=True
+            )
+            outputs = modelo.generate(
+                input_ids=inputs['input_ids'],
+                attention_mask=inputs['attention_mask'],
+                max_length=MAX_LENGTH,
+                pad_token_id=tokenizador.eos_token_id,
+                no_repeat_ngram_size=3
+            )
+            resumen_segmento = tokenizador.decode(outputs[0], skip_special_tokens=True)
+            resumenes.append(resumen_segmento)
 
-        return resumen_primario
+        # Combinar los resúmenes de los segmentos
+        resumen_final = ' '.join(resumenes)
+        return traducir_respuesta(pregunta, resumen_final)
     except Exception as e:
-        app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
 
 
