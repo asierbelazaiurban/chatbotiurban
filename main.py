@@ -692,64 +692,81 @@ def dividir_texto(texto, max_longitud):
         if longitud_actual > max_longitud:
             yield ' '.join(parte_actual)
             parte_actual = [palabra]
-            longitud_actual = len(palabra) + 1
+            longitud_actual = len(palabra)
         else:
             parte_actual.append(palabra)
 
     yield ' '.join(parte_actual)
 
+# Función para resumir texto utilizando GPT-2
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 def resumir_con_gpt2(texto_plano, pregunta):
+    app.logger.info("Generando resumen con GPT-2 en función de la pregunta.")
+    app.logger.info("Pregunta: " + pregunta)
+    app.logger.info("Texto: " + texto_plano)
+
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
-        tokenizador = GPT2Tokenizer.from_pretrained('gpt2', padding_side='left')
+        tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
         tokenizador.pad_token = tokenizador.eos_token
         modelo.eval()
 
-        MAX_LENGTH = 1024
-        GENERATE_LENGTH = MAX_LENGTH - 50  # Dejar espacio para la generación
+        MAX_LENGTH = 1024  # Ajusta según el modelo
 
+        # Combinar la pregunta con el texto plano
         texto_combinado = f"Pregunta: {pregunta}\nTexto: {texto_plano}"
 
-        segmentos = list(dividir_texto(texto_combinado, MAX_LENGTH - 50))
+        # Verificar que el texto combinado no esté vacío
+        if not texto_combinado.strip():
+            return "No hay suficiente contenido para generar un resumen."
 
-        resumenes = []
-        for segmento in segmentos:
-            inputs = tokenizador.encode_plus(
-                f"Resumen en 150 palabras: {segmento}",
-                add_special_tokens=True,
-                max_length=MAX_LENGTH,
-                return_tensors='pt',
-                padding='max_length',
-                truncation=True
-            )
-            outputs = modelo.generate(
-                input_ids=inputs['input_ids'],
-                attention_mask=inputs['attention_mask'],
-                max_length=GENERATE_LENGTH,
-                pad_token_id=tokenizador.eos_token_id,
-                no_repeat_ngram_size=3
-            )
-            resumen_segmento = tokenizador.decode(outputs[0], skip_special_tokens=True)
-            resumenes.append(resumen_segmento)
+        # Generar el resumen primario con GPT-2
+        inputs = tokenizador.encode_plus(
+             f"Resumen en 150 palabras: {texto_combinado}",
+            add_special_tokens=True,
+            max_length=MAX_LENGTH,
+            return_tensors='pt',
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True
+        )
+        outputs = modelo.generate(
+            input_ids=inputs['input_ids'],
+            attention_mask=inputs['attention_mask'],
+            max_length=MAX_LENGTH,
+            pad_token_id=tokenizador.eos_token_id,
+            no_repeat_ngram_size=3
+        )
+        resumen_primario = tokenizador.decode(outputs[0], skip_special_tokens=True)
+        resumen_primario = traducir_respuesta(pregunta, resumen_primario)
 
-        resumen_final = ' '.join(resumenes)
-        return resumen_final
+        return resumen_primario
     except Exception as e:
+        app.logger.error(f"Error al generar resumen con GPT-2: {e}")
         return f"Error al generar resumen: {e}"
-        
+
+
 def traducir_respuesta(pregunta, respuesta_en_espanol):
+    openai.api_key = os.environ.get('OPENAI_API_KEY')
+    app.logger.info("PREGUNTAAAAA")
+    app.logger.info(pregunta)
+    
+    # Combinar la detección del idioma y la traducción en una sola llamada a la API
     try:
         traduccion = openai.Completion.create(
             model="text-davinci-003",
-            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es inglés al inglés, si es italiano al italiano y así con todos los idiomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
+            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es ingles al ingles, si es italiano al italiano y asi con todos los idomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
             max_tokens=100,
             api_key=os.environ.get('OPENAI_API_KEY')
         )
+
+        app.logger.info("RESPUESTA TRADUCIDA")
+        app.logger.info(traduccion.choices[0].text.strip())
         return traduccion.choices[0].text.strip()
     except Exception as e:
-        return f"Error al traducir respuesta: {e}"
-
+        print(f"Error al traducir texto: {e}")
+        return respuesta_en_espanol
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
