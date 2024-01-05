@@ -701,7 +701,9 @@ def dividir_texto(texto, max_longitud):
 def resumir_con_gpt2(texto_plano, pregunta):
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
-        tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
+
+        # Configuración del tokenizador con padding a la izquierda
+        tokenizador = GPT2Tokenizer.from_pretrained('gpt2', padding_side='left')
         tokenizador.pad_token = tokenizador.eos_token
         modelo.eval()
 
@@ -719,13 +721,14 @@ def resumir_con_gpt2(texto_plano, pregunta):
                 add_special_tokens=True,
                 max_length=MAX_LENGTH,
                 return_tensors='pt',
-                padding='max_length',  # Corregido a 'max_length'
+                padding='max_length',  # Uso de 'max_length' para el padding
                 truncation=True
             )
+            # Aumentar el max_length para permitir generación adicional
             outputs = modelo.generate(
                 input_ids=inputs['input_ids'],
                 attention_mask=inputs['attention_mask'],
-                max_length=MAX_LENGTH,
+                max_length=MAX_LENGTH + 50,  # Aumentar el max_length
                 pad_token_id=tokenizador.eos_token_id,
                 no_repeat_ngram_size=3
             )
