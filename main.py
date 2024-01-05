@@ -698,24 +698,21 @@ def dividir_texto(texto, max_longitud):
     yield ' '.join(parte_actual)
 
 # Función para resumir texto utilizando GPT-2
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-
 def resumir_con_gpt2(texto_plano, pregunta):
     app.logger.info("Generando resumen con GPT-2 en función de la pregunta.")
     app.logger.info("Pregunta: " + pregunta)
     app.logger.info("Texto: " + texto_plano)
 
     try:
+        # Inicialización del modelo y tokenizador con padding del lado izquierdo
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
-        tokenizador = GPT2Tokenizer.from_pretrained('gpt2')
+        tokenizador = GPT2Tokenizer.from_pretrained('gpt2', padding_side='left')
         tokenizador.pad_token = tokenizador.eos_token
         modelo.eval()
 
-        MAX_LENGTH = 1024  # Ajusta según el modelo
-
         # Combinar la pregunta con el texto plano y dividir si es necesario
         texto_combinado = f"Pregunta: {pregunta}\nTexto: {texto_plano}"
-        partes_texto = list(dividir_texto(texto_combinado, MAX_LENGTH))
+        partes_texto = list(dividir_texto(texto_combinado, MAX_TOKENS))
         
         resumenes = []
         for parte in partes_texto:
@@ -723,7 +720,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
             inputs = tokenizador.encode_plus(
                 f"Resumen en 150 palabras: {parte}",
                 add_special_tokens=True,
-                max_length=MAX_LENGTH,
+                max_length=MAX_TOKENS,
                 return_tensors='pt',
                 padding='max_length',
                 truncation=True,
@@ -732,7 +729,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
             outputs = modelo.generate(
                 input_ids=inputs['input_ids'],
                 attention_mask=inputs['attention_mask'],
-                max_length=MAX_LENGTH,
+                max_length=MAX_TOKENS,
                 pad_token_id=tokenizador.eos_token_id,
                 no_repeat_ngram_size=3
             )
