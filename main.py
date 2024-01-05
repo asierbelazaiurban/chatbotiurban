@@ -57,6 +57,9 @@ import json
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 import torch
+from concurrent.futures import ThreadPoolExecutor
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -87,6 +90,8 @@ from trl import PPOConfig, PPOTrainer, AutoModelForSeq2SeqLMWithValueHead, creat
 from trl.core import LengthSampler
 from transformers import GPT2Tokenizer, GPT2Model
 from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 # ---------------------------
 # Módulos Locales
@@ -198,17 +203,16 @@ def read_urls(chatbot_folder, chatbot_id):
         app.logger.error(f"Archivo de URLs no encontrado para el chatbot_id {chatbot_id}")
         return None
 
-def safe_request(url, max_retries=3):
+def safe_request_no_sitemap(url, max_retries=3):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
     for attempt in range(max_retries):
         try:
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 return response
-        except RequestException as e:
-            logging.error(f"Attempt {attempt + 1} failed for {url}: {e}")
+        except requests.RequestException as e:
+            app.logger.error(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
-
 
 def procesar_pregunta(pregunta_usuario, preguntas_palabras_clave):
     palabras_pregunta_usuario = set(word_tokenize(pregunta_usuario.lower()))
@@ -1157,10 +1161,23 @@ def save_urls():
 
     return jsonify({"status": "success", "message": "URLs saved successfully"})
 
+# Nueva función safe_request_no_sitemap
+def safe_request_no_sitemap(url, max_retries=3):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                return response
+        except requests.RequestException as e:
+            app.logger.error(f"Attempt {attempt + 1} failed for {url}: {e}")
+    return None
+
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
         app.logger.info("Procesando solicitud de scraping de URL")
+
         data = request.get_json()
         base_url = data.get('url')
         chatbot_id = data.get('chatbot_id')
@@ -1171,47 +1188,82 @@ def url_for_scraping():
 
         save_dir = os.path.join('data/uploads/scraping', f'{chatbot_id}')
         os.makedirs(save_dir, exist_ok=True)
+
         file_path = os.path.join(save_dir, f'{chatbot_id}.txt')
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
         def same_domain(url):
             return urlparse(url).netloc == urlparse(base_url).netloc
 
-        def safe_request(url):
-            try:
-                response = requests.get(url)
-                if response.status_code == 200:
-                    return response, None
-                else:
-                    return None, 'Respuesta no exitosa'
-            except requests.RequestException as e:
-                return None, str(e)
-
-        urls_data = []
-        base_response, error = safe_request(base_url)
+        urls = set()
+        base_response = safe_request_no_sitemap(base_url)
         if base_response:
             soup = BeautifulSoup(base_response.content, 'html.parser')
-            for tag in soup.find_all('a', href=True):
+            for tag in soup.find_all('a'):
                 url = urljoin(base_url, tag.get('href'))
                 if same_domain(url):
-                    response, error = safe_request(url)
-                    if response:
-                        word_count = len(response.text.split())
-                        status = 'Contadas con éxito'
-                    else:
-                        word_count = 0
-                        status = f'Fallo en la solicitud HTTP: {error}'
-                    urls_data.append({'url': url, 'word_count': word_count, 'status': status})
-                    with open(file_path, 'a') as text_file:
-                        text_file.write(f"{url}\n")
+                    urls.add(url)
         else:
-            app.logger.error(f"Error al obtener respuesta del URL base: {error}")
+            app.logger.error("Error al obtener respuesta del URL base")
             return jsonify({'error': 'Failed to fetch base URL'}), 500
+
+        # Función para procesar cada URL
+        def process_url(url):
+            response = safe_request_no_sitemap(url)
+            if response:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                title = soup.title.string if soup.title else 'No Title'
+                text = soup.get_text()
+                word_count = len(text.split())
+                return {'url': url, 'title': title, 'word_count': word_count}
+            return {'url': url, 'error': 'Failed HTTP request'}
+
+        # Uso de ThreadPoolExecutor para realizar solicitudes en paralelo
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            urls_data = list(executor.map(process_url, urls))
+
+        # Guardar en archivo
+        with open(file_path, 'w') as text_file:
+            for url_data in urls_data:
+                text_file.write(str(url_data) + '\n')
 
         app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
     except Exception as e:
         app.logger.error(f"Error inesperado en url_for_scraping: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
+def safe_request(url, max_retries=3):
+    session = requests.Session()
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    retries = Retry(total=max_retries, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
+    session.mount('http://', HTTPAdapter(max_retries=retries))
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+
+    try:
+        response = session.get(url, headers=headers)
+        response.raise_for_status()
+        return response
+    except requests.RequestException as e:
+        app.logger.error(f"Error en la petición HTTP: {e}")
+        return None
+
+def process_new_urls(url, file_path):
+    response = safe_request(url, 3)
+    if response:
+        soup = BeautifulSoup(response.content, 'html.parser')
+        text = soup.get_text()
+        word_count = len(text.split())
+        url_data = {'url': url, 'word_count': word_count}
+        with open(file_path, 'a') as file:
+            file.write(f"{url}\n")
+    else:
+        app.logger.error(f"Failed to process URL after retries: {url}")
+        url_data = {'url': url, 'error': 'Failed HTTP request'}
+    return url_data
 
 @app.route('/url_for_scraping_uploading_sitemap', methods=['POST'])
 def url_for_scraping_uploading_sitemap():
@@ -1241,66 +1293,18 @@ def url_for_scraping_uploading_sitemap():
         sitemap_content = sitemap_file.read()
         soup = BeautifulSoup(sitemap_content, 'xml')
         all_urls = [loc.text for loc in soup.find_all('loc')]
-        new_urls_data = []
+        new_urls = [url for url in all_urls if url not in existing_urls]
 
-        for url in all_urls:
-            if url not in existing_urls:
-                response, error = requests.get(url), None
-                word_count = len(response.text.split()) if response else 0
-                status = 'Contadas con éxito' if response else f'Fallo en la solicitud HTTP: {error}'
-                new_urls_data.append({'url': url, 'word_count': word_count, 'status': status})
-                with open(file_path, 'a') as file:
-                    file.write(f"{url}\n")
+        # Procesamiento en paralelo de las nuevas URLs
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            urls_data = list(executor.map(lambda url: process_new_urls(url, file_path), new_urls))
 
         app.logger.info("Sitemap procesado exitosamente")
-        return jsonify(new_urls_data)
+        return jsonify(urls_data)
     except Exception as e:
         app.logger.error(f"Error inesperado en url_for_scraping_uploading_sitemap: {e}")
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
-def safe_request(url, max_retries):
-    session = requests.Session()
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
-    retries = Retry(total=max_retries, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
-    session.mount('http://', HTTPAdapter(max_retries=retries))
-    session.mount('https://', HTTPAdapter(max_retries=retries))
-
-    try:
-        response = session.get(url, headers=headers)
-        response.raise_for_status()
-        return response
-    except requests.RequestException as e:
-        app.logger.error(f"Error en la petición HTTP: {e}")
-        return None
-
-def process_new_urls(new_urls, file_path):
-    urls_data = []
-    for url in new_urls:
-        response = safe_request(url, 3)
-        if response:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            text = soup.get_text()
-            word_count = len(text.split())
-            urls_data.append({'url': url, 'word_count': word_count})
-            with open(file_path, 'a') as file:
-                file.write(f"{url}\n")
-        else:
-            app.logger.error(f"Failed to process URL after retries: {url}")
-    return urls_data
-
-def safe_request(url, max_retries):
-    session = requests.Session()
-    retries = Retry(total=max_retries, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504])
-    session.mount('http://', HTTPAdapter(max_retries=retries))
-    session.mount('https://', HTTPAdapter(max_retries=retries))
-
-    try:
-        response = session.get(url)
-        response.raise_for_status()
-        return response
-    except requests.RequestException as e:
-        app.logger.error(f"Error en la petición HTTP: {e}")
-        return None
 
 
 @app.route('/delete_urls', methods=['POST'])
