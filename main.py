@@ -692,7 +692,7 @@ def dividir_texto(texto, max_longitud):
         if longitud_actual > max_longitud:
             yield ' '.join(parte_actual)
             parte_actual = [palabra]
-            longitud_actual = len(palabra)
+            longitud_actual = len(palabra) + 1
         else:
             parte_actual.append(palabra)
 
@@ -719,7 +719,7 @@ def resumir_con_gpt2(texto_plano, pregunta):
                 add_special_tokens=True,
                 max_length=MAX_LENGTH,
                 return_tensors='pt',
-                padding='left',
+                padding='max_length',  # Corregido a 'max_length'
                 truncation=True
             )
             outputs = modelo.generate(
@@ -733,21 +733,21 @@ def resumir_con_gpt2(texto_plano, pregunta):
             resumenes.append(resumen_segmento)
 
         resumen_final = ' '.join(resumenes)
-        return traducir_respuesta(pregunta, resumen_final)
+        return resumen_final
     except Exception as e:
         return f"Error al generar resumen: {e}"
-
+        
 def traducir_respuesta(pregunta, respuesta_en_espanol):
     try:
         traduccion = openai.Completion.create(
             model="text-davinci-003",
-            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es ingles al ingles, si es italiano al italiano y así con todos los idiomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
+            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es inglés al inglés, si es italiano al italiano y así con todos los idiomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
             max_tokens=100,
             api_key=os.environ.get('OPENAI_API_KEY')
         )
         return traduccion.choices[0].text.strip()
     except Exception as e:
-        return respuesta_en_espanol
+        return f"Error al traducir respuesta: {e}"
 
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
