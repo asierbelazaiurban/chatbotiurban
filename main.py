@@ -787,8 +787,6 @@ def traducir_respuesta(pregunta, respuesta_en_espanol):
 
 
 
-
-
 def traducir_texto_con_openai(texto, idioma_destino):
     openai.api_key = os.environ.get('OPENAI_API_KEY')
     try:
