@@ -682,7 +682,7 @@ def encontrar_respuesta(ultima_pregunta, chatbot_id, contexto=""):
 MAX_TOKENS = 1024  # Ajusta según el límite de tu modelo GPT-2
 
 
-def dividir_texto(texto, max_longitud=MAX_TOKENS):
+def dividir_texto(texto, max_longitud):
     palabras = texto.split()
     longitud_actual = 0
     parte_actual = []
@@ -698,7 +698,6 @@ def dividir_texto(texto, max_longitud=MAX_TOKENS):
 
     yield ' '.join(parte_actual)
 
-
 def resumir_con_gpt2(texto_plano, pregunta):
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
@@ -710,8 +709,8 @@ def resumir_con_gpt2(texto_plano, pregunta):
 
         texto_combinado = f"Pregunta: {pregunta}\nTexto: {texto_plano}"
 
-        # Dividir el texto si es demasiado largo
-        segmentos = list(dividir_texto(texto_combinado, MAX_LENGTH))
+        # Reducir el texto si excede el límite de tokens
+        segmentos = list(dividir_texto(texto_combinado, MAX_LENGTH - 50))  # Dejar espacio para la generación
 
         resumenes = []
         for segmento in segmentos:
@@ -720,9 +719,8 @@ def resumir_con_gpt2(texto_plano, pregunta):
                 add_special_tokens=True,
                 max_length=MAX_LENGTH,
                 return_tensors='pt',
-                padding='max_length',
-                truncation=True,
-                return_attention_mask=True
+                padding='left',
+                truncation=True
             )
             outputs = modelo.generate(
                 input_ids=inputs['input_ids'],
@@ -734,33 +732,23 @@ def resumir_con_gpt2(texto_plano, pregunta):
             resumen_segmento = tokenizador.decode(outputs[0], skip_special_tokens=True)
             resumenes.append(resumen_segmento)
 
-        # Combinar los resúmenes de los segmentos
         resumen_final = ' '.join(resumenes)
         return traducir_respuesta(pregunta, resumen_final)
     except Exception as e:
         return f"Error al generar resumen: {e}"
 
-
 def traducir_respuesta(pregunta, respuesta_en_espanol):
-    openai.api_key = os.environ.get('OPENAI_API_KEY')
-    app.logger.info("PREGUNTAAAAA")
-    app.logger.info(pregunta)
-    
-    # Combinar la detección del idioma y la traducción en una sola llamada a la API
     try:
         traduccion = openai.Completion.create(
             model="text-davinci-003",
-            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es ingles al ingles, si es italiano al italiano y asi con todos los idomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
+            prompt=f"Traducir la siguiente respuesta al idioma de la pregunta, si es ingles al ingles, si es italiano al italiano y así con todos los idiomas:\n\nPregunta: '{pregunta}'\n\nRespuesta en español: '{respuesta_en_espanol}'",
             max_tokens=100,
             api_key=os.environ.get('OPENAI_API_KEY')
         )
-
-        app.logger.info("RESPUESTA TRADUCIDA")
-        app.logger.info(traduccion.choices[0].text.strip())
         return traduccion.choices[0].text.strip()
     except Exception as e:
-        print(f"Error al traducir texto: {e}")
         return respuesta_en_espanol
+
 
 ####### FIN NUEVO SITEMA DE BUSQUEDA #######
 
