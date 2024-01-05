@@ -1173,6 +1173,17 @@ def safe_request_no_sitemap(url, max_retries=3):
             app.logger.error(f"Attempt {attempt + 1} failed for {url}: {e}")
     return None
 
+def safe_request_no_sitemap(url, max_retries=3):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                return response
+        except requests.RequestException as e:
+            app.logger.error(f"Attempt {attempt + 1} failed for {url}: {e}")
+    return None
+
 @app.route('/url_for_scraping', methods=['POST'])
 def url_for_scraping():
     try:
@@ -1209,7 +1220,6 @@ def url_for_scraping():
             app.logger.error("Error al obtener respuesta del URL base")
             return jsonify({'error': 'Failed to fetch base URL'}), 500
 
-        # Función para procesar cada URL
         def process_url(url):
             response = safe_request_no_sitemap(url)
             if response:
@@ -1217,17 +1227,19 @@ def url_for_scraping():
                 title = soup.title.string if soup.title else 'No Title'
                 text = soup.get_text()
                 word_count = len(text.split())
-                return {'url': url, 'title': title, 'word_count': word_count}
-            return {'url': url, 'error': 'Failed HTTP request'}
+                status = 'Success'
+            else:
+                title = None
+                word_count = 0
+                status = 'Failed HTTP request'
 
-        # Uso de ThreadPoolExecutor para realizar solicitudes en paralelo
+            url_data = {'url': url, 'title': title, 'word_count': word_count, 'status': status}
+            with open(file_path, 'a') as text_file:
+                text_file.write(str(url_data) + '\n')
+            return url_data
+
         with ThreadPoolExecutor(max_workers=10) as executor:
             urls_data = list(executor.map(process_url, urls))
-
-        # Guardar en archivo
-        with open(file_path, 'w') as text_file:
-            for url_data in urls_data:
-                text_file.write(str(url_data) + '\n')
 
         app.logger.info(f"Scraping completado para {base_url}")
         return jsonify(urls_data)
