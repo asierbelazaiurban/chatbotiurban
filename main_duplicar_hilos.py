@@ -59,7 +59,6 @@ from requests.packages.urllib3.util.retry import Retry
 import torch
 from concurrent.futures import ThreadPoolExecutor
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 # Descarga de paquetes necesarios de NLTK
 nltk.download('stopwords')
@@ -92,6 +91,7 @@ from transformers import GPT2Tokenizer, GPT2Model
 from transformers import GPT2LMHeadModel, TextDataset, DataCollatorForLanguageModeling, TrainingArguments, Trainer
 from concurrent.futures import ThreadPoolExecutor
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completedda
 
 # ---------------------------
 # Módulos Locales
@@ -450,10 +450,6 @@ def extraer_palabras_clave(pregunta):
 
 # Suponiendo que ya tienes definida la función comprobar_coherencia_gpt
 
-def calcular_similitud(indice, pregunta_vectorizada, matriz_tfidf):
-    similitud = cosine_similarity(pregunta_vectorizada, matriz_tfidf[indice])
-    return indice, similitud[0, 0]
-
 def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     # URL y headers para la solicitud HTTP
     url = 'https://experimental.ciceroneweb.com/api/get-back-cache'
@@ -493,17 +489,12 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
     # Vectorizar la pregunta del usuario
     pregunta_vectorizada = vectorizer.transform([pregunta_usuario])
     
-    # Calcular similitudes en paralelo
-    similitudes = {}
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(calcular_similitud, i, pregunta_vectorizada, matriz_tfidf) for i in range(len(preguntas))]
-        for future in futures:
-            indice, similitud = future.result()
-            similitudes[indice] = similitud
+    # Calcular similitudes
+    similitudes = cosine_similarity(pregunta_vectorizada, matriz_tfidf)
 
     # Encontrar la pregunta más similar
-    indice_mas_similar = max(similitudes, key=similitudes.get)
-    similitud_maxima = similitudes[indice_mas_similar]
+    indice_mas_similar = np.argmax(similitudes)
+    similitud_maxima = similitudes[0, indice_mas_similar]
 
     # Umbral de similitud para considerar una respuesta válida
     UMBRAL_SIMILITUD = 0.7
@@ -513,8 +504,8 @@ def encontrar_respuesta_en_cache(pregunta_usuario, chatbot_id):
         app.logger.info(f"Respuesta encontrada: {respuesta_similar}")
         return respuesta_similar
     else:
-        app.logger.info("No se encontró una respuesta similar con suficiente similitud")
-        return None
+        app.logger.info("No se encontraron preguntas similares con suficiente similitud")
+        return False
 
 
 ####### Fin Sistema de cache #######
