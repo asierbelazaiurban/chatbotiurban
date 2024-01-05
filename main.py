@@ -698,6 +698,7 @@ def dividir_texto(texto, max_longitud):
 
     yield ' '.join(parte_actual)
 
+
 def resumir_con_gpt2(texto_plano, pregunta):
     try:
         modelo = GPT2LMHeadModel.from_pretrained('gpt2')
