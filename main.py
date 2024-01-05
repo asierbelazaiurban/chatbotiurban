@@ -1087,7 +1087,6 @@ def save_text():
         return jsonify({"respuesta": f"Error durante el procesamiento. Error: {e}", "codigo_error": 1})
 
 
-
 @app.route('/process_urls', methods=['POST'])
 def process_urls():
     start_time = time.time()
@@ -1102,40 +1101,30 @@ def process_urls():
     urls = read_urls(chatbot_folder, chatbot_id)
     if urls is None:
         return jsonify({"status": "error", "message": "URLs file not found"}), 404
-    
-    all_processed = True
-    error_message = ""
+
     dataset_entries = {}
+    error_messages = []
 
     for url in urls:
-        try:
-            response = requests.get(url)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Limpiar y formatear el texto
-            text = clean_and_format_text(soup)
-
+        result = process_single_url(url)
+        if 'error' not in result:
             dataset_entries[len(dataset_entries) + 1] = {
                 "indice": len(dataset_entries) + 1,
-                "url": url,
-                "dialogue": text
+                "url": result['url'],
+                "dialogue": result['dialogue']
             }
+        else:
+            error_messages.append(result)
+            app.logger.error(f"Error processing URL: {result['url']}, Error: {result['error']}")
 
-        except Exception as e:
-            app.logger.error(f"Error al procesar la URL: {e}")
-            all_processed = False
-            error_message = str(e)
-            break
+    if error_messages:
+        return jsonify({"status": "error", "message": "Errors encountered", "errors": error_messages})
 
-    if all_processed:
-        # Guardar el dataset
+    if dataset_entries:
         save_dataset(dataset_entries, chatbot_id)
 
-        return jsonify({"status": "success", "message": "Datos procesados y almacenados correctamente"})
-    else:
-        return jsonify({"status": "error", "message": f"Error al procesar datos: {error_message}"})
-
     app.logger.info(f'Tiempo total en process_urls: {time.time() - start_time:.2f} segundos')
+    return jsonify({"status": "success", "message": "Datos procesados y almacenados correctamente", "processed_count": len(dataset_entries)})
 
 
 @app.route('/save_urls', methods=['POST'])

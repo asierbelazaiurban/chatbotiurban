@@ -26,7 +26,20 @@ def read_urls(chatbot_folder, chatbot_id):
     except FileNotFoundError:
         app.logger.error(f"Archivo de URLs no encontrado para chatbot_id {chatbot_id}")
         return None
-
+        
+def process_single_url(url):
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        text = clean_and_format_text(soup)
+        return {
+            "indice": None,  # El índice se asignará más tarde
+            "url": url,
+            "dialogue": text
+        }
+    except Exception as e:
+        logging.error(f"Error al procesar la URL {url}: {e}")
+        return {"url": url, "error": str(e)}
 
 def clean_and_format_text(soup):
 
